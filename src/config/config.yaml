@@ -1,0 +1,8 @@
+# general parameters
+task: train
+dataset_dir: ??? # Must be provided at command line
+
+# defualt parameters
+defaults:
+  - dataset: scannet
+  - model: pointgroup
