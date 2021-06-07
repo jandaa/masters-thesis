@@ -6,6 +6,9 @@ pip install -r requirements.prod
 
 base_dir=$PWD
 
+# Install dependencies
+sudo apt-get install libsparsehash-dev libboost-all-dev
+
 # Clone spconv
 git clone git@github.com:traveller59/spconv.git src/lib/spconv --recursive
 cd src/lib/spconv
