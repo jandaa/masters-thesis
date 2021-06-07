@@ -1,4 +1,4 @@
-STRUCTURE:
+structure:
   model_name: pointgroup
   m: 16 # 16 or 32
   block_residual: True
@@ -6,15 +6,19 @@ STRUCTURE:
 
   use_coords: True
 
-train:
-  epochs: 384
-  train_workers: 16 # data loader workers
-  optim: Adam # Adam or SGD
+optimizer:
+  type: Adam # Adam or SGD
   lr: 0.001
-  step_epoch: 384
-  multiplier: 0.5
   momentum: 0.9
   weight_decay: 0.0001
+
+train:
+  epochs: 384
+  train_workers: 12 # data loader workers
+
+  step_epoch: 384
+  multiplier: 0.5
+
   save_freq: 16 # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, offset_dir_loss, score_loss
 
@@ -29,7 +33,7 @@ train:
   pretrain_module: []
   fix_module: []
 
-GROUP:
+group:
   # point grouping
   cluster_radius: 0.03
   cluster_meanActive: 50
@@ -38,7 +42,7 @@ GROUP:
 
   prepare_epochs: 128
 
-TEST:
+test:
   split: val
   test_epoch: 384
   test_workers: 16
