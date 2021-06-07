@@ -3,3 +3,4 @@ hydra-core
 numpy
 pytorch-lightning
 plyfile
+scipy
