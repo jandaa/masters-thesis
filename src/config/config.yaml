@@ -2,6 +2,9 @@
 task: train
 dataset_dir: ??? # Must be provided at command line
 
+# set directory to continue training from (Optional)
+continue_from: outputs/2021-06-07/16-42-12/
+
 # defualt parameters
 defaults:
   - dataset: scannet

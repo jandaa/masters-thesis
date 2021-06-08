@@ -45,7 +45,7 @@ group:
 test:
   split: val
   test_epoch: 384
-  test_workers: 16
+  test_workers: 12
   test_seed: 567
 
   TEST_NMS_THRESH: 0.3
