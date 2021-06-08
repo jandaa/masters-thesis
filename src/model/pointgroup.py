@@ -4,6 +4,9 @@ from collections import OrderedDict
 import functools
 from dataclasses import dataclass
 
+import numpy as np
+import open3d as o3d
+
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -201,6 +204,10 @@ class PointGroup(pl.LightningModule):
         self.pretrain_module = cfg.train.pretrain_module
         self.fix_module = cfg.train.fix_module
 
+        self.semantic_colours = [
+            np.random.choice(range(256), size=3) for i in range(cfg.classes)
+        ]
+
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         if block_residual:
@@ -275,6 +282,48 @@ class PointGroup(pl.LightningModule):
         loss, loss_out, infos = self.shared_step(batch, batch_idx)
         self.log("val_loss", loss)
 
+    def test_step(self, batch, batch_idx):
+        coords = batch["locs"]  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
+        voxel_coords = batch["voxel_locs"]  # (M, 1 + 3), long, cuda
+        p2v_map = batch["p2v_map"]  # (N), int, cuda
+        v2p_map = batch["v2p_map"]  # (M, 1 + maxActive), int, cuda
+
+        coords_float = batch["locs_float"]  # (N, 3), float32, cuda
+        feats = batch["feats"]  # (N, C), float32, cuda
+
+        batch_offsets = batch["offsets"]  # (B + 1), int, cuda
+
+        spatial_shape = batch["spatial_shape"]
+
+        if self.use_coords:
+            feats = torch.cat((feats, coords_float), 1)
+        voxel_feats = pointgroup_ops.voxelization(
+            feats, v2p_map, self.mode
+        )  # (M, C), float
+
+        input_ = spconv.SparseConvTensor(
+            voxel_feats, voxel_coords.int(), spatial_shape, 1
+        )
+
+        ret = self.forward(
+            input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets
+        )
+        waithere = 1
+        semantic_pred = ret["semantic_scores"].max(1)[1]  # (N) long, cuda
+
+        # Save with colours
+        semantic_pred = semantic_pred.detach().cpu().numpy()
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(coords_float.cpu().numpy())
+        pcd.colors = o3d.utility.Vector3dVector(
+            np.array([self.semantic_colours[pred] for pred in semantic_pred]).astype(
+                np.float
+            )
+            / 255.0
+        )
+        o3d.visualization.draw_geometries([pcd])
+
     def shared_step(self, batch, batch_idx):
 
         # Unravel batch input
@@ -314,11 +363,6 @@ class PointGroup(pl.LightningModule):
         )
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
-        # if(epoch > cfg.prepare_epochs):
-        #     scores, proposals_idx, proposals_offset = ret['proposal_scores']
-        #     # scores: (nProposal, 1) float, cuda
-        #     # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-        #     # proposals_offset: (nProposal + 1), int, cpu
 
         loss_inp = {}
         loss_inp["semantic_scores"] = (semantic_scores, labels)
@@ -328,8 +372,6 @@ class PointGroup(pl.LightningModule):
             instance_info,
             instance_labels,
         )
-        # if(epoch > cfg.prepare_epochs):
-        #     loss_inp['proposal_scores'] = (scores, proposals_idx, proposals_offset, instance_pointnum)
 
         return self.loss_fn(loss_inp)
 
