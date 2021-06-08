@@ -33,6 +33,9 @@ class ScannetDataModule(pl.LightningDataModule):
         self.max_npoint = cfg.max_npoint
         self.mode = cfg.mode
 
+        self.test_split = cfg.test.split  # val or test
+        self.test_workers = cfg.test.test_workers
+
     def setup(self, stage=None):
         self.train_files = self.load_data_files("train")
         self.val_files = self.load_data_files("val")
