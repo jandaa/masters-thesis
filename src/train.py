@@ -32,15 +32,18 @@ def semantics(cfg: DictConfig) -> None:
 
     model = PointGroup(cfg)
 
+    checkpoint_path = None
     if cfg.continue_from:
-        model.load_from_checkpoint(
-            checkpoint_path=os.path.join(
-                hydra.utils.get_original_cwd(), "checkpoints/current.ckpt"
-            ),
-            cfg=cfg,
+        # TODO: Write a function to select the latest checkpoint
+        checkpoint_path = os.path.join(
+            hydra.utils.get_original_cwd(), "checkpoints/epoch=15-step=31.ckpt"
         )
+    # model.load_from_checkpoint(
+    #     checkpoint_path=checkpoint_path,
+    #     cfg=cfg,
+    # )
 
-    trainer = pl.Trainer(gpus=1)
+    trainer = pl.Trainer(gpus=1, resume_from_checkpoint=checkpoint_path)
 
     # run to test the output
     # trainer.test(model, scannet.test_dataloader())
