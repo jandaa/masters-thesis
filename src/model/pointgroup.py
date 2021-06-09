@@ -204,6 +204,9 @@ class PointGroup(pl.LightningModule):
         self.pretrain_module = cfg.train.pretrain_module
         self.fix_module = cfg.train.fix_module
 
+        self.fg_thresh = cfg.train.fg_thresh
+        self.bg_thresh = cfg.train.bg_thresh
+
         self.semantic_colours = [
             np.random.choice(range(256), size=3) for i in range(cfg.classes)
         ]
@@ -271,7 +274,7 @@ class PointGroup(pl.LightningModule):
                 param.requires_grad = False
 
     def training_step(self, batch, batch_idx):
-        loss, loss_out, infos = self.shared_step(batch, batch_idx)
+        loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
 
         self.log(
             "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
@@ -279,7 +282,7 @@ class PointGroup(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, loss_out, infos = self.shared_step(batch, batch_idx)
+        loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
         self.log("val_loss", loss)
 
     def test_step(self, batch, batch_idx):
@@ -308,11 +311,15 @@ class PointGroup(pl.LightningModule):
         ret = self.forward(
             input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets
         )
-        waithere = 1
         semantic_pred = ret["semantic_scores"].max(1)[1]  # (N) long, cuda
 
         # Save with colours
         semantic_pred = semantic_pred.detach().cpu().numpy()
+
+        if self.current_epoch > self.prepare_epochs:
+            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+
+        # Save to file
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(coords_float.cpu().numpy())
@@ -324,7 +331,17 @@ class PointGroup(pl.LightningModule):
         )
         o3d.visualization.draw_geometries([pcd])
 
-    def shared_step(self, batch, batch_idx):
+        with torch.no_grad():
+            preds = {}
+            preds["semantic"] = ret["semantic_scores"]
+            preds["pt_offsets"] = ret["pt_offsets"]
+            if self.current_epoch > self.prepare_epochs:
+                preds["score"] = scores
+                preds["proposals"] = (proposals_idx, proposals_offset)
+
+        return preds
+
+    def shared_step(self, batch, batch_idx, epoch):
 
         # Unravel batch input
         coords = batch["locs"]  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
@@ -359,10 +376,17 @@ class PointGroup(pl.LightningModule):
         )
 
         ret = self.forward(
-            input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets
+            input_,
+            p2v_map,
+            coords_float,
+            coords[:, 0].int(),
+            batch_offsets,
+            self.current_epoch,
         )
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
+        if epoch > self.prepare_epochs:
+            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
 
         loss_inp = {}
         loss_inp["semantic_scores"] = (semantic_scores, labels)
@@ -372,10 +396,17 @@ class PointGroup(pl.LightningModule):
             instance_info,
             instance_labels,
         )
+        if epoch > self.prepare_epochs:
+            loss_inp["proposal_scores"] = (
+                scores,
+                proposals_idx,
+                proposals_offset,
+                instance_pointnum,
+            )
 
-        return self.loss_fn(loss_inp)
+        return self.loss_fn(loss_inp, epoch)
 
-    def loss_fn(self, loss_inp):
+    def loss_fn(self, loss_inp, epoch):
 
         loss_out = {}
         infos = {}
@@ -411,6 +442,30 @@ class PointGroup(pl.LightningModule):
         loss_out["offset_norm_loss"] = (offset_norm_loss, valid.sum())
         loss_out["offset_dir_loss"] = (offset_dir_loss, valid.sum())
 
+        if epoch > self.prepare_epochs:
+            """score loss"""
+            scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp[
+                "proposal_scores"
+            ]
+            # scores: (nProposal, 1), float32
+            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int, cpu
+            # instance_pointnum: (total_nInst), int
+
+            ious = pointgroup_ops.get_iou(
+                proposals_idx[:, 1].cuda(),
+                proposals_offset.cuda(),
+                instance_labels,
+                instance_pointnum,
+            )  # (nProposal, nInstance), float
+            gt_ious, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
+            gt_scores = get_segmented_scores(gt_ious, self.fg_thresh, self.bg_thresh)
+
+            score_loss = self.score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
+            score_loss = score_loss.mean()
+
+            loss_out["score_loss"] = (score_loss, gt_ious.shape[0])
+
         """total loss"""
         loss = (
             self.loss_weight[0] * semantic_loss
@@ -418,7 +473,13 @@ class PointGroup(pl.LightningModule):
             + self.loss_weight[2] * offset_dir_loss
         )
 
+        if epoch > self.prepare_epochs:
+            loss += self.loss_weight[3] * score_loss
+
         return loss, loss_out, infos
+
+    def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+        torch.cuda.empty_cache()
 
     def configure_optimizers(self):
         if self.optimizer_cfg.type == "Adam":
@@ -438,7 +499,7 @@ class PointGroup(pl.LightningModule):
             log.error(f"Invalid optimizer type: {self.optimizer_type}")
             raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
 
-    def forward(self, input, input_map, coords, batch_idxs, epoch):
+    def forward(self, input, input_map, coords, batch_idxs, batch_offsets, epoch):
         """
         :param input_map: (N), int, cuda
         :param coords: (N, 3), float, cuda
@@ -464,6 +525,84 @@ class PointGroup(pl.LightningModule):
 
         ret["pt_offsets"] = pt_offsets
 
+        if epoch > self.prepare_epochs:
+
+            #### get prooposal clusters
+
+            # Get indices of points that are predicted to be objects
+            object_idxs = torch.nonzero(semantic_preds > 1).view(-1)
+
+            # Points are grouped together into one vector regardless of scene
+            # so need to keep track of which scene it game from
+            # with batch offsets being what you need to add to the index to get correct batch
+            batch_idxs_ = batch_idxs[object_idxs]
+            batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
+            coords_ = coords[object_idxs]
+            pt_offsets_ = pt_offsets[object_idxs]
+
+            semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
+
+            idx_shift, start_len_shift = pointgroup_ops.ballquery_batch_p(
+                coords_ + pt_offsets_,
+                batch_idxs_,
+                batch_offsets_,
+                self.cluster_radius,
+                self.cluster_shift_meanActive,
+            )
+            proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(
+                semantic_preds_cpu,
+                idx_shift.cpu(),
+                start_len_shift.cpu(),
+                self.cluster_npoint_thre,
+            )
+            proposals_idx_shift[:, 1] = object_idxs[
+                proposals_idx_shift[:, 1].long()
+            ].int()
+            # proposals_idx_shift: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset_shift: (nProposal + 1), int
+
+            idx, start_len = pointgroup_ops.ballquery_batch_p(
+                coords_,
+                batch_idxs_,
+                batch_offsets_,
+                self.cluster_radius,
+                self.cluster_meanActive,
+            )
+            proposals_idx, proposals_offset = pointgroup_ops.bfs_cluster(
+                semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre
+            )
+            proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
+            # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int
+
+            # Concatonate clustering from both P(coordinates) & Q(shifted coordinates)
+            proposals_idx_shift[:, 0] += proposals_offset.size(0) - 1
+            proposals_offset_shift += proposals_offset[-1]
+            proposals_idx = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
+            proposals_offset = torch.cat((proposals_offset, proposals_offset_shift[1:]))
+
+            #### proposals voxelization again
+            input_feats, inp_map = self.clusters_voxelization(
+                proposals_idx,
+                proposals_offset,
+                output_feats,
+                coords,
+                self.score_fullscale,
+                self.score_scale,
+                self.mode,
+            )
+
+            #### score
+            score = self.score_unet(input_feats)
+            score = self.score_outputlayer(score)
+            score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
+            score_feats = pointgroup_ops.roipool(
+                score_feats, proposals_offset.cuda()
+            )  # (nProposal, C)
+            scores = self.score_linear(score_feats)  # (nProposal, 1)
+
+            ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
+
         return ret
 
     @staticmethod
@@ -483,23 +622,23 @@ class PointGroup(pl.LightningModule):
         :param coords: (N, 3), float, cuda
         :return:
         """
-        c_idxs = clusters_idx[:, 1]
-        clusters_feats = feats[c_idxs]
-        clusters_coords = coords[c_idxs]
+        c_idxs = clusters_idx[:, 1].cuda()
+        clusters_feats = feats[c_idxs.long()]
+        clusters_coords = coords[c_idxs.long()]
 
         clusters_coords_mean = pointgroup_ops.sec_mean(
-            clusters_coords, clusters_offset
+            clusters_coords, clusters_offset.cuda()
         )  # (nCluster, 3), float
         clusters_coords_mean = torch.index_select(
-            clusters_coords_mean, 0, clusters_idx[:, 0].long()
+            clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long()
         )  # (sumNPoint, 3), float
         clusters_coords -= clusters_coords_mean
 
         clusters_coords_min = pointgroup_ops.sec_min(
-            clusters_coords, clusters_offset
+            clusters_coords, clusters_offset.cuda()
         )  # (nCluster, 3), float
         clusters_coords_max = pointgroup_ops.sec_max(
-            clusters_coords, clusters_offset
+            clusters_coords, clusters_offset.cuda()
         )  # (nCluster, 3), float
 
         clusters_scale = (
@@ -525,7 +664,7 @@ class PointGroup(pl.LightningModule):
             + torch.clamp(fullscale - range - 0.001, min=0) * torch.rand(3).cuda()
             + torch.clamp(fullscale - range + 0.001, max=0) * torch.rand(3).cuda()
         )
-        offset = torch.index_select(offset, 0, clusters_idx[:, 0].long())
+        offset = torch.index_select(offset, 0, clusters_idx[:, 0].cuda().long())
         clusters_coords += offset
         assert (
             clusters_coords.shape.numel()
@@ -545,15 +684,32 @@ class PointGroup(pl.LightningModule):
         # output_map: M * (maxActive + 1) int
 
         out_feats = pointgroup_ops.voxelization(
-            clusters_feats, out_map, mode
+            clusters_feats, out_map.cuda(), mode
         )  # (M, C), float, cuda
 
         spatial_shape = [fullscale] * 3
         voxelization_feats = spconv.SparseConvTensor(
             out_feats,
-            out_coords.int(),
+            out_coords.int().cuda(),
             spatial_shape,
             int(clusters_idx[-1, 0]) + 1,
         )
 
         return voxelization_feats, inp_map
+
+
+def get_segmented_scores(scores, fg_thresh=1.0, bg_thresh=0.0):
+    """
+    :param scores: (N), float, 0~1
+    :return: segmented_scores: (N), float 0~1, >fg_thresh: 1, <bg_thresh: 0, mid: linear
+    """
+    fg_mask = scores > fg_thresh
+    bg_mask = scores < bg_thresh
+    interval_mask = (fg_mask == 0) & (bg_mask == 0)
+
+    segmented_scores = (fg_mask > 0).float()
+    k = 1 / (fg_thresh - bg_thresh)
+    b = bg_thresh / (bg_thresh - fg_thresh)
+    segmented_scores[interval_mask] = scores[interval_mask] * k + b
+
+    return segmented_scores
