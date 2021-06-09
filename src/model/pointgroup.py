@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import numpy as np
 import open3d as o3d
 
+import os
+
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -16,8 +18,33 @@ from spconv.modules import SparseModule
 
 from lib.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
+import util.eval as eval
 
 log = logging.getLogger(__name__)
+
+# TODO: Attach this to the dataset itself
+semantic_label_idx = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    16,
+    24,
+    28,
+    33,
+    34,
+    36,
+    39,
+]
 
 
 class ResidualBlock(SparseModule):
@@ -207,6 +234,15 @@ class PointGroup(pl.LightningModule):
         self.fg_thresh = cfg.train.fg_thresh
         self.bg_thresh = cfg.train.bg_thresh
 
+        self.TEST_NMS_THRESH = cfg.test.TEST_NMS_THRESH
+        self.TEST_SCORE_THRESH = cfg.test.TEST_SCORE_THRESH
+        self.TEST_NPOINT_THRESH = cfg.test.TEST_NPOINT_THRESH
+
+        self.dataset_dir = cfg.dataset_dir
+        self.split = cfg.test.split
+
+        self.save_point_cloud = False
+
         self.semantic_colours = [
             np.random.choice(range(256), size=3) for i in range(cfg.classes)
         ]
@@ -308,38 +344,131 @@ class PointGroup(pl.LightningModule):
             voxel_feats, voxel_coords.int(), spatial_shape, 1
         )
 
-        ret = self.forward(
-            input_, p2v_map, coords_float, coords[:, 0].int(), batch_offsets
+        preds = self.forward(
+            input_,
+            p2v_map,
+            coords_float,
+            coords[:, 0].int(),
+            batch_offsets,
+            self.current_epoch,
         )
-        semantic_pred = ret["semantic_scores"].max(1)[1]  # (N) long, cuda
+        semantic_pred = preds["semantic_scores"].max(1)[1]  # (N) long, cuda
 
         # Save with colours
         semantic_pred = semantic_pred.detach().cpu().numpy()
 
         if self.current_epoch > self.prepare_epochs:
-            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
+            scores, proposals_idx, proposals_offset = preds["proposal_scores"]
 
         # Save to file
-
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(coords_float.cpu().numpy())
-        pcd.colors = o3d.utility.Vector3dVector(
-            np.array([self.semantic_colours[pred] for pred in semantic_pred]).astype(
-                np.float
+        # TODO: Save these to a file to visualize after
+        if self.save_point_cloud:
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(coords_float.cpu().numpy())
+            pcd.colors = o3d.utility.Vector3dVector(
+                np.array(
+                    [self.semantic_colours[pred] for pred in semantic_pred]
+                ).astype(np.float)
+                / 255.0
             )
-            / 255.0
-        )
-        o3d.visualization.draw_geometries([pcd])
+            o3d.visualization.draw_geometries([pcd])
 
-        with torch.no_grad():
-            preds = {}
-            preds["semantic"] = ret["semantic_scores"]
-            preds["pt_offsets"] = ret["pt_offsets"]
-            if self.current_epoch > self.prepare_epochs:
-                preds["score"] = scores
-                preds["proposals"] = (proposals_idx, proposals_offset)
+        if self.current_epoch > self.prepare_epochs:
+            scores = preds["score"]  # (nProposal, 1) float, cuda
+            scores_pred = torch.sigmoid(scores.view(-1))
 
-        return preds
+            N = batch["feats"].shape[0]
+
+            proposals_idx, proposals_offset = preds["proposals"]
+            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
+            # proposals_offset: (nProposal + 1), int, cpu
+            proposals_pred = torch.zeros(
+                (proposals_offset.shape[0] - 1, N),
+                dtype=torch.int,
+                device=scores_pred.device,
+            )  # (nProposal, N), int, cuda
+            proposals_pred[proposals_idx[:, 0].long(), proposals_idx[:, 1].long()] = 1
+
+            semantic_id = torch.tensor(semantic_label_idx, device=scores_pred.device)[
+                semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]
+            ]  # (nProposal), long
+
+            ##### score threshold
+            score_mask = scores_pred > self.TEST_SCORE_THRESH
+            scores_pred = scores_pred[score_mask]
+            proposals_pred = proposals_pred[score_mask]
+            semantic_id = semantic_id[score_mask]
+
+            ##### npoint threshold
+            proposals_pointnum = proposals_pred.sum(1)
+            npoint_mask = proposals_pointnum > self.TEST_NPOINT_THRESH
+            scores_pred = scores_pred[npoint_mask]
+            proposals_pred = proposals_pred[npoint_mask]
+            semantic_id = semantic_id[npoint_mask]
+
+            ##### nms
+            if semantic_id.shape[0] == 0:
+                pick_idxs = np.empty(0)
+            else:
+                proposals_pred_f = proposals_pred.float()  # (nProposal, N), float, cuda
+                intersection = torch.mm(
+                    proposals_pred_f, proposals_pred_f.t()
+                )  # (nProposal, nProposal), float, cuda
+                proposals_pointnum = proposals_pred_f.sum(1)  # (nProposal), float, cuda
+                proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(
+                    1, proposals_pointnum.shape[0]
+                )
+                proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(
+                    proposals_pointnum.shape[0], 1
+                )
+                cross_ious = intersection / (
+                    proposals_pn_h + proposals_pn_v - intersection
+                )
+                pick_idxs = non_max_suppression(
+                    cross_ious.cpu().numpy(),
+                    scores_pred.cpu().numpy(),
+                    self.TEST_NMS_THRESH,
+                )  # int, (nCluster, N)
+            clusters = proposals_pred[pick_idxs]
+            cluster_scores = scores_pred[pick_idxs]
+            cluster_semantic_id = semantic_id[pick_idxs]
+
+            nclusters = clusters.shape[0]
+
+            with torch.no_grad():
+                pred_info = {}
+                pred_info["conf"] = cluster_scores.cpu().numpy()
+                pred_info["label_id"] = cluster_semantic_id.cpu().numpy()
+                pred_info["mask"] = clusters.cpu().numpy()
+
+                # TODO need to add this to the batch loader
+                test_scene_name = batch["test_scene_name"]
+                gt_file = os.path.join(
+                    self.dataset_dir,
+                    self.split + "_gt",
+                    test_scene_name + ".txt",
+                )
+                gt2pred, pred2gt = eval.assign_instances_for_scan(
+                    test_scene_name, pred_info, gt_file
+                )
+                matches = {}
+                matches["test_scene_name"] = test_scene_name
+                matches["gt"] = gt2pred
+                matches["pred"] = pred2gt
+
+                return matches
+
+    def test_epoch_end(self, outputs) -> None:
+        matches = {}
+        for output in outputs:
+            scene_name = output["test_scene_name"]
+            matches[scene_name] = {}
+            matches[scene_name]["gt"] = output["gt"]
+            matches[scene_name]["pred"] = output["pred"]
+
+        ap_scores = eval.evaluate_matches(matches)
+        avgs = eval.compute_averages(ap_scores)
+        eval.print_results(avgs)
 
     def shared_step(self, batch, batch_idx, epoch):
 
@@ -713,3 +842,16 @@ def get_segmented_scores(scores, fg_thresh=1.0, bg_thresh=0.0):
     segmented_scores[interval_mask] = scores[interval_mask] * k + b
 
     return segmented_scores
+
+
+def non_max_suppression(ious, scores, threshold):
+    ixs = scores.argsort()[::-1]
+    pick = []
+    while len(ixs) > 0:
+        i = ixs[0]
+        pick.append(i)
+        iou = ious[i, ixs[1:]]
+        remove_ixs = np.where(iou > threshold)[0] + 1
+        ixs = np.delete(ixs, remove_ixs)
+        ixs = np.delete(ixs, 0)
+    return np.array(pick, dtype=np.int32)

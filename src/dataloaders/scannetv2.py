@@ -2,6 +2,7 @@
 (Modified from PointGroup dataloader)
 """
 import glob, os, math, logging
+from pathlib import Path
 
 import numpy as np
 from omegaconf import DictConfig
@@ -37,9 +38,9 @@ class ScannetDataModule(pl.LightningDataModule):
         self.test_workers = cfg.test.test_workers
 
     def setup(self, stage=None):
-        self.train_files = self.load_data_files("train")
-        self.val_files = self.load_data_files("val")
-        self.test_files = self.load_data_files("test")
+        _, self.train_files = self.load_data_files("train")
+        _, self.val_files = self.load_data_files("val")
+        self.test_filenames, self.test_files = self.load_data_files("test")
 
         log.info(f"Training samples: {len(self.train_files)}")
         log.info(f"Validation samples: {len(self.val_files)}")
@@ -85,7 +86,7 @@ class ScannetDataModule(pl.LightningDataModule):
                 os.path.join(self.data_dir, split_type, "*" + self.filename_suffix)
             )
         )
-        return [torch.load(i) for i in filenames]
+        return filenames, [torch.load(i) for i in filenames]
 
     # Elastic distortion
     def elastic(self, x, gran, mag):
@@ -506,4 +507,5 @@ class ScannetDataModule(pl.LightningDataModule):
             "id": id,
             "offsets": batch_offsets,
             "spatial_shape": spatial_shape,
+            "test_filename": Path(self.test_filenames[id[0]]).stem,
         }
