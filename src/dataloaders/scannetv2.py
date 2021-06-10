@@ -507,5 +507,7 @@ class ScannetDataModule(pl.LightningDataModule):
             "id": id,
             "offsets": batch_offsets,
             "spatial_shape": spatial_shape,
-            "test_filename": Path(self.test_filenames[id[0]]).stem,
+            "test_filename": Path(self.test_filenames[id[0]]).stem.replace(
+                "_inst_nostuff", ""
+            ),
         }

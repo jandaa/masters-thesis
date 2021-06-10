@@ -357,8 +357,18 @@ class PointGroup(pl.LightningModule):
         # Save with colours
         semantic_pred = semantic_pred.detach().cpu().numpy()
 
+        semantic_scores = preds["semantic_scores"]  # (N, nClass) float32, cuda
+        pt_offsets = preds["pt_offsets"]
         if self.current_epoch > self.prepare_epochs:
             scores, proposals_idx, proposals_offset = preds["proposal_scores"]
+
+        with torch.no_grad():
+            preds = {}
+            preds["semantic"] = semantic_scores
+            preds["pt_offsets"] = pt_offsets
+            if self.current_epoch > self.prepare_epochs:
+                preds["score"] = scores
+                preds["proposals"] = (proposals_idx, proposals_offset)
 
         # Save to file
         # TODO: Save these to a file to visualize after
@@ -442,7 +452,7 @@ class PointGroup(pl.LightningModule):
                 pred_info["mask"] = clusters.cpu().numpy()
 
                 # TODO need to add this to the batch loader
-                test_scene_name = batch["test_scene_name"]
+                test_scene_name = batch["test_filename"]
                 gt_file = os.path.join(
                     self.dataset_dir,
                     self.split + "_gt",

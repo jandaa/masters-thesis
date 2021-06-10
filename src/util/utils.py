@@ -69,3 +69,10 @@ def load_previous_training(previous_dir: Path, current_dir: Path) -> DictConfig:
         if dest_dir.exists():
             shutil.rmtree(dest_dir)
         shutil.copytree(src_dir, dest_dir)
+
+
+def print_error(message, user_fault=False):
+    sys.stderr.write("ERROR: " + str(message) + "\n")
+    if user_fault:
+        sys.exit(2)
+    sys.exit(-1)
