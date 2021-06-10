@@ -312,9 +312,28 @@ class PointGroup(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
 
+        # Log losses
+        self.log("train_loss", loss, on_step=True, on_epoch=True)
         self.log(
-            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+            "semantic_loss", loss_out["semantic_loss"][0], on_step=True, on_epoch=True
         )
+        self.log(
+            "offset_norm_loss",
+            loss_out["offset_norm_loss"][0],
+            on_step=True,
+            on_epoch=True,
+        )
+        self.log(
+            "offset_dir_loss",
+            loss_out["offset_dir_loss"][0],
+            on_step=True,
+            on_epoch=True,
+        )
+        if self.current_epoch > self.prepare_epochs:
+            self.log(
+                "score_loss", loss_out["score_loss"][0], on_step=True, on_epoch=True
+            )
+
         return loss
 
     def validation_step(self, batch, batch_idx):
