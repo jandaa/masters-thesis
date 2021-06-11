@@ -20,5 +20,5 @@ python setup.py bdist_wheel
 cd dist
 pip install *.whl
 
-cd $base_dir/src/lib/pointgroup_ops
+cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
