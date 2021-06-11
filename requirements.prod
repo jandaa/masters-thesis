@@ -4,3 +4,4 @@ numpy
 pytorch-lightning
 plyfile
 scipy
+open3d
