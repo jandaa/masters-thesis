@@ -16,7 +16,7 @@ import pytorch_lightning as pl
 import spconv
 from spconv.modules import SparseModule
 
-from lib.pointgroup_ops.functions import pointgroup_ops
+from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
 import util.eval as eval
 
@@ -201,50 +201,50 @@ class UBlock(nn.Module):
 class PointGroup(pl.LightningModule):
     def __init__(self, cfg: DictConfig):
         super().__init__()
-        self.optimizer_cfg = cfg.optimizer
+        self.optimizer_cfg = cfg.model.optimizer
 
         # TODO: Clean up these inputs to be under single heading
         # e.g. self.cfg = cfg.pointgroup
-        input_c = cfg.input_channel
-        m = cfg.structure.m
-        classes = cfg.classes
-        block_reps = cfg.structure.block_reps
-        block_residual = cfg.structure.block_residual
+        input_c = cfg.dataset.input_channel
+        m = cfg.model.structure.m
+        classes = cfg.dataset.classes
+        block_reps = cfg.model.structure.block_reps
+        block_residual = cfg.model.structure.block_residual
 
         # these modules should be under cfg.cluster.radius
-        self.cluster_radius = cfg.group.cluster_radius
-        self.cluster_meanActive = cfg.group.cluster_meanActive
-        self.cluster_shift_meanActive = cfg.group.cluster_shift_meanActive
-        self.cluster_npoint_thre = cfg.group.cluster_npoint_thre
+        self.cluster_radius = cfg.model.group.cluster_radius
+        self.cluster_meanActive = cfg.model.group.cluster_meanActive
+        self.cluster_shift_meanActive = cfg.model.group.cluster_shift_meanActive
+        self.cluster_npoint_thre = cfg.model.group.cluster_npoint_thre
 
-        self.score_scale = cfg.train.score_scale
-        self.score_fullscale = cfg.train.score_fullscale
-        self.mode = cfg.train.score_mode
-        self.loss_weight = cfg.train.loss_weight
-        self.use_coords = cfg.structure.use_coords
-        self.ignore_label = cfg.ignore_label
-        self.batch_size = cfg.batch_size
+        self.score_scale = cfg.model.train.score_scale
+        self.score_fullscale = cfg.model.train.score_fullscale
+        self.mode = cfg.model.train.score_mode
+        self.loss_weight = cfg.model.train.loss_weight
+        self.use_coords = cfg.model.structure.use_coords
+        self.ignore_label = cfg.dataset.ignore_label
+        self.batch_size = cfg.dataset.batch_size
 
-        self.prepare_epochs = cfg.group.prepare_epochs
+        self.prepare_epochs = cfg.model.group.prepare_epochs
 
-        self.pretrain_path = cfg.train.pretrain_path
-        self.pretrain_module = cfg.train.pretrain_module
-        self.fix_module = cfg.train.fix_module
+        self.pretrain_path = cfg.model.train.pretrain_path
+        self.pretrain_module = cfg.model.train.pretrain_module
+        self.fix_module = cfg.model.train.fix_module
 
-        self.fg_thresh = cfg.train.fg_thresh
-        self.bg_thresh = cfg.train.bg_thresh
+        self.fg_thresh = cfg.model.train.fg_thresh
+        self.bg_thresh = cfg.model.train.bg_thresh
 
-        self.TEST_NMS_THRESH = cfg.test.TEST_NMS_THRESH
-        self.TEST_SCORE_THRESH = cfg.test.TEST_SCORE_THRESH
-        self.TEST_NPOINT_THRESH = cfg.test.TEST_NPOINT_THRESH
+        self.TEST_NMS_THRESH = cfg.model.test.TEST_NMS_THRESH
+        self.TEST_SCORE_THRESH = cfg.model.test.TEST_SCORE_THRESH
+        self.TEST_NPOINT_THRESH = cfg.model.test.TEST_NPOINT_THRESH
 
         self.dataset_dir = cfg.dataset_dir
-        self.split = cfg.test.split
+        self.split = cfg.model.test.split
 
         self.save_point_cloud = False
 
         self.semantic_colours = [
-            np.random.choice(range(256), size=3) for i in range(cfg.classes)
+            np.random.choice(range(256), size=3) for i in range(cfg.dataset.classes)
         ]
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
@@ -300,7 +300,7 @@ class PointGroup(pl.LightningModule):
             "score_linear": self.score_linear,
         }
 
-        self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.ignore_label)
+        self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.dataset.ignore_label)
         self.score_criterion = nn.BCELoss(reduction="none")
 
         #### fix parameter

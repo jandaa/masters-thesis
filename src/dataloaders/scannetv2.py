@@ -14,7 +14,7 @@ from torch.utils.data import random_split, DataLoader
 import scipy
 import scipy.ndimage
 import scipy.interpolate
-from lib.pointgroup_ops.functions import pointgroup_ops
+from packages.pointgroup_ops.functions import pointgroup_ops
 
 log = logging.getLogger(__name__)
 
@@ -23,19 +23,19 @@ class ScannetDataModule(pl.LightningDataModule):
     def __init__(self, cfg: DictConfig):
         super().__init__()
         self.data_dir = cfg.dataset_dir
-        self.filename_suffix = cfg.filename_suffix
+        self.filename_suffix = cfg.dataset.filename_suffix
 
-        self.batch_size = cfg.batch_size
-        self.train_workers = cfg.train.train_workers
-        self.val_workers = cfg.train.train_workers
+        self.batch_size = cfg.dataset.batch_size
+        self.train_workers = cfg.model.train.train_workers
+        self.val_workers = cfg.model.train.train_workers
 
-        self.full_scale = cfg.full_scale
-        self.scale = cfg.scale
-        self.max_npoint = cfg.max_npoint
-        self.mode = cfg.mode
+        self.full_scale = cfg.dataset.full_scale
+        self.scale = cfg.dataset.scale
+        self.max_npoint = cfg.dataset.max_npoint
+        self.mode = cfg.dataset.mode
 
-        self.test_split = cfg.test.split  # val or test
-        self.test_workers = cfg.test.test_workers
+        self.test_split = cfg.model.test.split  # val or test
+        self.test_workers = cfg.model.test.test_workers
 
     def setup(self, stage=None):
         _, self.train_files = self.load_data_files("train")
