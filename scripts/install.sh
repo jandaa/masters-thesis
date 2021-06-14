@@ -16,6 +16,7 @@ sudo apt-get install libsparsehash-dev libboost-all-dev
 # Load in third part source code
 /bin/bash src/thrid_party.sh
 
+cd $base_dir/src/packages/spconv
 python setup.py bdist_wheel
 cd dist
 pip install *.whl
