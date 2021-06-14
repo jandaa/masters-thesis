@@ -589,40 +589,30 @@ class PointGroupWrapper(pl.LightningModule):
         eval.print_results(avgs)
 
     def shared_step(self, batch):
+        """
+        Shared step between training and validation functions.
+        Runs model on batch and computes loss.
+        """
 
-        # Unravel batch input
-        coords_float = batch["locs_float"]  # (N, 3), float32, cuda
-        labels = batch["labels"]  # (N), long, cuda
-        instance_labels = batch[
-            "instance_labels"
-        ]  # (N), long, cuda, 0~total_nInst, -100
-
-        instance_info = batch[
-            "instance_info"
-        ]  # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
-        instance_pointnum = batch["instance_pointnum"]  # (total_nInst), int, cuda
-
-        # Create input to model and run it
-        input = PointGroupInput.from_batch(batch)
         ret = self.model(
-            input,
+            batch,
             return_instance_segmentation=self.use_instance_segmentation,
         )
 
         loss_inp = {}
-        loss_inp["semantic_scores"] = (ret.semantic_scores, labels)
+        loss_inp["semantic_scores"] = (ret.semantic_scores, batch.labels)
         loss_inp["pt_offsets"] = (
             ret.point_offsets,
-            coords_float,
-            instance_info,
-            instance_labels,
+            batch.point_coordinates,
+            batch.instance_info,
+            batch.instance_labels,
         )
         if self.use_instance_segmentation:
             loss_inp["proposal_scores"] = (
                 ret.proposal_scores,
                 ret.proposal_indices,
                 ret.proposal_offsets,
-                instance_pointnum,
+                batch.instance_pointnum,
             )
 
         return self.loss_fn(loss_inp)

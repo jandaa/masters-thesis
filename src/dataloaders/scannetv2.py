@@ -16,6 +16,9 @@ import scipy.ndimage
 import scipy.interpolate
 from packages.pointgroup_ops.functions import pointgroup_ops
 
+from util.types import PointGroupBatch, PointGroupInput
+from dataclasses import asdict
+
 log = logging.getLogger(__name__)
 
 
@@ -50,7 +53,7 @@ class ScannetDataModule(pl.LightningDataModule):
         return DataLoader(
             list(range(len(self.train_files))),
             batch_size=self.batch_size,
-            collate_fn=self.trainMerge,
+            collate_fn=self.train_merge,
             num_workers=self.train_workers,
             shuffle=True,
             sampler=None,
@@ -62,7 +65,7 @@ class ScannetDataModule(pl.LightningDataModule):
         return DataLoader(
             list(range(len(self.val_files))),
             batch_size=self.batch_size,
-            collate_fn=self.valMerge,
+            collate_fn=self.val_merge,
             num_workers=self.val_workers,
             shuffle=False,
             drop_last=False,
@@ -217,7 +220,13 @@ class ScannetDataModule(pl.LightningDataModule):
             j += 1
         return instance_label
 
-    def trainMerge(self, id):
+    def train_merge(self, id):
+        return self.merge(id, self.train_files)
+
+    def val_merge(self, id):
+        return self.merge(id, self.val_files)
+
+    def merge(self, id, files):
         locs = []
         locs_float = []
         feats = []
@@ -231,7 +240,7 @@ class ScannetDataModule(pl.LightningDataModule):
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.train_files[idx]
+            xyz_origin, rgb, label, instance_label = files[idx]
 
             ### jitter / flip x / rotation
             xyz_middle = self.dataAugment(xyz_origin, True, True, True)
@@ -314,130 +323,21 @@ class ScannetDataModule(pl.LightningDataModule):
             locs, self.batch_size, self.mode
         )
 
-        return {
-            "locs": locs,
-            "voxel_locs": voxel_locs,
-            "p2v_map": p2v_map,
-            "v2p_map": v2p_map,
-            "locs_float": locs_float,
-            "feats": feats,
-            "labels": labels,
-            "instance_labels": instance_labels,
-            "instance_info": instance_infos,
-            "instance_pointnum": instance_pointnum,
-            "id": id,
-            "offsets": batch_offsets,
-            "spatial_shape": spatial_shape,
-        }
-
-    def valMerge(self, id):
-        locs = []
-        locs_float = []
-        feats = []
-        labels = []
-        instance_labels = []
-
-        instance_infos = []  # (N, 9)
-        instance_pointnum = []  # (total_nInst), int
-
-        batch_offsets = [0]
-
-        total_inst_num = 0
-        for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = self.val_files[idx]
-
-            ### flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, False, True, True)
-
-            ### scale
-            xyz = xyz_middle * self.scale
-
-            ### offset
-            xyz -= xyz.min(0)
-
-            ### crop
-            xyz, valid_idxs = self.crop(xyz)
-
-            xyz_middle = xyz_middle[valid_idxs]
-            xyz = xyz[valid_idxs]
-            rgb = rgb[valid_idxs]
-            label = label[valid_idxs]
-            instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
-
-            ### get instance information
-            inst_num, inst_infos = self.getInstanceInfo(
-                xyz_middle, instance_label.astype(np.int32)
-            )
-            inst_info = inst_infos[
-                "instance_info"
-            ]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
-
-            instance_label[np.where(instance_label != -100)] += total_inst_num
-            total_inst_num += inst_num
-
-            ### merge the scene to the batch
-            batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
-
-            locs.append(
-                torch.cat(
-                    [
-                        torch.LongTensor(xyz.shape[0], 1).fill_(i),
-                        torch.from_numpy(xyz).long(),
-                    ],
-                    1,
-                )
-            )
-            locs_float.append(torch.from_numpy(xyz_middle))
-            feats.append(torch.from_numpy(rgb))
-            labels.append(torch.from_numpy(label))
-            instance_labels.append(torch.from_numpy(instance_label))
-
-            instance_infos.append(torch.from_numpy(inst_info))
-            instance_pointnum.extend(inst_pointnum)
-
-        ### merge all the scenes in the batch
-        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
-
-        locs = torch.cat(
-            locs, 0
-        )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        feats = torch.cat(feats, 0)  # float (N, C)
-        labels = torch.cat(labels, 0).long()  # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
-
-        instance_infos = torch.cat(instance_infos, 0).to(
-            torch.float32
-        )  # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(
-            instance_pointnum, dtype=torch.int
-        )  # int (total_nInst)
-
-        spatial_shape = np.clip(
-            (locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None
-        )  # long (3)
-
-        ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
-            locs, self.batch_size, self.mode
+        return PointGroupBatch(
+            coordinates=locs,
+            voxel_coordinates=voxel_locs,
+            point_to_voxel_map=p2v_map,
+            voxel_to_point_map=v2p_map,
+            point_coordinates=locs_float,
+            features=feats,
+            labels=labels,
+            instance_labels=instance_labels,
+            instance_info=instance_infos,
+            instance_pointnum=instance_pointnum,
+            offsets=batch_offsets,
+            id=id,
+            spatial_shape=spatial_shape,
         )
-
-        return {
-            "locs": locs,
-            "voxel_locs": voxel_locs,
-            "p2v_map": p2v_map,
-            "v2p_map": v2p_map,
-            "locs_float": locs_float,
-            "feats": feats,
-            "labels": labels,
-            "instance_labels": instance_labels,
-            "instance_info": instance_infos,
-            "instance_pointnum": instance_pointnum,
-            "id": id,
-            "offsets": batch_offsets,
-            "spatial_shape": spatial_shape,
-        }
 
     def testMerge(self, id):
         locs = []

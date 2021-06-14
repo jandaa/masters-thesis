@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import torch
 from pathlib import Path
 
@@ -7,30 +7,30 @@ from pathlib import Path
 class PointGroupInput:
     """Input type of Point Group forward function."""
 
-    features: torch.tensor  # features of inputs (e.g. color channels)
-    point_coordinates: torch.tensor  # input points
-    point_to_voxel_map: torch.tensor  # mapping from points to voxels
-    voxel_to_point_map: torch.tensor  # mapping from voxels to points
-    coordinates: torch.tensor  # TODO: Not sure what coordinates these are
-    voxel_coordinates: torch.tensor  # Coordinates of voxels
+    # features of inputs (e.g. color channels)
+    features: torch.tensor = torch.tensor([])
 
-    spatial_shape: int  # TODO: not sure
+    # mapping from points to voxels
+    point_to_voxel_map: torch.tensor = torch.tensor([])
+
+    # mapping from voxels to points
+    voxel_to_point_map: torch.tensor = torch.tensor([])
+
+    # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+    # TODO: Not sure what coordinates these are
+    coordinates: torch.tensor = torch.tensor([])
+
+    # input points, float (N, 3)
+    point_coordinates: torch.tensor = torch.tensor([])
+
+    # Coordinates of voxels
+    voxel_coordinates: torch.tensor = torch.tensor([])
+
+    spatial_shape: int = 3  # TODO: not sure
 
     @property
     def batch_indices(self):
         return self.coordinates[:, 0].int()
-
-    @staticmethod
-    def from_batch(batch):
-        return PointGroupInput(
-            features=batch["feats"],
-            point_coordinates=batch["locs_float"],
-            point_to_voxel_map=batch["p2v_map"],
-            voxel_to_point_map=batch["v2p_map"],
-            coordinates=batch["locs"],
-            voxel_coordinates=batch["voxel_locs"],
-            spatial_shape=batch["spatial_shape"],
-        )
 
 
 @dataclass
@@ -60,11 +60,24 @@ class PointGroupOutput:
 class PointGroupBatch(PointGroupInput):
     """Batch type containing all fields required for training."""
 
-    labels: torch.tensor
-    instance_labels: torch.tensor
-    instance_info: torch.tensor
-    instance_pointnum: torch.tensor
-    id: torch.tensor
-    batch_offsets: torch.tensor
+    labels: torch.tensor = torch.tensor([])
+    instance_labels: torch.tensor = torch.tensor([])
+    instance_info: torch.tensor = torch.tensor([])
+    instance_pointnum: torch.tensor = torch.tensor([])
+    id: torch.tensor = torch.tensor([])
+    offsets: torch.tensor = torch.tensor([])
 
-    test_filename: Path
+    id: list = field(default_factory=list)
+    test_filename: Path = None
+
+    def to(self, device):
+        """Cast all tensor-type attributes to device"""
+        for fieldname, data in self.__dict__.items():
+            if type(data) == torch.Tensor:
+                setattr(self, fieldname, data.to(device))
+
+        return self
+
+    def __len__(self):
+        """Return the size of the batch."""
+        return len(self.id)
