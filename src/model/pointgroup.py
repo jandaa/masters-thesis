@@ -202,39 +202,28 @@ class PointGroup(nn.Module):
     def __init__(self, cfg: DictConfig):
         super(PointGroup, self).__init__()
 
-        # TODO: Clean up these inputs to be under single heading
-        # e.g. self.cfg = cfg.pointgroup
+        # Dataset specific parameters
         input_c = cfg.dataset.input_channel
-        m = cfg.model.structure.m
         classes = cfg.dataset.classes
-        block_reps = cfg.model.structure.block_reps
-        block_residual = cfg.model.structure.block_residual
-
-        # these modules should be under cfg.cluster.radius
-        self.cluster_radius = cfg.model.group.cluster_radius
-        self.cluster_meanActive = cfg.model.group.cluster_meanActive
-        self.cluster_shift_meanActive = cfg.model.group.cluster_shift_meanActive
-        self.cluster_npoint_thre = cfg.model.group.cluster_npoint_thre
-
-        self.score_scale = cfg.model.train.score_scale
-        self.score_fullscale = cfg.model.train.score_fullscale
-        self.mode = cfg.model.train.score_mode
-        self.use_coords = cfg.model.structure.use_coords
         self.batch_size = cfg.dataset.batch_size
 
-        self.fix_module = cfg.model.train.fix_module
+        self.training_params = cfg.model.train
+        self.cluster = cfg.model.cluster
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
-        if block_residual:
+        if cfg.model.structure.block_residual:
             block = ResidualBlock
         else:
             block = VGGBlock
 
-        if self.use_coords:
+        if cfg.model.structure.use_coords:
             input_c += 3
 
-        #### backbone
+        # Redefine for convenience
+        m = cfg.model.structure.m
+
+        # backbone
         self.input_conv = spconv.SparseSequential(
             spconv.SubMConv3d(
                 input_c, m, kernel_size=3, padding=1, bias=False, indice_key="subm1"
@@ -244,21 +233,21 @@ class PointGroup(nn.Module):
         self.unet = UBlock(
             [m, 2 * m, 3 * m, 4 * m, 5 * m, 6 * m, 7 * m],
             norm_fn,
-            block_reps,
+            cfg.model.structure.block_reps,
             block,
             indice_key_id=1,
         )
 
         self.output_layer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
 
-        #### semantic segmentation
+        # semantic segmentation
         self.linear = nn.Linear(m, classes)  # bias(default): True
 
-        #### offset
+        # offset
         self.offset = nn.Sequential(nn.Linear(m, m, bias=True), norm_fn(m), nn.ReLU())
         self.offset_linear = nn.Linear(m, 3, bias=True)
 
-        #### score branch
+        # score branch
         self.score_unet = UBlock([m, 2 * m], norm_fn, 2, block, indice_key_id=1)
         self.score_outputlayer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
         self.score_linear = nn.Linear(m, 1)
@@ -277,9 +266,9 @@ class PointGroup(nn.Module):
             "score_linear": self.score_linear,
         }
 
-        #### fix parameter
-        for m in self.fix_module:
-            mod = module_map[m]
+        # Don't train any layers specified in fix modules
+        for module_name in cfg.model.train.fix_module:
+            mod = module_map[module_name]
             for param in mod.parameters():
                 param.requires_grad = False
 
@@ -336,14 +325,14 @@ class PointGroup(nn.Module):
                 coords_ + pt_offsets_,
                 batch_idxs_,
                 batch_offsets_,
-                self.cluster_radius,
-                self.cluster_shift_meanActive,
+                self.cluster.radius,
+                self.cluster.shift_meanActive,
             )
             proposals_idx_shift, proposals_offset_shift = pointgroup_ops.bfs_cluster(
                 semantic_preds_cpu,
                 idx_shift.cpu(),
                 start_len_shift.cpu(),
-                self.cluster_npoint_thre,
+                self.cluster.npoint_threshold,
             )
             proposals_idx_shift[:, 1] = object_idxs[
                 proposals_idx_shift[:, 1].long()
@@ -355,11 +344,14 @@ class PointGroup(nn.Module):
                 coords_,
                 batch_idxs_,
                 batch_offsets_,
-                self.cluster_radius,
-                self.cluster_meanActive,
+                self.cluster.radius,
+                self.cluster.meanActive,
             )
             proposals_idx, proposals_offset = pointgroup_ops.bfs_cluster(
-                semantic_preds_cpu, idx.cpu(), start_len.cpu(), self.cluster_npoint_thre
+                semantic_preds_cpu,
+                idx.cpu(),
+                start_len.cpu(),
+                self.cluster.npoint_threshold,
             )
             proposals_idx[:, 1] = object_idxs[proposals_idx[:, 1].long()].int()
             # proposals_idx: (sumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
@@ -377,9 +369,9 @@ class PointGroup(nn.Module):
                 proposals_offset,
                 output_feats,
                 coords,
-                self.score_fullscale,
-                self.score_scale,
-                self.mode,
+                self.training_params.score_fullscale,
+                self.training_params.score_scale,
+                self.training_params.mode,
             )
 
             #### score
@@ -410,29 +402,14 @@ class PointGroupWrapper(pl.LightningModule):
         self.model = PointGroup(cfg)
         self.optimizer_cfg = cfg.model.optimizer
 
-        # self.score_scale = cfg.model.train.score_scale
-        # self.score_fullscale = cfg.model.train.score_fullscale
-        self.mode = cfg.model.train.score_mode
-        self.loss_weight = cfg.model.train.loss_weight
-        self.use_coords = cfg.model.structure.use_coords
-        self.ignore_label = cfg.dataset.ignore_label
-        self.batch_size = cfg.dataset.batch_size
-
-        self.prepare_epochs = cfg.model.group.prepare_epochs
-
-        self.pretrain_path = cfg.model.train.pretrain_path
-        self.pretrain_module = cfg.model.train.pretrain_module
-        self.fix_module = cfg.model.train.fix_module
-
-        self.fg_thresh = cfg.model.train.fg_thresh
-        self.bg_thresh = cfg.model.train.bg_thresh
-
-        self.TEST_NMS_THRESH = cfg.model.test.TEST_NMS_THRESH
-        self.TEST_SCORE_THRESH = cfg.model.test.TEST_SCORE_THRESH
-        self.TEST_NPOINT_THRESH = cfg.model.test.TEST_NPOINT_THRESH
-
+        # Dataset configuration
         self.dataset_dir = cfg.dataset_dir
-        self.split = cfg.model.test.split
+        self.dataset_cfg = cfg.dataset
+
+        # Model configuration
+        self.train_cfg = cfg.model.train
+        self.use_coords = cfg.model.structure.use_coords
+        self.test_cfg = cfg.model.test
 
         self.save_point_cloud = False
 
@@ -440,13 +417,15 @@ class PointGroupWrapper(pl.LightningModule):
             np.random.choice(range(256), size=3) for i in range(cfg.dataset.classes)
         ]
 
-        self.semantic_criterion = nn.CrossEntropyLoss(ignore_index=cfg.dataset.ignore_label)
+        self.semantic_criterion = nn.CrossEntropyLoss(
+            ignore_index=cfg.dataset.ignore_label
+        )
         self.score_criterion = nn.BCELoss(reduction="none")
 
     @property
     def use_instance_segmentation(self):
         """Return whether should be using instance segmentation based on the learning curriculum"""
-        return self.current_epoch > self.prepare_epochs
+        return self.current_epoch > self.train_cfg.prepare_epochs
 
     def training_step(self, batch, batch_idx):
         loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
@@ -488,14 +467,12 @@ class PointGroupWrapper(pl.LightningModule):
         coords_float = batch["locs_float"]  # (N, 3), float32, cuda
         feats = batch["feats"]  # (N, C), float32, cuda
 
-        batch_offsets = batch["offsets"]  # (B + 1), int, cuda
-
         spatial_shape = batch["spatial_shape"]
 
         if self.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, self.mode
+            feats, v2p_map, self.dataset_cfg.mode
         )  # (M, C), float
 
         input_ = spconv.SparseConvTensor(
@@ -507,7 +484,7 @@ class PointGroupWrapper(pl.LightningModule):
             p2v_map,
             coords_float,
             coords[:, 0].int(),
-            self.current_epoch,
+            return_instance_segmentation=self.use_instance_segmentation,
         )
         semantic_pred = preds["semantic_scores"].max(1)[1]  # (N) long, cuda
 
@@ -516,14 +493,14 @@ class PointGroupWrapper(pl.LightningModule):
 
         semantic_scores = preds["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = preds["pt_offsets"]
-        if self.current_epoch > self.prepare_epochs:
+        if self.use_instance_segmentation:
             scores, proposals_idx, proposals_offset = preds["proposal_scores"]
 
         with torch.no_grad():
             preds = {}
             preds["semantic"] = semantic_scores
             preds["pt_offsets"] = pt_offsets
-            if self.current_epoch > self.prepare_epochs:
+            if self.use_instance_segmentation:
                 preds["score"] = scores
                 preds["proposals"] = (proposals_idx, proposals_offset)
 
@@ -561,14 +538,14 @@ class PointGroupWrapper(pl.LightningModule):
             ]  # (nProposal), long
 
             ##### score threshold
-            score_mask = scores_pred > self.TEST_SCORE_THRESH
+            score_mask = scores_pred > self.test_cfg.TEST_SCORE_THRESH
             scores_pred = scores_pred[score_mask]
             proposals_pred = proposals_pred[score_mask]
             semantic_id = semantic_id[score_mask]
 
             ##### npoint threshold
             proposals_pointnum = proposals_pred.sum(1)
-            npoint_mask = proposals_pointnum > self.TEST_NPOINT_THRESH
+            npoint_mask = proposals_pointnum > self.test_cfg.TEST_NPOINT_THRESH
             scores_pred = scores_pred[npoint_mask]
             proposals_pred = proposals_pred[npoint_mask]
             semantic_id = semantic_id[npoint_mask]
@@ -594,7 +571,7 @@ class PointGroupWrapper(pl.LightningModule):
                 pick_idxs = non_max_suppression(
                     cross_ious.cpu().numpy(),
                     scores_pred.cpu().numpy(),
-                    self.TEST_NMS_THRESH,
+                    self.test_cfg.TEST_NMS_THRESH,
                 )  # int, (nCluster, N)
             clusters = proposals_pred[pick_idxs]
             cluster_scores = scores_pred[pick_idxs]
@@ -662,11 +639,11 @@ class PointGroupWrapper(pl.LightningModule):
         if self.use_coords:
             feats = torch.cat((feats, coords_float), 1)
         voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, self.mode
+            feats, v2p_map, self.dataset_cfg.mode
         )  # (M, C), float
 
         input_ = spconv.SparseConvTensor(
-            voxel_feats, voxel_coords.int(), spatial_shape, self.batch_size
+            voxel_feats, voxel_coords.int(), spatial_shape, self.dataset_cfg.batch_size
         )
 
         ret = self.model(
@@ -674,7 +651,7 @@ class PointGroupWrapper(pl.LightningModule):
             p2v_map,
             coords_float,
             coords[:, 0].int(),
-            self.current_epoch,
+            return_instance_segmentation=self.use_instance_segmentation,
         )
         semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
         pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
@@ -722,7 +699,7 @@ class PointGroupWrapper(pl.LightningModule):
         gt_offsets = instance_info[:, 0:3] - coords  # (N, 3)
         pt_diff = pt_offsets - gt_offsets  # (N, 3)
         pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
-        valid = (instance_labels != self.ignore_label).float()
+        valid = (instance_labels != self.dataset_cfg.ignore_label).float()
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
         gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)  # (N), float
@@ -761,9 +738,9 @@ class PointGroupWrapper(pl.LightningModule):
 
         """total loss"""
         loss = (
-            self.loss_weight[0] * semantic_loss
-            + self.loss_weight[1] * offset_norm_loss
-            + self.loss_weight[2] * offset_dir_loss
+            self.train_cfg.loss_weight[0] * semantic_loss
+            + self.train_cfg.loss_weight[1] * offset_norm_loss
+            + self.train_cfg.loss_weight[2] * offset_dir_loss
         )
 
         if self.use_instance_segmentation:

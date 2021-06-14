@@ -29,18 +29,18 @@ train:
   score_fullscale: 14
   score_mode: 4 # mean
 
+  prepare_epochs: 128
+
   pretrain_path:
   pretrain_module: []
   fix_module: []
 
-group:
+cluster:
   # point grouping
-  cluster_radius: 0.03
-  cluster_meanActive: 50
-  cluster_shift_meanActive: 300
-  cluster_npoint_thre: 50
-
-  prepare_epochs: 128
+  radius: 0.03
+  meanActive: 50
+  shift_meanActive: 300
+  npoint_threshold: 50
 
 test:
   split: val
