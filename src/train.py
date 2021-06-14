@@ -9,7 +9,7 @@ from util import utils
 import pytorch_lightning as pl
 
 from dataloaders.scannetv2 import ScannetDataModule
-from model.pointgroup import PointGroup
+from model.pointgroup import PointGroupWrapper
 
 
 log = logging.getLogger(__name__)
@@ -30,10 +30,10 @@ def semantics(cfg: DictConfig) -> None:
     # Try instanciating and loading Scannet
     scannet = ScannetDataModule(cfg)
     scannet.setup()
-    
+
     log.info("Loading model")
-    model = PointGroup(cfg)
-    
+    model = PointGroupWrapper(cfg)
+
     checkpoint_path = None
     if cfg.continue_from:
         # TODO: Write a function to select the latest checkpoint
@@ -43,10 +43,10 @@ def semantics(cfg: DictConfig) -> None:
 
     log.info("Building trainer")
     trainer = pl.Trainer(
-        gpus=1, 
-        resume_from_checkpoint=checkpoint_path, 
+        gpus=1,
+        resume_from_checkpoint=checkpoint_path,
         max_epochs=364,
-        check_val_every_n_epoch=10
+        check_val_every_n_epoch=10,
     )
 
     # run to test the output
