@@ -2,7 +2,7 @@ import logging
 from omegaconf import DictConfig
 from collections import OrderedDict
 import functools
-from dataclasses import dataclass
+
 
 import numpy as np
 import open3d as o3d
@@ -19,6 +19,7 @@ from spconv.modules import SparseModule
 from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
 import util.eval as eval
+from util.types import PointGroupInput, PointGroupOutput
 
 log = logging.getLogger(__name__)
 
@@ -193,59 +194,6 @@ class UBlock(nn.Module):
         return output
 
 
-@dataclass
-class PointGroupInput:
-    """Input type of Point Group forward function."""
-
-    features: torch.tensor  # features of inputs (e.g. color channels)
-    point_coordinates: torch.tensor  # input points
-    point_to_voxel_map: torch.tensor  # mapping from points to voxels
-    voxel_to_point_map: torch.tensor  # mapping from voxels to points
-    coordinates: torch.tensor  # TODO: Not sure what coordinates these are
-    voxel_coordinates: torch.tensor  # Coordinates of voxels
-
-    spatial_shape: int = 3  # TODO: not sure
-
-    @property
-    def batch_indices(self):
-        return self.coordinates[:, 0].int()
-
-    @staticmethod
-    def from_batch(batch):
-        return PointGroupInput(
-            features=batch["feats"],
-            point_coordinates=batch["locs_float"],
-            point_to_voxel_map=batch["p2v_map"],
-            voxel_to_point_map=batch["v2p_map"],
-            coordinates=batch["locs"],
-            voxel_coordinates=batch["voxel_locs"],
-            spatial_shape=batch["spatial_shape"],
-        )
-
-
-@dataclass
-class PointGroupOutput:
-    """Output type of Point Group forward function."""
-
-    # scores across all classes for each point (# Points, # Classes)
-    semantic_scores: torch.tensor
-
-    # Point offsets of each cluster
-    point_offsets: torch.tensor
-
-    # scores of specific instances (TODO: rename this variable)
-    proposal_scores: torch.tensor  # = None
-    proposal_offsets: torch.tensor  # = None
-    proposal_indices: torch.tensor  # = None
-
-    @property
-    def semantic_pred(self):
-        if self.semantic_scores:
-            return self.semantic_scores.max(1)[1]  # (N) long, cuda
-        else:
-            raise RuntimeError("No semantic scores are set")
-
-
 class PointGroup(nn.Module):
     def __init__(self, cfg: DictConfig):
         super(PointGroup, self).__init__()
@@ -354,8 +302,8 @@ class PointGroup(nn.Module):
         pt_offsets_feats = self.offset(output_feats)
         pt_offsets = self.offset_linear(pt_offsets_feats)  # (N, 3), float32
 
-        scores = (None,)
-        proposals_idx = (None,)
+        scores = None
+        proposals_idx = None
         proposals_offset = None
         if return_instance_segmentation:
 
@@ -367,7 +315,7 @@ class PointGroup(nn.Module):
             # Points are grouped together into one vector regardless of scene
             # so need to keep track of which scene it game from
             # with batch offsets being what you need to add to the index to get correct batch
-            batch_idxs_ = input.batch_idxs[object_idxs]
+            batch_idxs_ = input.batch_indices[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
             coords_ = input.coords[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
@@ -421,7 +369,7 @@ class PointGroup(nn.Module):
                 proposals_idx,
                 proposals_offset,
                 output_feats,
-                input.coords,
+                input.coordinates,
                 self.training_params.score_fullscale,
                 self.training_params.score_scale,
                 self.training_params.mode,
@@ -654,6 +602,7 @@ class PointGroupWrapper(pl.LightningModule):
         ]  # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
         instance_pointnum = batch["instance_pointnum"]  # (total_nInst), int, cuda
 
+        # Create input to model and run it
         input = PointGroupInput.from_batch(batch)
         ret = self.model(
             input,
