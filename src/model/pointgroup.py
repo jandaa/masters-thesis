@@ -193,9 +193,57 @@ class UBlock(nn.Module):
         return output
 
 
-# @dataclass
-# class PointGroupOutput:
-#     """Output type of Point Group foreward function."""
+@dataclass
+class PointGroupInput:
+    """Input type of Point Group forward function."""
+
+    features: torch.tensor  # features of inputs (e.g. color channels)
+    point_coordinates: torch.tensor  # input points
+    point_to_voxel_map: torch.tensor  # mapping from points to voxels
+    voxel_to_point_map: torch.tensor  # mapping from voxels to points
+    coordinates: torch.tensor  # TODO: Not sure what coordinates these are
+    voxel_coordinates: torch.tensor  # Coordinates of voxels
+
+    spatial_shape: int = 3  # TODO: not sure
+
+    @property
+    def batch_indices(self):
+        return self.coordinates[:, 0].int()
+
+    @staticmethod
+    def from_batch(batch):
+        return PointGroupInput(
+            features=batch["feats"],
+            point_coordinates=batch["locs_float"],
+            point_to_voxel_map=batch["p2v_map"],
+            voxel_to_point_map=batch["v2p_map"],
+            coordinates=batch["locs"],
+            voxel_coordinates=batch["voxel_locs"],
+            spatial_shape=batch["spatial_shape"],
+        )
+
+
+@dataclass
+class PointGroupOutput:
+    """Output type of Point Group forward function."""
+
+    # scores across all classes for each point (# Points, # Classes)
+    semantic_scores: torch.tensor
+
+    # Point offsets of each cluster
+    point_offsets: torch.tensor
+
+    # scores of specific instances (TODO: rename this variable)
+    proposal_scores: torch.tensor  # = None
+    proposal_offsets: torch.tensor  # = None
+    proposal_indices: torch.tensor  # = None
+
+    @property
+    def semantic_pred(self):
+        if self.semantic_scores:
+            return self.semantic_scores.max(1)[1]  # (N) long, cuda
+        else:
+            raise RuntimeError("No semantic scores are set")
 
 
 class PointGroup(nn.Module):
@@ -204,24 +252,25 @@ class PointGroup(nn.Module):
 
         # Dataset specific parameters
         input_c = cfg.dataset.input_channel
-        classes = cfg.dataset.classes
-        self.batch_size = cfg.dataset.batch_size
+        self.dataset_cfg = cfg.dataset
 
+        # model parameters
         self.training_params = cfg.model.train
         self.cluster = cfg.model.cluster
+        self.structure = cfg.model.structure
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
-        if cfg.model.structure.block_residual:
+        if self.structure.block_residual:
             block = ResidualBlock
         else:
             block = VGGBlock
 
-        if cfg.model.structure.use_coords:
+        if self.structure.use_coords:
             input_c += 3
 
         # Redefine for convenience
-        m = cfg.model.structure.m
+        m = self.structure.m
 
         # backbone
         self.input_conv = spconv.SparseSequential(
@@ -241,7 +290,7 @@ class PointGroup(nn.Module):
         self.output_layer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
 
         # semantic segmentation
-        self.linear = nn.Linear(m, classes)  # bias(default): True
+        self.linear = nn.Linear(m, self.dataset_cfg.classes)  # bias(default): True
 
         # offset
         self.offset = nn.Sequential(nn.Linear(m, m, bias=True), norm_fn(m), nn.ReLU())
@@ -274,36 +323,40 @@ class PointGroup(nn.Module):
 
     def forward(
         self,
-        input,
-        input_map,
-        coords,
-        batch_idxs,
-        return_instance_segmentation=False,
+        input: PointGroupInput,
+        return_instance_segmentation: bool = False,
     ):
-        """
-        :param input_map: (N), int, cuda
-        :param coords: (N, 3), float, cuda
-        :param batch_idxs: (N), int, cuda
-        """
-        ret = {}
+        if self.structure.use_coords:
+            features = torch.cat((input.features, input.point_coordinates), 1)
+        else:
+            features = input.features
+        voxel_feats = pointgroup_ops.voxelization(
+            features, input.voxel_to_point_map, self.dataset_cfg.mode
+        )  # (M, C), float
 
-        output = self.input_conv(input)
+        input_ = spconv.SparseConvTensor(
+            voxel_feats,
+            input.voxel_coordinates.int(),
+            input.spatial_shape,
+            self.dataset_cfg.batch_size,
+        )
+
+        output = self.input_conv(input_)
         output = self.unet(output)
         output = self.output_layer(output)
-        output_feats = output.features[input_map.long()]
+        output_feats = output.features[input.point_to_voxel_map.long()]
 
         #### semantic segmentation
         semantic_scores = self.linear(output_feats)  # (N, nClass), float
         semantic_preds = semantic_scores.max(1)[1]  # (N), long
 
-        ret["semantic_scores"] = semantic_scores
-
         #### offset
         pt_offsets_feats = self.offset(output_feats)
         pt_offsets = self.offset_linear(pt_offsets_feats)  # (N, 3), float32
 
-        ret["pt_offsets"] = pt_offsets
-
+        scores = (None,)
+        proposals_idx = (None,)
+        proposals_offset = None
         if return_instance_segmentation:
 
             #### get prooposal clusters
@@ -314,9 +367,9 @@ class PointGroup(nn.Module):
             # Points are grouped together into one vector regardless of scene
             # so need to keep track of which scene it game from
             # with batch offsets being what you need to add to the index to get correct batch
-            batch_idxs_ = batch_idxs[object_idxs]
+            batch_idxs_ = input.batch_idxs[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
-            coords_ = coords[object_idxs]
+            coords_ = input.coords[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
 
             semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
@@ -368,7 +421,7 @@ class PointGroup(nn.Module):
                 proposals_idx,
                 proposals_offset,
                 output_feats,
-                coords,
+                input.coords,
                 self.training_params.score_fullscale,
                 self.training_params.score_scale,
                 self.training_params.mode,
@@ -383,9 +436,13 @@ class PointGroup(nn.Module):
             )  # (nProposal, C)
             scores = self.score_linear(score_feats)  # (nProposal, 1)
 
-            ret["proposal_scores"] = (scores, proposals_idx, proposals_offset)
-
-        return ret
+        return PointGroupOutput(
+            semantic_scores=semantic_scores,
+            point_offsets=pt_offsets,
+            proposal_scores=scores,
+            proposal_indices=proposals_idx,
+            proposal_offsets=proposals_offset,
+        )
 
     @staticmethod
     def set_bn_init(m):
@@ -428,7 +485,7 @@ class PointGroupWrapper(pl.LightningModule):
         return self.current_epoch > self.train_cfg.prepare_epochs
 
     def training_step(self, batch, batch_idx):
-        loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
+        loss, loss_out, _ = self.shared_step(batch)
 
         # Log losses
         self.log("train_loss", loss, on_step=True, on_epoch=True)
@@ -455,54 +512,21 @@ class PointGroupWrapper(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss, loss_out, infos = self.shared_step(batch, batch_idx, self.current_epoch)
+        loss, _, _ = self.shared_step(batch)
         self.log("val_loss", loss)
 
-    def test_step(self, batch, batch_idx):
-        coords = batch["locs"]  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        voxel_coords = batch["voxel_locs"]  # (M, 1 + 3), long, cuda
-        p2v_map = batch["p2v_map"]  # (N), int, cuda
-        v2p_map = batch["v2p_map"]  # (M, 1 + maxActive), int, cuda
+    def test_step(self, batch):
 
         coords_float = batch["locs_float"]  # (N, 3), float32, cuda
-        feats = batch["feats"]  # (N, C), float32, cuda
 
-        spatial_shape = batch["spatial_shape"]
-
-        if self.use_coords:
-            feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, self.dataset_cfg.mode
-        )  # (M, C), float
-
-        input_ = spconv.SparseConvTensor(
-            voxel_feats, voxel_coords.int(), spatial_shape, 1
-        )
-
+        input = PointGroupInput.from_batch(batch)
         preds = self.model(
-            input_,
-            p2v_map,
-            coords_float,
-            coords[:, 0].int(),
+            input,
             return_instance_segmentation=self.use_instance_segmentation,
         )
-        semantic_pred = preds["semantic_scores"].max(1)[1]  # (N) long, cuda
 
         # Save with colours
-        semantic_pred = semantic_pred.detach().cpu().numpy()
-
-        semantic_scores = preds["semantic_scores"]  # (N, nClass) float32, cuda
-        pt_offsets = preds["pt_offsets"]
-        if self.use_instance_segmentation:
-            scores, proposals_idx, proposals_offset = preds["proposal_scores"]
-
-        with torch.no_grad():
-            preds = {}
-            preds["semantic"] = semantic_scores
-            preds["pt_offsets"] = pt_offsets
-            if self.use_instance_segmentation:
-                preds["score"] = scores
-                preds["proposals"] = (proposals_idx, proposals_offset)
+        semantic_pred = preds.semantic_pred.detach().cpu().numpy()
 
         # Save to file
         # TODO: Save these to a file to visualize after
@@ -518,12 +542,14 @@ class PointGroupWrapper(pl.LightningModule):
             o3d.visualization.draw_geometries([pcd])
 
         if self.use_instance_segmentation:
-            scores = preds["score"]  # (nProposal, 1) float, cuda
+            scores = preds.proposal_scores  # (nProposal, 1) float, cuda
             scores_pred = torch.sigmoid(scores.view(-1))
 
             N = batch["feats"].shape[0]
 
-            proposals_idx, proposals_offset = preds["proposals"]
+            proposals_idx = preds.proposal_indices
+            proposals_offset = preds.proposal_offsets
+
             # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
             # proposals_offset: (nProposal + 1), int, cpu
             proposals_pred = torch.zeros(
@@ -614,16 +640,10 @@ class PointGroupWrapper(pl.LightningModule):
         avgs = eval.compute_averages(ap_scores)
         eval.print_results(avgs)
 
-    def shared_step(self, batch, batch_idx, epoch):
+    def shared_step(self, batch):
 
         # Unravel batch input
-        coords = batch["locs"]  # (N, 1 + 3), long, cuda, dimension 0 for batch_idx
-        voxel_coords = batch["voxel_locs"]  # (M, 1 + 3), long, cuda
-        p2v_map = batch["p2v_map"]  # (N), int, cuda
-        v2p_map = batch["v2p_map"]  # (M, 1 + maxActive), int, cuda
-
         coords_float = batch["locs_float"]  # (N, 3), float32, cuda
-        feats = batch["feats"]  # (N, C), float32, cuda
         labels = batch["labels"]  # (N), long, cuda
         instance_labels = batch[
             "instance_labels"
@@ -634,49 +654,31 @@ class PointGroupWrapper(pl.LightningModule):
         ]  # (N, 9), float32, cuda, (meanxyz, minxyz, maxxyz)
         instance_pointnum = batch["instance_pointnum"]  # (total_nInst), int, cuda
 
-        spatial_shape = batch["spatial_shape"]
-
-        if self.use_coords:
-            feats = torch.cat((feats, coords_float), 1)
-        voxel_feats = pointgroup_ops.voxelization(
-            feats, v2p_map, self.dataset_cfg.mode
-        )  # (M, C), float
-
-        input_ = spconv.SparseConvTensor(
-            voxel_feats, voxel_coords.int(), spatial_shape, self.dataset_cfg.batch_size
-        )
-
+        input = PointGroupInput.from_batch(batch)
         ret = self.model(
-            input_,
-            p2v_map,
-            coords_float,
-            coords[:, 0].int(),
+            input,
             return_instance_segmentation=self.use_instance_segmentation,
         )
-        semantic_scores = ret["semantic_scores"]  # (N, nClass) float32, cuda
-        pt_offsets = ret["pt_offsets"]  # (N, 3), float32, cuda
-        if self.use_instance_segmentation:
-            scores, proposals_idx, proposals_offset = ret["proposal_scores"]
 
         loss_inp = {}
-        loss_inp["semantic_scores"] = (semantic_scores, labels)
+        loss_inp["semantic_scores"] = (ret.semantic_scores, labels)
         loss_inp["pt_offsets"] = (
-            pt_offsets,
+            ret.point_offsets,
             coords_float,
             instance_info,
             instance_labels,
         )
         if self.use_instance_segmentation:
             loss_inp["proposal_scores"] = (
-                scores,
-                proposals_idx,
-                proposals_offset,
+                ret.proposal_scores,
+                ret.proposal_indices,
+                ret.proposal_offsets,
                 instance_pointnum,
             )
 
-        return self.loss_fn(loss_inp, epoch)
+        return self.loss_fn(loss_inp)
 
-    def loss_fn(self, loss_inp, epoch):
+    def loss_fn(self, loss_inp):
 
         loss_out = {}
         infos = {}
