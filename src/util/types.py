@@ -70,8 +70,11 @@ class PointGroupBatch(PointGroupInput):
     id: list = field(default_factory=list)
     test_filename: Path = None
 
+    device: str = "cpu"
+
     def to(self, device):
         """Cast all tensor-type attributes to device"""
+        self.device = device
         for fieldname, data in self.__dict__.items():
             if type(data) == torch.Tensor:
                 setattr(self, fieldname, data.to(device))
