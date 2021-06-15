@@ -8,23 +8,23 @@ class PointGroupInput:
     """Input type of Point Group forward function."""
 
     # features of inputs (e.g. color channels)
-    features: torch.tensor = torch.tensor([])
+    features: torch.Tensor = torch.tensor([])
 
     # mapping from points to voxels
-    point_to_voxel_map: torch.tensor = torch.tensor([])
+    point_to_voxel_map: torch.Tensor = torch.tensor([])
 
     # mapping from voxels to points
-    voxel_to_point_map: torch.tensor = torch.tensor([])
+    voxel_to_point_map: torch.Tensor = torch.tensor([])
 
     # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
     # TODO: Not sure what coordinates these are
-    coordinates: torch.tensor = torch.tensor([])
+    coordinates: torch.Tensor = torch.tensor([])
 
     # input points, float (N, 3)
-    point_coordinates: torch.tensor = torch.tensor([])
+    point_coordinates: torch.Tensor = torch.tensor([])
 
     # Coordinates of voxels
-    voxel_coordinates: torch.tensor = torch.tensor([])
+    voxel_coordinates: torch.Tensor = torch.tensor([])
 
     spatial_shape: int = 3  # TODO: not sure
 
@@ -38,15 +38,15 @@ class PointGroupOutput:
     """Output type of Point Group forward function."""
 
     # scores across all classes for each point (# Points, # Classes)
-    semantic_scores: torch.tensor
+    semantic_scores: torch.Tensor
 
     # Point offsets of each cluster
-    point_offsets: torch.tensor
+    point_offsets: torch.Tensor
 
     # scores of specific instances (TODO: rename this variable)
-    proposal_scores: torch.tensor  # = None
-    proposal_offsets: torch.tensor  # = None
-    proposal_indices: torch.tensor  # = None
+    proposal_scores: torch.Tensor
+    proposal_offsets: torch.Tensor
+    proposal_indices: torch.Tensor
 
     @property
     def semantic_pred(self):
@@ -60,12 +60,12 @@ class PointGroupOutput:
 class PointGroupBatch(PointGroupInput):
     """Batch type containing all fields required for training."""
 
-    labels: torch.tensor = torch.tensor([])
-    instance_labels: torch.tensor = torch.tensor([])
-    instance_info: torch.tensor = torch.tensor([])
-    instance_pointnum: torch.tensor = torch.tensor([])
-    id: torch.tensor = torch.tensor([])
-    offsets: torch.tensor = torch.tensor([])
+    labels: torch.Tensor = torch.tensor([])
+    instance_labels: torch.Tensor = torch.tensor([])
+    instance_info: torch.Tensor = torch.tensor([])
+    instance_pointnum: torch.Tensor = torch.tensor([])
+    id: torch.Tensor = torch.tensor([])
+    offsets: torch.Tensor = torch.tensor([])
 
     id: list = field(default_factory=list)
     test_filename: Path = None
@@ -77,6 +77,10 @@ class PointGroupBatch(PointGroupInput):
                 setattr(self, fieldname, data.to(device))
 
         return self
+
+    @property
+    def batch_size(self):
+        return len(self)
 
     def __len__(self):
         """Return the size of the batch."""

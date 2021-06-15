@@ -206,6 +206,7 @@ class PointGroup(nn.Module):
         self.training_params = cfg.model.train
         self.cluster = cfg.model.cluster
         self.structure = cfg.model.structure
+        self.test_cfg = cfg.model.test
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
@@ -307,7 +308,7 @@ class PointGroup(nn.Module):
         proposals_offset = None
         if return_instances:
 
-            #### get prooposal clusters
+            #### get proposal clusters
 
             # Get indices of points that are predicted to be objects
             object_idxs = torch.nonzero(semantic_preds > 1).view(-1)
@@ -317,7 +318,7 @@ class PointGroup(nn.Module):
             # with batch offsets being what you need to add to the index to get correct batch
             batch_idxs_ = input.batch_indices[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
-            coords_ = input.coords[object_idxs]
+            coords_ = input.point_coordinates[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
 
             semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
@@ -369,10 +370,10 @@ class PointGroup(nn.Module):
                 proposals_idx,
                 proposals_offset,
                 output_feats,
-                input.coordinates,
+                input.point_coordinates,
                 self.training_params.score_fullscale,
                 self.training_params.score_scale,
-                self.training_params.mode,
+                self.training_params.score_mode,
             )
 
             #### score
@@ -391,6 +392,74 @@ class PointGroup(nn.Module):
             proposal_indices=proposals_idx,
             proposal_offsets=proposals_offset,
         )
+
+    def get_clusters(self, input: PointGroupInput, output: PointGroupOutput):
+        """Process the proposed clusters to get a final output of instances."""
+        scores = output.proposal_scores
+        scores_pred = torch.sigmoid(scores.view(-1))
+
+        N = input.features.shape[0]
+
+        proposals_idx = output.proposal_indices
+        proposals_offset = output.proposal_offsets
+
+        proposals_pred = torch.zeros(
+            (proposals_offset.shape[0] - 1, N),
+            dtype=torch.int,
+            device=scores_pred.device,
+        )
+        proposals_pred[proposals_idx[:, 0].long(), proposals_idx[:, 1].long()] = 1
+
+        semantic_id = torch.tensor(semantic_label_idx, device=scores_pred.device)[
+            output.semantic_pred[
+                proposals_idx[:, 1][proposals_offset[:-1].long()].long()
+            ]
+        ]
+
+        ##### score threshold
+        score_mask = scores_pred > self.test_cfg.TEST_SCORE_THRESH
+        scores_pred = scores_pred[score_mask]
+        proposals_pred = proposals_pred[score_mask]
+        semantic_id = semantic_id[score_mask]
+
+        ##### npoint threshold
+        proposals_pointnum = proposals_pred.sum(1)
+        npoint_mask = proposals_pointnum > self.test_cfg.TEST_NPOINT_THRESH
+        scores_pred = scores_pred[npoint_mask]
+        proposals_pred = proposals_pred[npoint_mask]
+        semantic_id = semantic_id[npoint_mask]
+
+        ##### nms
+        if semantic_id.shape[0] == 0:
+            pick_idxs = np.empty(0)
+        else:
+            proposals_pred_f = proposals_pred.float()
+            intersection = torch.mm(proposals_pred_f, proposals_pred_f.t())
+            proposals_pointnum = proposals_pred_f.sum(1)
+            proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(
+                1, proposals_pointnum.shape[0]
+            )
+            proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(
+                proposals_pointnum.shape[0], 1
+            )
+            cross_ious = intersection / (proposals_pn_h + proposals_pn_v - intersection)
+            pick_idxs = non_max_suppression(
+                cross_ious.cpu().numpy(),
+                scores_pred.cpu().numpy(),
+                self.test_cfg.TEST_NMS_THRESH,
+            )
+
+        clusters = proposals_pred[pick_idxs]
+        cluster_scores = scores_pred[pick_idxs]
+        cluster_semantic_id = semantic_id[pick_idxs]
+
+        pred_info = {}
+        with torch.no_grad():
+            pred_info["conf"] = cluster_scores.cpu().numpy()
+            pred_info["label_id"] = cluster_semantic_id.cpu().numpy()
+            pred_info["mask"] = clusters.cpu().numpy()
+
+        return pred_info
 
     @staticmethod
     def set_bn_init(m):
@@ -476,89 +545,24 @@ class PointGroupWrapper(pl.LightningModule):
             o3d.visualization.draw_geometries([pcd])
 
         if self.return_instances:
-            scores = preds.proposal_scores  # (nProposal, 1) float, cuda
-            scores_pred = torch.sigmoid(scores.view(-1))
+            pred_info = self.model.get_clusters(batch, preds)
 
-            N = batch.features.shape[0]
+            # TODO need to add this to the batch loader
+            test_scene_name = batch.test_filename
+            gt_file = os.path.join(
+                self.dataset_dir,
+                self.test_cfg.split + "_gt",
+                test_scene_name + ".txt",
+            )
+            gt2pred, pred2gt = eval.assign_instances_for_scan(
+                test_scene_name, pred_info, gt_file
+            )
+            matches = {}
+            matches["test_scene_name"] = test_scene_name
+            matches["gt"] = gt2pred
+            matches["pred"] = pred2gt
 
-            proposals_idx = preds.proposal_indices
-            proposals_offset = preds.proposal_offsets
-
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-            proposals_pred = torch.zeros(
-                (proposals_offset.shape[0] - 1, N),
-                dtype=torch.int,
-                device=scores_pred.device,
-            )  # (nProposal, N), int, cuda
-            proposals_pred[proposals_idx[:, 0].long(), proposals_idx[:, 1].long()] = 1
-
-            semantic_id = torch.tensor(semantic_label_idx, device=scores_pred.device)[
-                semantic_pred[proposals_idx[:, 1][proposals_offset[:-1].long()].long()]
-            ]  # (nProposal), long
-
-            ##### score threshold
-            score_mask = scores_pred > self.test_cfg.TEST_SCORE_THRESH
-            scores_pred = scores_pred[score_mask]
-            proposals_pred = proposals_pred[score_mask]
-            semantic_id = semantic_id[score_mask]
-
-            ##### npoint threshold
-            proposals_pointnum = proposals_pred.sum(1)
-            npoint_mask = proposals_pointnum > self.test_cfg.TEST_NPOINT_THRESH
-            scores_pred = scores_pred[npoint_mask]
-            proposals_pred = proposals_pred[npoint_mask]
-            semantic_id = semantic_id[npoint_mask]
-
-            ##### nms
-            if semantic_id.shape[0] == 0:
-                pick_idxs = np.empty(0)
-            else:
-                proposals_pred_f = proposals_pred.float()  # (nProposal, N), float, cuda
-                intersection = torch.mm(
-                    proposals_pred_f, proposals_pred_f.t()
-                )  # (nProposal, nProposal), float, cuda
-                proposals_pointnum = proposals_pred_f.sum(1)  # (nProposal), float, cuda
-                proposals_pn_h = proposals_pointnum.unsqueeze(-1).repeat(
-                    1, proposals_pointnum.shape[0]
-                )
-                proposals_pn_v = proposals_pointnum.unsqueeze(0).repeat(
-                    proposals_pointnum.shape[0], 1
-                )
-                cross_ious = intersection / (
-                    proposals_pn_h + proposals_pn_v - intersection
-                )
-                pick_idxs = non_max_suppression(
-                    cross_ious.cpu().numpy(),
-                    scores_pred.cpu().numpy(),
-                    self.test_cfg.TEST_NMS_THRESH,
-                )  # int, (nCluster, N)
-            clusters = proposals_pred[pick_idxs]
-            cluster_scores = scores_pred[pick_idxs]
-            cluster_semantic_id = semantic_id[pick_idxs]
-
-            with torch.no_grad():
-                pred_info = {}
-                pred_info["conf"] = cluster_scores.cpu().numpy()
-                pred_info["label_id"] = cluster_semantic_id.cpu().numpy()
-                pred_info["mask"] = clusters.cpu().numpy()
-
-                # TODO need to add this to the batch loader
-                test_scene_name = batch["test_filename"]
-                gt_file = os.path.join(
-                    self.dataset_dir,
-                    self.split + "_gt",
-                    test_scene_name + ".txt",
-                )
-                gt2pred, pred2gt = eval.assign_instances_for_scan(
-                    test_scene_name, pred_info, gt_file
-                )
-                matches = {}
-                matches["test_scene_name"] = test_scene_name
-                matches["gt"] = gt2pred
-                matches["pred"] = pred2gt
-
-                return matches
+            return matches
 
     def test_epoch_end(self, outputs) -> None:
         matches = {}
@@ -611,7 +615,9 @@ class PointGroupWrapper(pl.LightningModule):
                 instance_pointnum,
             )  # (nProposal, nInstance), float
             gt_ious, _ = ious.max(1)  # (nProposal) float, long
-            gt_scores = get_segmented_scores(gt_ious, self.fg_thresh, self.bg_thresh)
+            gt_scores = get_segmented_scores(
+                gt_ious, self.train_cfg.fg_thresh, self.train_cfg.bg_thresh
+            )
 
             score_loss = self.score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
             score_loss = score_loss.mean()
@@ -626,7 +632,7 @@ class PointGroupWrapper(pl.LightningModule):
         )
 
         if self.return_instances:
-            loss += self.loss_weight[3] * score_loss
+            loss += self.train_cfg.loss_weight[3] * score_loss
 
         return LossType(
             semantic_loss=semantic_loss,
