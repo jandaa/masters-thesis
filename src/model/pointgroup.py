@@ -19,7 +19,7 @@ from spconv.modules import SparseModule
 from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
 import util.eval as eval
-from util.types import PointGroupBatch, PointGroupInput, PointGroupOutput
+from util.types import PointGroupBatch, PointGroupInput, PointGroupOutput, LossType
 
 log = logging.getLogger(__name__)
 
@@ -272,7 +272,7 @@ class PointGroup(nn.Module):
     def forward(
         self,
         input: PointGroupInput,
-        return_instance_segmentation: bool = False,
+        return_instances: bool = False,
     ):
         if self.structure.use_coords:
             features = torch.cat((input.features, input.point_coordinates), 1)
@@ -305,7 +305,7 @@ class PointGroup(nn.Module):
         scores = None
         proposals_idx = None
         proposals_offset = None
-        if return_instance_segmentation:
+        if return_instances:
 
             #### get prooposal clusters
 
@@ -428,47 +428,34 @@ class PointGroupWrapper(pl.LightningModule):
         self.score_criterion = nn.BCELoss(reduction="none")
 
     @property
-    def use_instance_segmentation(self):
-        """Return whether should be using instance segmentation based on the learning curriculum"""
+    def return_instances(self):
+        """
+        Return whether should be using instance segmentation based on the learning curriculum
+        """
         return self.current_epoch > self.train_cfg.prepare_epochs
 
-    def training_step(self, batch, batch_idx):
-        loss, loss_out, _ = self.shared_step(batch)
+    def training_step(self, batch: PointGroupBatch, batch_idx: int):
+        output = self.model(batch, return_instances=self.return_instances)
+        loss = self.loss_fn(batch, output)
 
         # Log losses
-        self.log("train_loss", loss, on_step=True, on_epoch=True)
-        self.log(
-            "semantic_loss", loss_out["semantic_loss"][0], on_step=True, on_epoch=True
-        )
-        self.log(
-            "offset_norm_loss",
-            loss_out["offset_norm_loss"][0],
-            on_step=True,
-            on_epoch=True,
-        )
-        self.log(
-            "offset_dir_loss",
-            loss_out["offset_dir_loss"][0],
-            on_step=True,
-            on_epoch=True,
-        )
-        if self.use_instance_segmentation:
-            self.log(
-                "score_loss", loss_out["score_loss"][0], on_step=True, on_epoch=True
-            )
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss.total_loss)
+        log("semantic_loss", loss.semantic_loss)
+        log("offset_norm_loss", loss.offset_norm_loss)
+        log("offset_dir_loss", loss.offset_dir_loss)
+        if self.return_instances:
+            log("score_loss", loss.score_loss)
 
-        return loss
+        return loss.total_loss
 
-    def validation_step(self, batch, batch_idx):
-        loss, _, _ = self.shared_step(batch)
-        self.log("val_loss", loss)
+    def validation_step(self, batch: PointGroupBatch, batch_idx: int):
+        output = self.model(batch, return_instances=self.return_instances)
+        loss = self.loss_fn(batch, output)
+        self.log("val_loss", loss.total_loss)
 
-    def test_step(self, batch, batch_idx):
-
-        preds = self.model(
-            batch,
-            return_instance_segmentation=self.use_instance_segmentation,
-        )
+    def test_step(self, batch: PointGroupBatch, batch_idx: int):
+        preds = self.model(batch, return_instances=self.return_instances)
 
         # Save with colours
         semantic_pred = preds.semantic_pred.detach().cpu().numpy()
@@ -488,7 +475,7 @@ class PointGroupWrapper(pl.LightningModule):
             )
             o3d.visualization.draw_geometries([pcd])
 
-        if self.use_instance_segmentation:
+        if self.return_instances:
             scores = preds.proposal_scores  # (nProposal, 1) float, cuda
             scores_pred = torch.sigmoid(scores.view(-1))
 
@@ -550,8 +537,6 @@ class PointGroupWrapper(pl.LightningModule):
             cluster_scores = scores_pred[pick_idxs]
             cluster_semantic_id = semantic_id[pick_idxs]
 
-            nclusters = clusters.shape[0]
-
             with torch.no_grad():
                 pred_info = {}
                 pred_info["conf"] = cluster_scores.cpu().numpy()
@@ -587,94 +572,51 @@ class PointGroupWrapper(pl.LightningModule):
         avgs = eval.compute_averages(ap_scores)
         eval.print_results(avgs)
 
-    def shared_step(self, batch):
-        """
-        Shared step between training and validation functions.
-        Runs model on batch and computes loss.
-        """
-
-        ret = self.model(
-            batch,
-            return_instance_segmentation=self.use_instance_segmentation,
-        )
-
-        loss_inp = {}
-        loss_inp["semantic_scores"] = (ret.semantic_scores, batch.labels)
-        loss_inp["pt_offsets"] = (
-            ret.point_offsets,
-            batch.point_coordinates,
-            batch.instance_info,
-            batch.instance_labels,
-        )
-        if self.use_instance_segmentation:
-            loss_inp["proposal_scores"] = (
-                ret.proposal_scores,
-                ret.proposal_indices,
-                ret.proposal_offsets,
-                batch.instance_pointnum,
-            )
-
-        return self.loss_fn(loss_inp)
-
-    def loss_fn(self, loss_inp):
-
-        loss_out = {}
-        infos = {}
+    def loss_fn(self, batch, output):
 
         """semantic loss"""
-        semantic_scores, semantic_labels = loss_inp["semantic_scores"]
-        # semantic_scores: (N, nClass), float32, cuda
-        # semantic_labels: (N), long, cuda
+        semantic_scores = output.semantic_scores
+        semantic_labels = batch.labels
 
         semantic_loss = self.semantic_criterion(semantic_scores, semantic_labels)
-        loss_out["semantic_loss"] = (semantic_loss, semantic_scores.shape[0])
 
         """offset loss"""
-        pt_offsets, coords, instance_info, instance_labels = loss_inp["pt_offsets"]
-        # pt_offsets: (N, 3), float, cuda
-        # coords: (N, 3), float32
-        # instance_info: (N, 9), float32 tensor (meanxyz, minxyz, maxxyz)
-        # instance_labels: (N), long
-
-        gt_offsets = instance_info[:, 0:3] - coords  # (N, 3)
-        pt_diff = pt_offsets - gt_offsets  # (N, 3)
+        gt_offsets = batch.instance_info[:, 0:3] - batch.point_coordinates  # (N, 3)
+        pt_diff = output.point_offsets - gt_offsets  # (N, 3)
         pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
-        valid = (instance_labels != self.dataset_cfg.ignore_label).float()
+        valid = (batch.instance_labels != self.dataset_cfg.ignore_label).float()
         offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
         gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)  # (N), float
         gt_offsets_ = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
-        pt_offsets_norm = torch.norm(pt_offsets, p=2, dim=1)
-        pt_offsets_ = pt_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
+        pt_offsets_norm = torch.norm(output.point_offsets, p=2, dim=1)
+        pt_offsets_ = output.point_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
         direction_diff = -(gt_offsets_ * pt_offsets_).sum(-1)  # (N)
         offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
 
-        loss_out["offset_norm_loss"] = (offset_norm_loss, valid.sum())
-        loss_out["offset_dir_loss"] = (offset_dir_loss, valid.sum())
+        """score loss"""
+        score_loss = 0
+        number_of_instances = 0
+        if self.return_instances:
 
-        if self.use_instance_segmentation:
-            """score loss"""
-            scores, proposals_idx, proposals_offset, instance_pointnum = loss_inp[
-                "proposal_scores"
-            ]
-            # scores: (nProposal, 1), float32
-            # proposals_idx: (sumNPoint, 2), int, cpu, dim 0 for cluster_id, dim 1 for corresponding point idxs in N
-            # proposals_offset: (nProposal + 1), int, cpu
-            # instance_pointnum: (total_nInst), int
+            scores = output.proposal_scores
+            proposals_idx = output.proposal_indices
+            proposals_offset = output.proposal_offsets
+            instance_pointnum = batch.instance_pointnum
 
             ious = pointgroup_ops.get_iou(
                 proposals_idx[:, 1].cuda(),
                 proposals_offset.cuda(),
-                instance_labels,
+                batch.instance_labels,
                 instance_pointnum,
             )  # (nProposal, nInstance), float
-            gt_ious, gt_instance_idxs = ious.max(1)  # (nProposal) float, long
+            gt_ious, _ = ious.max(1)  # (nProposal) float, long
             gt_scores = get_segmented_scores(gt_ious, self.fg_thresh, self.bg_thresh)
 
             score_loss = self.score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
             score_loss = score_loss.mean()
 
-            loss_out["score_loss"] = (score_loss, gt_ious.shape[0])
+            number_of_instances = gt_ious.shape[0]
 
         """total loss"""
         loss = (
@@ -683,10 +625,19 @@ class PointGroupWrapper(pl.LightningModule):
             + self.train_cfg.loss_weight[2] * offset_dir_loss
         )
 
-        if self.use_instance_segmentation:
+        if self.return_instances:
             loss += self.loss_weight[3] * score_loss
 
-        return loss, loss_out, infos
+        return LossType(
+            semantic_loss=semantic_loss,
+            offset_norm_loss=offset_norm_loss,
+            offset_dir_loss=offset_dir_loss,
+            score_loss=score_loss,
+            number_of_instances=number_of_instances,
+            number_of_points=semantic_scores.shape[0],
+            number_of_valid_labels=int(valid.sum()),
+            total_loss=loss,
+        )
 
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
         torch.cuda.empty_cache()

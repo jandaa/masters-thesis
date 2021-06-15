@@ -51,7 +51,7 @@ class PointGroupOutput:
     @property
     def semantic_pred(self):
         if self.semantic_scores.numel():
-            return self.semantic_scores.max(1)[1]  # (N) long, cuda
+            return self.semantic_scores.max(1)[1]
         else:
             raise RuntimeError("No semantic scores are set")
 
@@ -81,3 +81,22 @@ class PointGroupBatch(PointGroupInput):
     def __len__(self):
         """Return the size of the batch."""
         return len(self.id)
+
+
+@dataclass
+class LossType:
+    """Loss type containing all different types of losses"""
+
+    # Semantic Segmentation Loss
+    semantic_loss: torch.Tensor
+    offset_norm_loss: torch.Tensor
+    offset_dir_loss: torch.Tensor
+    number_of_points: int
+    number_of_valid_labels: int
+
+    # Instance Segmentation Loss
+    score_loss: torch.Tensor
+    number_of_instances: int
+
+    # Total loss
+    total_loss: torch.Tensor
