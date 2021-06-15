@@ -16,8 +16,7 @@ import scipy.ndimage
 import scipy.interpolate
 from packages.pointgroup_ops.functions import pointgroup_ops
 
-from util.types import PointGroupBatch, PointGroupInput
-from dataclasses import asdict
+from util.types import PointGroupBatch
 
 log = logging.getLogger(__name__)
 
@@ -76,7 +75,7 @@ class ScannetDataModule(pl.LightningDataModule):
         return DataLoader(
             list(range(len(self.test_files))),
             batch_size=1,
-            collate_fn=self.testMerge,
+            collate_fn=self.test_merge,
             num_workers=self.test_workers,
             shuffle=False,
             drop_last=False,
@@ -226,7 +225,18 @@ class ScannetDataModule(pl.LightningDataModule):
     def val_merge(self, id):
         return self.merge(id, self.val_files)
 
-    def merge(self, id, files):
+    def test_merge(self, id):
+        return self.merge(id, self.test_files, is_test=True)
+
+    def merge(self, id, files, is_test=False):
+
+        # Make sure valid test split option is specified
+        if is_test and self.test_split not in ["val", "test"]:
+            raise RuntimeError(f"Wrong test split: {self.test_split}")
+
+        # Whether semantics and instance labels are available
+        are_labels_available = is_test and self.test_split == "val" or not is_test
+
         locs = []
         locs_float = []
         feats = []
@@ -240,41 +250,66 @@ class ScannetDataModule(pl.LightningDataModule):
 
         total_inst_num = 0
         for i, idx in enumerate(id):
-            xyz_origin, rgb, label, instance_label = files[idx]
 
-            ### jitter / flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, True, True, True)
+            if are_labels_available:
+                xyz_origin, rgb, label, instance_label = files[idx]
+            else:
+                xyz_origin, rgb = self.test_files[idx]
 
-            ### scale
-            xyz = xyz_middle * self.scale
+            if is_test:
 
-            ### elastic
-            xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-            xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+                xyz_middle = self.dataAugment(xyz_origin, False, True, True)
 
-            ### offset
-            xyz -= xyz.min(0)
+                xyz = xyz_middle * self.scale
 
-            ### crop
-            xyz, valid_idxs = self.crop(xyz)
+                xyz -= xyz.min(0)
 
-            xyz_middle = xyz_middle[valid_idxs]
-            xyz = xyz[valid_idxs]
-            rgb = rgb[valid_idxs]
-            label = label[valid_idxs]
-            instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
+                feats.append(torch.from_numpy(rgb))
 
-            ### get instance information
-            inst_num, inst_infos = self.getInstanceInfo(
-                xyz_middle, instance_label.astype(np.int32)
-            )
-            inst_info = inst_infos[
-                "instance_info"
-            ]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-            inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
+            else:
+                ### jitter / flip x / rotation
+                xyz_middle = self.dataAugment(xyz_origin, True, True, True)
 
-            instance_label[np.where(instance_label != -100)] += total_inst_num
-            total_inst_num += inst_num
+                ### scale
+                xyz = xyz_middle * self.scale
+
+                ### elastic
+                xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
+                xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+
+                ### offset
+                xyz -= xyz.min(0)
+
+                ### crop
+                xyz, valid_idxs = self.crop(xyz)
+
+                xyz_middle = xyz_middle[valid_idxs]
+                xyz = xyz[valid_idxs]
+                rgb = rgb[valid_idxs]
+                label = label[valid_idxs]
+                instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
+
+                feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
+
+            if are_labels_available:
+                ### get instance information
+                inst_num, inst_infos = self.getInstanceInfo(
+                    xyz_middle, instance_label.astype(np.int32)
+                )
+                inst_info = inst_infos[
+                    "instance_info"
+                ]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+                inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
+
+                instance_label[np.where(instance_label != -100)] += total_inst_num
+                total_inst_num += inst_num
+
+                # Add training and validation info
+                instance_infos.append(torch.from_numpy(inst_info))
+                instance_pointnum.extend(inst_pointnum)
+
+                labels.append(torch.from_numpy(label))
+                instance_labels.append(torch.from_numpy(instance_label))
 
             ### merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
@@ -289,12 +324,6 @@ class ScannetDataModule(pl.LightningDataModule):
                 )
             )
             locs_float.append(torch.from_numpy(xyz_middle))
-            feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
-            labels.append(torch.from_numpy(label))
-            instance_labels.append(torch.from_numpy(instance_label))
-
-            instance_infos.append(torch.from_numpy(inst_info))
-            instance_pointnum.extend(inst_pointnum)
 
         ### merge all the scenes in the batchd
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
@@ -304,15 +333,6 @@ class ScannetDataModule(pl.LightningDataModule):
         )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
         locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
         feats = torch.cat(feats, 0)  # float (N, C)
-        labels = torch.cat(labels, 0).long()  # long (N)
-        instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
-
-        instance_infos = torch.cat(instance_infos, 0).to(
-            torch.float32
-        )  # float (N, 9) (meanxyz, minxyz, maxxyz)
-        instance_pointnum = torch.tensor(
-            instance_pointnum, dtype=torch.int
-        )  # int (total_nInst)
 
         spatial_shape = np.clip(
             (locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None
@@ -322,6 +342,24 @@ class ScannetDataModule(pl.LightningDataModule):
         voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
             locs, self.batch_size, self.mode
         )
+
+        if are_labels_available:
+            labels = torch.cat(labels, 0).long()  # long (N)
+            instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
+
+            instance_infos = torch.cat(instance_infos, 0).to(
+                torch.float32
+            )  # float (N, 9) (meanxyz, minxyz, maxxyz)
+            instance_pointnum = torch.tensor(
+                instance_pointnum, dtype=torch.int
+            )  # int (total_nInst)
+
+        if is_test:
+            test_filename = Path(self.test_filenames[id[0]]).stem.replace(
+                "_inst_nostuff", ""
+            )
+        else:
+            test_filename = None
 
         return PointGroupBatch(
             coordinates=locs,
@@ -337,77 +375,5 @@ class ScannetDataModule(pl.LightningDataModule):
             offsets=batch_offsets,
             id=id,
             spatial_shape=spatial_shape,
+            test_filename=test_filename,
         )
-
-    def testMerge(self, id):
-        locs = []
-        locs_float = []
-        feats = []
-
-        batch_offsets = [0]
-
-        for i, idx in enumerate(id):
-            if self.test_split == "val":
-                xyz_origin, rgb, label, instance_label = self.test_files[idx]
-            elif self.test_split == "test":
-                xyz_origin, rgb = self.test_files[idx]
-            else:
-                print("Wrong test split: {}!".format(self.test_split))
-                exit(0)
-
-            ### flip x / rotation
-            xyz_middle = self.dataAugment(xyz_origin, False, True, True)
-
-            ### scale
-            xyz = xyz_middle * self.scale
-
-            ### offset
-            xyz -= xyz.min(0)
-
-            ### merge the scene to the batch
-            batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
-
-            locs.append(
-                torch.cat(
-                    [
-                        torch.LongTensor(xyz.shape[0], 1).fill_(i),
-                        torch.from_numpy(xyz).long(),
-                    ],
-                    1,
-                )
-            )
-            locs_float.append(torch.from_numpy(xyz_middle))
-            feats.append(torch.from_numpy(rgb))
-
-        ### merge all the scenes in the batch
-        batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
-
-        locs = torch.cat(
-            locs, 0
-        )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        feats = torch.cat(feats, 0)  # float (N, C)
-
-        spatial_shape = np.clip(
-            (locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None
-        )  # long (3)
-
-        ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
-            locs, self.batch_size, self.mode
-        )
-
-        return {
-            "locs": locs,
-            "voxel_locs": voxel_locs,
-            "p2v_map": p2v_map,
-            "v2p_map": v2p_map,
-            "locs_float": locs_float,
-            "feats": feats,
-            "id": id,
-            "offsets": batch_offsets,
-            "spatial_shape": spatial_shape,
-            "test_filename": Path(self.test_filenames[id[0]]).stem.replace(
-                "_inst_nostuff", ""
-            ),
-        }

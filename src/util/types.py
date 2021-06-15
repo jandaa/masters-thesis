@@ -50,7 +50,7 @@ class PointGroupOutput:
 
     @property
     def semantic_pred(self):
-        if self.semantic_scores:
+        if self.semantic_scores.numel():
             return self.semantic_scores.max(1)[1]  # (N) long, cuda
         else:
             raise RuntimeError("No semantic scores are set")

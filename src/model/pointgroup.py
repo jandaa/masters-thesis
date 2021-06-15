@@ -19,7 +19,7 @@ from spconv.modules import SparseModule
 from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
 import util.eval as eval
-from util.types import PointGroupInput, PointGroupOutput
+from util.types import PointGroupBatch, PointGroupInput, PointGroupOutput
 
 log = logging.getLogger(__name__)
 
@@ -463,13 +463,10 @@ class PointGroupWrapper(pl.LightningModule):
         loss, _, _ = self.shared_step(batch)
         self.log("val_loss", loss)
 
-    def test_step(self, batch):
+    def test_step(self, batch, batch_idx):
 
-        coords_float = batch["locs_float"]  # (N, 3), float32, cuda
-
-        input = PointGroupInput.from_batch(batch)
         preds = self.model(
-            input,
+            batch,
             return_instance_segmentation=self.use_instance_segmentation,
         )
 
@@ -480,7 +477,9 @@ class PointGroupWrapper(pl.LightningModule):
         # TODO: Save these to a file to visualize after
         if self.save_point_cloud:
             pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(coords_float.cpu().numpy())
+            pcd.points = o3d.utility.Vector3dVector(
+                batch.point_coordinates.cpu().numpy()
+            )
             pcd.colors = o3d.utility.Vector3dVector(
                 np.array(
                     [self.semantic_colours[pred] for pred in semantic_pred]
@@ -493,7 +492,7 @@ class PointGroupWrapper(pl.LightningModule):
             scores = preds.proposal_scores  # (nProposal, 1) float, cuda
             scores_pred = torch.sigmoid(scores.view(-1))
 
-            N = batch["feats"].shape[0]
+            N = batch.features.shape[0]
 
             proposals_idx = preds.proposal_indices
             proposals_offset = preds.proposal_offsets
