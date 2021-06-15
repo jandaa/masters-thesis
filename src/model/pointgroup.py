@@ -3,7 +3,7 @@ from omegaconf import DictConfig
 from collections import OrderedDict
 import functools
 
-
+from pathlib import Path
 import numpy as np
 import open3d as o3d
 
@@ -19,6 +19,7 @@ from spconv.modules import SparseModule
 from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
 import util.eval as eval
+import util.eval_semantic as eval_semantic
 from util.types import PointGroupBatch, PointGroupInput, PointGroupOutput, LossType
 
 log = logging.getLogger(__name__)
@@ -489,7 +490,7 @@ class PointGroupWrapper(pl.LightningModule):
         self.use_coords = cfg.model.structure.use_coords
         self.test_cfg = cfg.model.test
 
-        self.save_point_cloud = False
+        self.save_point_cloud = True
 
         self.semantic_colours = [
             np.random.choice(range(256), size=3) for i in range(cfg.dataset.classes)
@@ -530,12 +531,50 @@ class PointGroupWrapper(pl.LightningModule):
     def test_step(self, batch: PointGroupBatch, batch_idx: int):
         preds = self.model(batch, return_instances=self.return_instances)
 
-        # Save with colours
+        matches = {}
+        matches["test_scene_name"] = batch.test_filename
+
+        # Semantic eval
         semantic_pred = preds.semantic_pred.detach().cpu().numpy()
+
+        gt_file = os.path.join(
+            self.dataset_dir,
+            self.test_cfg.split + "_gt",
+            batch.test_filename + "_semantic.txt",
+        )
+        semantic_gt = np.loadtxt(gt_file, dtype=np.int64)
+
+        matches["semantic"] = {"gt": semantic_gt, "pred": semantic_pred}
+
+        # instance eval
+        if self.return_instances:
+            pred_info = self.model.get_clusters(batch, preds)
+
+            # TODO need to add this to the batch loader
+            gt_file = os.path.join(
+                self.dataset_dir,
+                self.test_cfg.split + "_gt",
+                batch.test_filename + ".txt",
+            )
+
+            gt2pred, pred2gt = eval.assign_instances_for_scan(
+                batch.test_filename, pred_info, gt_file
+            )
+
+            matches["instance"] = {"gt": gt2pred, "pred": pred2gt}
 
         # Save to file
         # TODO: Save these to a file to visualize after
         if self.save_point_cloud:
+
+            point_cloud_folder = Path.cwd() / "predictions"
+            if not point_cloud_folder.exists():
+                point_cloud_folder.mkdir()
+            point_cloud_folder /= batch.test_filename
+            if not point_cloud_folder.exists():
+                point_cloud_folder.mkdir()
+
+            # Save semantic prediction
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(
                 batch.point_coordinates.cpu().numpy()
@@ -546,39 +585,47 @@ class PointGroupWrapper(pl.LightningModule):
                 ).astype(np.float)
                 / 255.0
             )
-            o3d.visualization.draw_geometries([pcd])
+            # o3d.visualization.draw_geometries([pcd])
+            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic.pcd"), pcd)
 
-        if self.return_instances:
-            pred_info = self.model.get_clusters(batch, preds)
+            # get instance colours
+            instance_colours = np.zeros((len(batch.point_coordinates), 3))
+            nMask = pred_info["label_id"].shape[0]
+            for i in range(nMask):
+                instance_colours[pred_info["mask"][i]] = (
+                    np.random.choice(range(256), size=3).astype(np.float) / 255.0
+                )
 
-            # TODO need to add this to the batch loader
-            test_scene_name = batch.test_filename
-            gt_file = os.path.join(
-                self.dataset_dir,
-                self.test_cfg.split + "_gt",
-                test_scene_name + ".txt",
-            )
-            gt2pred, pred2gt = eval.assign_instances_for_scan(
-                test_scene_name, pred_info, gt_file
-            )
-            matches = {}
-            matches["test_scene_name"] = test_scene_name
-            matches["gt"] = gt2pred
-            matches["pred"] = pred2gt
+            # Save instance prediction
+            pcd.colors = o3d.utility.Vector3dVector(instance_colours)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "instance.pcd"), pcd)
 
-            return matches
+        return matches
 
     def test_epoch_end(self, outputs) -> None:
-        matches = {}
+
+        # Semantic eval
+        semantic_matches = {}
         for output in outputs:
             scene_name = output["test_scene_name"]
-            matches[scene_name] = {}
-            matches[scene_name]["gt"] = output["gt"]
-            matches[scene_name]["pred"] = output["pred"]
+            semantic_matches[scene_name] = {}
+            semantic_matches[scene_name]["gt"] = output["semantic"]["gt"]
+            semantic_matches[scene_name]["pred"] = output["semantic"]["pred"]
 
-        ap_scores = eval.evaluate_matches(matches)
-        avgs = eval.compute_averages(ap_scores)
-        eval.print_results(avgs)
+        eval_semantic.evaluate(semantic_matches)
+
+        # Instance eval
+        if self.return_instances:
+            instance_matches = {}
+            for output in outputs:
+                scene_name = output["test_scene_name"]
+                instance_matches[scene_name] = {}
+                instance_matches[scene_name]["gt"] = output["instance"]["gt"]
+                instance_matches[scene_name]["pred"] = output["instance"]["pred"]
+
+            ap_scores = eval.evaluate_matches(instance_matches)
+            avgs = eval.compute_averages(ap_scores)
+            eval.print_results(avgs)
 
     def loss_fn(self, batch, output):
 
