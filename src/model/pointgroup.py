@@ -528,12 +528,12 @@ class PointGroupWrapper(pl.LightningModule):
         return loss.total_loss
 
     def validation_step(self, batch: PointGroupBatch, batch_idx: int):
-        output = self.model(batch, return_instances=self.return_instances)
+        output = self.model(batch, self.device, return_instances=self.return_instances)
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss.total_loss, sync_dist=True)
 
     def test_step(self, batch: PointGroupBatch, batch_idx: int):
-        preds = self.model(batch, return_instances=self.return_instances)
+        preds = self.model(batch, self.device, return_instances=self.return_instances)
 
         matches = {}
         matches["test_scene_name"] = batch.test_filename
