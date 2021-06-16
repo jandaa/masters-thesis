@@ -42,7 +42,7 @@ class ScannetDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         _, self.train_files = self.load_data_files("train")
         _, self.val_files = self.load_data_files("val")
-        self.test_filenames, self.test_files = self.load_data_files("test")
+        self.test_filenames, self.test_files = self.load_data_files("val")
 
         log.info(f"Training samples: {len(self.train_files)}")
         log.info(f"Validation samples: {len(self.val_files)}")

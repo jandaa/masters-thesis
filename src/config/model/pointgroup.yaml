@@ -43,7 +43,7 @@ cluster:
   npoint_threshold: 50
 
 test:
-  split: test
+  split: val
   test_epoch: 384
   test_workers: 6
   test_seed: 567

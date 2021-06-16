@@ -601,8 +601,11 @@ class PointGroupWrapper(pl.LightningModule):
             o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_gt.pcd"), pcd)
 
             # Save instance predictions
-            self.color_point_cloud_instance(pcd, pred_info["mask"])
-            o3d.io.write_point_cloud(str(point_cloud_folder / "instance_pred.pcd"), pcd)
+            if self.return_instances:
+                self.color_point_cloud_instance(pcd, pred_info["mask"])
+                o3d.io.write_point_cloud(
+                    str(point_cloud_folder / "instance_pred.pcd"), pcd
+                )
 
             gt_ids = util_3d.load_ids(gt_file)
             instance_ids = set(gt_ids)
