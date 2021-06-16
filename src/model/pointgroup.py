@@ -275,6 +275,7 @@ class PointGroup(nn.Module):
     def forward(
         self,
         input: PointGroupInput,
+        device: str,
         return_instances: bool = False,
     ):
         if self.structure.use_coords:
@@ -353,6 +354,7 @@ class PointGroup(nn.Module):
                 self.training_params.score_fullscale,
                 self.training_params.score_scale,
                 self.training_params.score_mode,
+                device,
             )
 
             #### score
@@ -360,7 +362,7 @@ class PointGroup(nn.Module):
             score = self.score_outputlayer(score)
             score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
             score_feats = pointgroup_ops.roipool(
-                score_feats, proposals_offset.cuda()
+                score_feats, proposals_offset.to(device)
             )  # (nProposal, C)
             scores = self.score_linear(score_feats)  # (nProposal, 1)
 
@@ -511,11 +513,11 @@ class PointGroupWrapper(pl.LightningModule):
         return self.current_epoch > self.train_cfg.prepare_epochs
 
     def training_step(self, batch: PointGroupBatch, batch_idx: int):
-        output = self.model(batch, return_instances=self.return_instances)
+        output = self.model(batch, self.device, return_instances=self.return_instances)
         loss = self.loss_fn(batch, output)
 
         # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log = functools.partial(self.log, on_step=True, on_epoch=True, sync_dist=True)
         log("train_loss", loss.total_loss)
         log("semantic_loss", loss.semantic_loss)
         log("offset_norm_loss", loss.offset_norm_loss)
@@ -528,7 +530,7 @@ class PointGroupWrapper(pl.LightningModule):
     def validation_step(self, batch: PointGroupBatch, batch_idx: int):
         output = self.model(batch, return_instances=self.return_instances)
         loss = self.loss_fn(batch, output)
-        self.log("val_loss", loss.total_loss)
+        self.log("val_loss", loss.total_loss, sync_dist=True)
 
     def test_step(self, batch: PointGroupBatch, batch_idx: int):
         preds = self.model(batch, return_instances=self.return_instances)
@@ -692,8 +694,8 @@ class PointGroupWrapper(pl.LightningModule):
             instance_pointnum = batch.instance_pointnum
 
             ious = pointgroup_ops.get_iou(
-                proposals_idx[:, 1].cuda(),
-                proposals_offset.cuda(),
+                proposals_idx[:, 1].to(self.device),
+                proposals_offset.to(self.device),
                 batch.instance_labels,
                 instance_pointnum,
             )  # (nProposal, nInstance), float
@@ -751,7 +753,7 @@ class PointGroupWrapper(pl.LightningModule):
 
 
 def clusters_voxelization(
-    clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode
+    clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode, output_device
 ):
     """
     :param clusters_idx: (SumNPoint, 2), int, dim 0 for cluster_id, dim 1 for corresponding point idxs in N, cpu
@@ -760,23 +762,23 @@ def clusters_voxelization(
     :param coords: (N, 3), float, cuda
     :return:
     """
-    c_idxs = clusters_idx[:, 1].cuda()
+    c_idxs = clusters_idx[:, 1].to(output_device)
     clusters_feats = feats[c_idxs.long()]
     clusters_coords = coords[c_idxs.long()]
 
     clusters_coords_mean = pointgroup_ops.sec_mean(
-        clusters_coords, clusters_offset.cuda()
+        clusters_coords, clusters_offset.to(output_device)
     )  # (nCluster, 3), float
     clusters_coords_mean = torch.index_select(
-        clusters_coords_mean, 0, clusters_idx[:, 0].cuda().long()
+        clusters_coords_mean, 0, clusters_idx[:, 0].to(output_device).long()
     )  # (sumNPoint, 3), float
     clusters_coords -= clusters_coords_mean
 
     clusters_coords_min = pointgroup_ops.sec_min(
-        clusters_coords, clusters_offset.cuda()
+        clusters_coords, clusters_offset.to(output_device)
     )  # (nCluster, 3), float
     clusters_coords_max = pointgroup_ops.sec_max(
-        clusters_coords, clusters_offset.cuda()
+        clusters_coords, clusters_offset.to(output_device)
     )  # (nCluster, 3), float
 
     clusters_scale = (
@@ -788,7 +790,7 @@ def clusters_voxelization(
     max_xyz = clusters_coords_max * clusters_scale.unsqueeze(-1)
 
     clusters_scale = torch.index_select(
-        clusters_scale, 0, clusters_idx[:, 0].cuda().long()
+        clusters_scale, 0, clusters_idx[:, 0].to(output_device).long()
     )
 
     clusters_coords = clusters_coords * clusters_scale.unsqueeze(-1)
@@ -796,10 +798,12 @@ def clusters_voxelization(
     range = max_xyz - min_xyz
     offset = (
         -min_xyz
-        + torch.clamp(fullscale - range - 0.001, min=0) * torch.rand(3).cuda()
-        + torch.clamp(fullscale - range + 0.001, max=0) * torch.rand(3).cuda()
+        + torch.clamp(fullscale - range - 0.001, min=0)
+        * torch.rand(3).to(output_device)
+        + torch.clamp(fullscale - range + 0.001, max=0)
+        * torch.rand(3).to(output_device)
     )
-    offset = torch.index_select(offset, 0, clusters_idx[:, 0].cuda().long())
+    offset = torch.index_select(offset, 0, clusters_idx[:, 0].to(output_device).long())
     clusters_coords += offset
     assert (
         clusters_coords.shape.numel()
@@ -819,13 +823,13 @@ def clusters_voxelization(
     # output_map: M * (maxActive + 1) int
 
     out_feats = pointgroup_ops.voxelization(
-        clusters_feats, out_map.cuda(), mode
+        clusters_feats, out_map.to(output_device), mode
     )  # (M, C), float, cuda
 
     spatial_shape = [fullscale] * 3
     voxelization_feats = spconv.SparseConvTensor(
         out_feats,
-        out_coords.int().cuda(),
+        out_coords.int().to(output_device),
         spatial_shape,
         int(clusters_idx[-1, 0]) + 1,
     )
