@@ -17,6 +17,7 @@ import spconv
 from spconv.modules import SparseModule
 
 from packages.pointgroup_ops.functions import pointgroup_ops
+import util.utils_3d as util_3d
 import util.utils as utils
 import util.eval as eval
 import util.eval_semantic as eval_semantic
@@ -493,7 +494,8 @@ class PointGroupWrapper(pl.LightningModule):
         self.save_point_cloud = True
 
         self.semantic_colours = [
-            np.random.choice(range(256), size=3) for i in range(cfg.dataset.classes)
+            np.random.choice(range(256), size=3) / 255.0
+            for i in range(cfg.dataset.classes + 1)
         ]
 
         self.semantic_criterion = nn.CrossEntropyLoss(
@@ -564,7 +566,6 @@ class PointGroupWrapper(pl.LightningModule):
             matches["instance"] = {"gt": gt2pred, "pred": pred2gt}
 
         # Save to file
-        # TODO: Save these to a file to visualize after
         if self.save_point_cloud:
 
             point_cloud_folder = Path.cwd() / "predictions"
@@ -574,33 +575,64 @@ class PointGroupWrapper(pl.LightningModule):
             if not point_cloud_folder.exists():
                 point_cloud_folder.mkdir()
 
-            # Save semantic prediction
+            # Set 3D points
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(
                 batch.point_coordinates.cpu().numpy()
             )
+
+            # Save original colour inputs
             pcd.colors = o3d.utility.Vector3dVector(
-                np.array(
-                    [self.semantic_colours[pred] for pred in semantic_pred]
-                ).astype(np.float)
-                / 255.0
+                batch.features.detach().cpu().numpy()
             )
-            # o3d.visualization.draw_geometries([pcd])
-            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic.pcd"), pcd)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "input.pcd"), pcd)
 
-            # get instance colours
-            instance_colours = np.zeros((len(batch.point_coordinates), 3))
-            nMask = pred_info["label_id"].shape[0]
-            for i in range(nMask):
-                instance_colours[pred_info["mask"][i]] = (
-                    np.random.choice(range(256), size=3).astype(np.float) / 255.0
-                )
+            # Save semantic predictions
+            self.color_point_cloud_semantic(pcd, semantic_pred)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_pred.pcd"), pcd)
 
-            # Save instance prediction
-            pcd.colors = o3d.utility.Vector3dVector(instance_colours)
-            o3d.io.write_point_cloud(str(point_cloud_folder / "instance.pcd"), pcd)
+            self.color_point_cloud_semantic(pcd, semantic_gt)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_gt.pcd"), pcd)
+
+            # Save instance predictions
+            self.color_point_cloud_instance(pcd, pred_info["mask"])
+            o3d.io.write_point_cloud(str(point_cloud_folder / "instance_pred.pcd"), pcd)
+
+            gt_ids = util_3d.load_ids(gt_file)
+            instance_ids = set(gt_ids)
+
+            self.color_point_cloud_instance_ground_truth(pcd, instance_ids, gt_ids)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "instance_gt.pcd"), pcd)
 
         return matches
+
+    def color_point_cloud_semantic(self, pcd, predictions):
+        semantic_colours = (
+            np.ones((len(pcd.points), 3)).astype(np.float) * self.semantic_colours[-1]
+        )
+        for class_ind in range(self.dataset_cfg.classes):
+            semantic_colours[predictions == class_ind] = self.semantic_colours[
+                class_ind
+            ]
+        pcd.colors = o3d.utility.Vector3dVector(semantic_colours)
+
+    def color_point_cloud_instance_ground_truth(
+        self, pcd, instance_ids, instance_predictions
+    ):
+        instance_colours = np.ones((len(pcd.points), 3)).astype(np.float)
+        for instance_id in instance_ids:
+            instance_colours[instance_predictions == instance_id] = (
+                np.random.choice(range(256), size=3).astype(np.float) / 255.0
+            )
+        pcd.colors = o3d.utility.Vector3dVector(instance_colours)
+
+    def color_point_cloud_instance(self, pcd, instance_masks):
+        instance_colours = np.ones((len(pcd.points), 3)).astype(np.float)
+        for mask in instance_masks:
+            instance_colours[mask] = (
+                np.random.choice(range(256), size=3).astype(np.float) / 255.0
+            )
+        pcd.colors = o3d.utility.Vector3dVector(instance_colours)
 
     def test_epoch_end(self, outputs) -> None:
 

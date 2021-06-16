@@ -4,6 +4,108 @@ from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 
 import torch
+import open3d as o3d
+
+
+class Visualizer:
+    """
+    Visualizer class that will show semantic and instance
+    coloured point clouds of test scenes
+
+    Key commands
+    ------------
+
+    a - previous scene
+    d - next scene
+    w - next task
+    s - previous task
+    q - toggle between source (predictions and ground truth)
+    e - toggle between input and segmentation
+    """
+
+    def __init__(self, directory: Path):
+        self.scenes = [scene for scene in directory.iterdir() if scene.is_dir()]
+        self.tasks = ["semantic", "instance"]
+        self.source = ["pred", "gt"]
+        self.show_input = False
+
+        self.scene_ind = 0
+        self.task_ind = 0
+        self.source_ind = 0
+
+    def get_current_point_cloud(self):
+        if self.show_input:
+            return o3d.io.read_point_cloud(
+                str(self.scenes[self.scene_ind] / "input.pcd")
+            )
+
+        return o3d.io.read_point_cloud(
+            str(
+                self.scenes[self.scene_ind]
+                / (
+                    self.tasks[self.task_ind]
+                    + "_"
+                    + self.source[self.source_ind]
+                    + ".pcd"
+                )
+            )
+        )
+
+    def load_new_scene(self, vis):
+        pcd = self.get_current_point_cloud()
+
+        # Update point cloud
+        vis.clear_geometries()
+        vis.add_geometry(pcd, reset_bounding_box=False)
+        vis.poll_events()
+        vis.update_renderer()
+
+        # Update window name
+        vis.create_window(
+            window_name=f"\
+                Scene: {self.scenes[self.scene_ind].stem} \
+                Task: {self.tasks[self.task_ind]} \
+                Source: {self.source[self.source_ind]}"
+        )
+        return False
+
+    def next_scene(self, vis):
+        self.scene_ind = min(self.scene_ind + 1, len(self.scenes) - 1)
+        return self.load_new_scene(vis)
+
+    def previous_scene(self, vis):
+        self.scene_ind = max(self.scene_ind - 1, 0)
+        return self.load_new_scene(vis)
+
+    def next_task(self, vis):
+        self.task_ind = min(self.task_ind + 1, len(self.tasks) - 1)
+        return self.load_new_scene(vis)
+
+    def previous_task(self, vis):
+        self.task_ind = max(self.task_ind - 1, 0)
+        return self.load_new_scene(vis)
+
+    def toggle_source(self, vis):
+        self.source_ind = (self.source_ind + 1) % len(self.source)
+        return self.load_new_scene(vis)
+
+    def toggle_input(self, vis):
+        self.show_input = not self.show_input
+        return self.load_new_scene(vis)
+
+    def visualize_results(self):
+        """Visualize all point clouds"""
+
+        pcd = self.get_current_point_cloud()
+
+        key_to_callback = {}
+        key_to_callback[ord("D")] = self.next_scene
+        key_to_callback[ord("A")] = self.previous_scene
+        key_to_callback[ord("W")] = self.next_task
+        key_to_callback[ord("S")] = self.previous_task
+        key_to_callback[ord("Q")] = self.toggle_source
+        key_to_callback[ord("E")] = self.toggle_input
+        o3d.visualization.draw_geometries_with_key_callbacks([pcd], key_to_callback)
 
 
 def get_batch_offsets(batch_idxs, bs):
