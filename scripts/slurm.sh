@@ -38,4 +38,4 @@ python setup.py develop
 cd $base_dir
 python src/train.py \
     dataset_dir=~/projects/def-jskelly/ajanda/scannet/ \
-    dataset.batch_size=5 \
+    dataset.batch_size=8 \
