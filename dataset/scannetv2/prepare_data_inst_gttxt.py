@@ -6,6 +6,7 @@ import numpy as np
 import glob
 import torch
 import os
+import argparse
 
 semantic_label_idxs = [
     1,
@@ -52,9 +53,14 @@ semantic_label_names = [
     "otherfurniture",
 ]
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--data_split", help="data split (train / val / test)", default="test"
+)
+args = parser.parse_args()
 
 if __name__ == "__main__":
-    split = "val"
+    split = args.data_split
     files = sorted(glob.glob("{}/scene*_inst_nostuff.pth".format(split)))
     rooms = [torch.load(i) for i in files]
 
