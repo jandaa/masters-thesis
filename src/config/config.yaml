@@ -1,9 +1,28 @@
 # general parameters
-task: train
+experiment_name: test_1
 dataset_dir: ??? # Must be provided at command line
 
-# set directory to continue training from (Optional)
-continue_from:
+# What tasks to run, Options
+# 1. train - train and run on test set
+# 2. eval - run on test set
+# 3. visualize - generate visualization output
+tasks:
+  - train
+  - eval
+
+# Trainer configuration
+gpus: 1
+accelerator: "ddp"
+max_epochs: 364
+check_val_every_n_epoch: 10
+
+# Continue training from specific checkpoint
+# set to last.ckpt to use the latest checkpoint
+checkpoint: last.ckpt
+
+# whether to run the evaluation on the checkpoint with
+# lowest validation loss (otherwise use latest checkpoint)
+eval_on_best: True
 
 # defualt parameters
 defaults:

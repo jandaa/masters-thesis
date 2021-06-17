@@ -39,3 +39,8 @@ cd $base_dir
 python src/train.py \
     dataset_dir=~/projects/def-jskelly/ajanda/scannet/ \
     dataset.batch_size=8 \
+
+# Optionally uncomment line and replace experiment_name
+# to store in this location. If the directory alread exists
+# it will continue training from the last checkpoint
+#    hydra.run.dir=outputs/experiment_name \

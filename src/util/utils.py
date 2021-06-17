@@ -24,6 +24,12 @@ class Visualizer:
     """
 
     def __init__(self, directory: Path):
+
+        if not directory.exists():
+            raise RuntimeError(
+                "No model predictions available to visualize, please run eval first"
+            )
+
         self.scenes = [scene for scene in directory.iterdir() if scene.is_dir()]
         self.tasks = ["semantic", "instance"]
         self.source = ["pred", "gt"]
