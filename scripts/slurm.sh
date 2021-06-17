@@ -36,6 +36,7 @@ python setup.py develop
 
 # Train model
 cd $base_dir
+python -m visdom.server
 python src/train.py \
     dataset_dir=~/projects/def-jskelly/ajanda/scannet/ \
     dataset.batch_size=8 \
