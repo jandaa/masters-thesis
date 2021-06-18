@@ -30,14 +30,10 @@ def get_checkpoint_callback():
 @hydra.main(config_path="config", config_name="config")
 def semantics(cfg: DictConfig) -> None:
 
-    log.info(f"Current working directory: {Path.cwd()}")
-
     # Load a checkpoint if given
     checkpoint_path = None
     if cfg.checkpoint:
         checkpoint_path = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
-
-    log.info(f"Checkpoint path: {checkpoint_path}")
 
     log.info("Loading data module")
     scannet = ScannetDataModule(cfg)

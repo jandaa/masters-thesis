@@ -36,12 +36,16 @@ python setup.py develop
 
 # Train model
 cd $base_dir
-python -m visdom.server
 python src/train.py \
     dataset_dir=~/projects/def-jskelly/ajanda/scannet/ \
     dataset.batch_size=8 \
+    gpus=2 \
+    checkpoint=\'last.ckpt\' \
+    hydra.run.dir=outputs/2021-06-18/13-47-43 \
 
-# Optionally uncomment line and replace experiment_name
-# to store in this location. If the directory alread exists
-# it will continue training from the last checkpoint
-#    hydra.run.dir=outputs/experiment_name \
+    # Optionally uncomment line and replace experiment_name
+    # to store in this location. If the directory alread exists
+    # it will continue training from the last checkpoint
+
+   
+   
