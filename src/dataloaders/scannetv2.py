@@ -377,3 +377,184 @@ class ScannetDataModule(pl.LightningDataModule):
             spatial_shape=spatial_shape,
             test_filename=test_filename,
         )
+
+
+from dataclasses import dataclass, field
+import csv
+import json
+from plyfile import PlyData
+from collections import defaultdict
+
+
+@dataclass
+class Scene:
+    """
+    A single scene with points, features, semantic
+    and instance information.
+    """
+
+    points: np.array
+    features: np.array
+    semantic_label: np.array
+    instance_label: np.array
+
+
+@dataclass
+class ScannetDataInterface:
+    """
+    Interface to load required data for a scene
+
+    properties
+    ----------
+
+    scans_dir: directory of all scans and their files
+
+    train_split: list of all scans belonging to training set
+
+    val_split: list of all scans belonging to validations set
+
+    test_split: list of all scans belonging to test set
+
+    semantic_categories: list of all valid semantic categories
+    """
+
+    scans_dir: Path
+    train_split: list
+    val_split: list
+    test_split: list
+    semantic_categories: list
+
+    # Constants
+    raw_labels_filename: str = "../scannetv2-labels.combined.tsv"
+    mesh_file_extension: str = "_vh_clean_2.ply"
+    labels_file_extension: str = "_vh_clean_2.labels.ply"
+    segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
+    instances_file_extension: str = ".aggregation.json"
+    ignore_label: int = -100
+
+    @property
+    def train_data(self):
+        return [self._load(scene) for scene in self.train_split]
+
+    @property
+    def val_data(self):
+        return [self._load(scene) for scene in self.val_split]
+
+    @property
+    def test_data(self):
+        return [self._load(scene) for scene in self.test_split]
+
+    @property
+    def _scannet_labels_filename(self):
+        return self.scans_dir / self.raw_labels_filename
+
+    @property
+    def _required_extensions(self):
+        return [
+            self.mesh_file_extension,
+            self.labels_file_extension,
+            self.segment_file_extension,
+            self.instances_file_extension,
+        ]
+
+    @property
+    def _nyu_id_remap(self):
+        return defaultdict(
+            lambda: self.ignore_label,
+            {nyu_id: i for i, nyu_id in enumerate(self._nyu_ids)},
+        )
+
+    @property
+    def _nyu_ids(self):
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        return sorted(
+            set(
+                [
+                    int(line["nyu40id"])
+                    for line in reader
+                    if line["nyu40class"] in self.semantic_categories
+                ]
+            )
+        )
+
+    def _load(self, scene):
+        scene = self.scans_dir / scene
+
+        # Make sure all files exist
+        self._check_all_files_exist_in_scene(scene)
+
+        # Read raw points file
+        mesh_file = scene / (scene.name + self.mesh_file_extension)
+        label_file = scene / (scene.name + self.labels_file_extension)
+        segment_file = scene / (scene.name + self.segment_file_extension)
+        instances_file = scene / (scene.name + self.instances_file_extension)
+
+        raw = PlyData.read(mesh_file.open(mode="rb"))["vertex"]
+        labels = PlyData.read(label_file.open(mode="rb"))["vertex"]["label"]
+
+        points = np.array([raw["x"], raw["y"], raw["z"]]).T
+        colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
+
+        # Zero out points
+        points -= points.mean(0)
+
+        # Normalize colours
+        colors = colors / 127.5 - 1
+
+        # Remap all semantic labels
+        nyu_id_remap = self._nyu_id_remap
+        labels = [nyu_id_remap[label] for label in labels]
+
+    def _check_all_files_exist_in_scene(self, scene):
+        for ext in self._required_extensions:
+            filename = scene / (scene.stem + ext)
+            if not filename.exists():
+                log.error(f"scene {scene.name} is missing file {filename.name}")
+
+    # TODO: Is this necessary? Can I just check if the label is
+    # in the semantic categories or not?
+    def _get_raw_to_label_map(self):
+        """
+        Get map that converts raw ground truth labels
+        to those designated in semantic_categories.
+
+        returns
+        -------
+        dictionary with keys of raw names mapping to semantic labels
+        """
+        raw_to_scannet_map = {}
+        with self._scannet_labels_filename.open() as f:
+            reader = csv.DictReader(f, delimiter="\t")
+
+        for line in reader:
+            if line["nyu40class"] in self.semantic_categories:
+                raw_to_scannet_map[line["raw_category"]] = line["nyu40class"]
+            else:
+                raw_to_scannet_map[line["raw_category"]] = "unannotated"
+
+        return raw_to_scannet_map
+
+
+scannet_semantic_categories = [
+    "unannotated",
+    "wall",
+    "floor",
+    "chair",
+    "table",
+    "desk",
+    "bed",
+    "bookshelf",
+    "sofa",
+    "sink",
+    "bathtub",
+    "toilet",
+    "curtain",
+    "counter",
+    "door",
+    "window",
+    "shower curtain",
+    "refridgerator",
+    "picture",
+    "cabinet",
+    "otherfurniture",
+]
