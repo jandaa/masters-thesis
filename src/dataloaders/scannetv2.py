@@ -3,6 +3,7 @@
 """
 import glob, os, math, logging
 from pathlib import Path
+from typing import DefaultDict
 
 import numpy as np
 from omegaconf import DictConfig
@@ -15,6 +16,7 @@ import scipy
 import scipy.ndimage
 import scipy.interpolate
 from packages.pointgroup_ops.functions import pointgroup_ops
+from packages.spconv.third_party.pybind11.tools.mkdoc import d
 
 from util.types import PointGroupBatch
 
@@ -395,8 +397,8 @@ class Scene:
 
     points: np.array
     features: np.array
-    semantic_label: np.array
-    instance_label: np.array
+    semantic_labels: np.array
+    instance_labels: np.array
 
 
 @dataclass
@@ -431,6 +433,7 @@ class ScannetDataInterface:
     segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
     instances_file_extension: str = ".aggregation.json"
     ignore_label: int = -100
+    ignore_clases: list = ["wall", "floor"]
 
     @property
     def train_data(self):
@@ -479,37 +482,81 @@ class ScannetDataInterface:
 
     def _load(self, scene):
         scene = self.scans_dir / scene
+        processed_scene = scene / (scene.name + ".pth")
 
-        # Make sure all files exist
-        self._check_all_files_exist_in_scene(scene)
+        # If already preprocessed, then load previous
+        if processed_scene.exists():
+            (points, colors, semantic_labels, instance_labels) = torch.load(
+                str(processed_scene)
+            )
 
-        # Read raw points file
-        mesh_file = scene / (scene.name + self.mesh_file_extension)
-        label_file = scene / (scene.name + self.labels_file_extension)
-        segment_file = scene / (scene.name + self.segment_file_extension)
-        instances_file = scene / (scene.name + self.instances_file_extension)
+        else:
 
-        raw = PlyData.read(mesh_file.open(mode="rb"))["vertex"]
-        labels = PlyData.read(label_file.open(mode="rb"))["vertex"]["label"]
+            # Make sure all files exist
+            self._check_all_files_exist_in_scene(scene)
 
-        points = np.array([raw["x"], raw["y"], raw["z"]]).T
-        colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
+            # Read raw points file
+            mesh_file = scene / (scene.name + self.mesh_file_extension)
+            label_file = scene / (scene.name + self.labels_file_extension)
+            segment_file = scene / (scene.name + self.segment_file_extension)
+            instances_file = scene / (scene.name + self.instances_file_extension)
 
-        # Zero out points
-        points -= points.mean(0)
+            # Read the raw data and extract the inputs
+            raw = PlyData.read(mesh_file.open(mode="rb"))["vertex"]
+            points = np.array([raw["x"], raw["y"], raw["z"]]).T
+            colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
 
-        # Normalize colours
-        colors = colors / 127.5 - 1
+            # Zero and normalize inputs
+            points -= points.mean(0)
+            colors = colors / 127.5 - 1
 
-        # Remap all semantic labels
-        nyu_id_remap = self._nyu_id_remap
-        labels = [nyu_id_remap[label] for label in labels]
+            # Read semantic labels and Remap them all
+            nyu_id_remap = self._nyu_id_remap
+            semantic_labels = PlyData.read(label_file.open(mode="rb"))["vertex"][
+                "label"
+            ]
+            semantic_labels = [nyu_id_remap[label] for label in semantic_labels]
+
+            # Load all segment and instance info
+            segments = np.array(json.load(segment_file.open())["segIndices"])
+            segments_to_instances = json.load(instances_file.open())["segGroups"]
+
+            # Map segmenets to instances
+            instance_labels = np.ones(points.shape[0]) * self.ignore_label
+            for instance in segments_to_instances:
+
+                # Ignore classes
+                if instance["label"] in self.ignore_clases:
+                    continue
+
+                for segment in instance["segments"]:
+                    instance_labels[np.where(segments == segment)] = instance[
+                        "objectId"
+                    ]
+
+            # Save data to avoid re-computation in the future
+            torch.save(
+                (points, colors, semantic_labels, instance_labels),
+                processed_scene,
+            )
+
+        return Scene(
+            points=points,
+            features=colors,
+            semantic_labels=semantic_labels,
+            instance_labels=instance_labels,
+        )
 
     def _check_all_files_exist_in_scene(self, scene):
+        error = False
         for ext in self._required_extensions:
             filename = scene / (scene.stem + ext)
             if not filename.exists():
                 log.error(f"scene {scene.name} is missing file {filename.name}")
+                error = True
+
+        if error:
+            raise RuntimeError(f"Missing files in scene: {scene.name}. See error log.")
 
     # TODO: Is this necessary? Can I just check if the label is
     # in the semantic categories or not?
