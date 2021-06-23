@@ -1,6 +1,56 @@
-from dataclasses import dataclass, field
-import torch
 from pathlib import Path
+from abc import ABC, abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+import torch
+import numpy as np
+
+
+@dataclass
+class Scene:
+    """
+    A single scene with points and features to
+    be used as inputs for segmentation
+    """
+
+    name: str
+    points: np.array
+    features: np.array
+
+
+@dataclass
+class SceneWithLabels(Scene):
+    """
+    A single scene with additional semantic and instance labels
+    for training and evaluation.
+    """
+
+    semantic_labels: np.array
+    instance_labels: np.array
+
+
+@dataclass
+class DataInterface(ABC):
+    """
+    General data interface that is able to load
+    each data split type.
+    """
+
+    @property
+    @abstractmethod
+    def train_data(self) -> list:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def val_data(self) -> list:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def test_data(self) -> list:
+        raise NotImplementedError()
 
 
 @dataclass
