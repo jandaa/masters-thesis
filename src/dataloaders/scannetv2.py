@@ -395,6 +395,7 @@ class Scene:
     and instance information.
     """
 
+    name: str
     points: np.array
     features: np.array
     semantic_labels: np.array
@@ -433,7 +434,7 @@ class ScannetDataInterface:
     segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
     instances_file_extension: str = ".aggregation.json"
     ignore_label: int = -100
-    ignore_clases: list = ["wall", "floor"]
+    ignore_classes: list = field(default_factory=lambda: ["wall", "floor"])
 
     @property
     def train_data(self):
@@ -506,6 +507,9 @@ class ScannetDataInterface:
             points = np.array([raw["x"], raw["y"], raw["z"]]).T
             colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
 
+            points = points.astype(np.float32)
+            colors = colors.astype(np.float32)
+
             # Zero and normalize inputs
             points -= points.mean(0)
             colors = colors / 127.5 - 1
@@ -522,17 +526,18 @@ class ScannetDataInterface:
             segments_to_instances = json.load(instances_file.open())["segGroups"]
 
             # Map segmenets to instances
+            instance_index = 0
             instance_labels = np.ones(points.shape[0]) * self.ignore_label
             for instance in segments_to_instances:
 
                 # Ignore classes
-                if instance["label"] in self.ignore_clases:
+                if instance["label"] in self.ignore_classes:
                     continue
 
                 for segment in instance["segments"]:
-                    instance_labels[np.where(segments == segment)] = instance[
-                        "objectId"
-                    ]
+                    instance_labels[np.where(segments == segment)] = instance_index
+
+                instance_index += 1
 
             # Save data to avoid re-computation in the future
             torch.save(
@@ -541,6 +546,7 @@ class ScannetDataInterface:
             )
 
         return Scene(
+            name=scene.name,
             points=points,
             features=colors,
             semantic_labels=semantic_labels,
@@ -557,29 +563,6 @@ class ScannetDataInterface:
 
         if error:
             raise RuntimeError(f"Missing files in scene: {scene.name}. See error log.")
-
-    # TODO: Is this necessary? Can I just check if the label is
-    # in the semantic categories or not?
-    def _get_raw_to_label_map(self):
-        """
-        Get map that converts raw ground truth labels
-        to those designated in semantic_categories.
-
-        returns
-        -------
-        dictionary with keys of raw names mapping to semantic labels
-        """
-        raw_to_scannet_map = {}
-        with self._scannet_labels_filename.open() as f:
-            reader = csv.DictReader(f, delimiter="\t")
-
-        for line in reader:
-            if line["nyu40class"] in self.semantic_categories:
-                raw_to_scannet_map[line["raw_category"]] = line["nyu40class"]
-            else:
-                raw_to_scannet_map[line["raw_category"]] = "unannotated"
-
-        return raw_to_scannet_map
 
 
 scannet_semantic_categories = [
