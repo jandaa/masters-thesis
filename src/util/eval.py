@@ -243,11 +243,7 @@ def compute_averages(aps):
     return avg_dict
 
 
-def assign_instances_for_scan(scene_name, pred_info, gt_file):
-    try:
-        gt_ids = util_3d.load_ids(gt_file)
-    except Exception as e:
-        util.print_error("unable to load " + gt_file + ": " + str(e))
+def assign_instances_for_scan(scene_name, pred_info, gt_ids):
 
     # get gt instances
     gt_instances = util_3d.get_instances(

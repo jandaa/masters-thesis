@@ -542,15 +542,9 @@ class PointGroupWrapper(pl.LightningModule):
         matches = {}
         matches["test_scene_name"] = batch.test_filename
 
-        # Semantic eval
+        # Semantic eval & ground truth
         semantic_pred = preds.semantic_pred.detach().cpu().numpy()
-
-        gt_file = os.path.join(
-            self.dataset_dir,
-            self.test_cfg.split + "_gt",
-            batch.test_filename + "_semantic.txt",
-        )
-        semantic_gt = np.loadtxt(gt_file, dtype=np.int64)
+        semantic_gt = batch.labels.detach().cpu().numpy()
 
         matches["semantic"] = {"gt": semantic_gt, "pred": semantic_pred}
 
@@ -558,15 +552,10 @@ class PointGroupWrapper(pl.LightningModule):
         if self.return_instances:
             pred_info = self.model.get_clusters(batch, preds)
 
-            # TODO need to add this to the batch loader
-            gt_file = os.path.join(
-                self.dataset_dir,
-                self.test_cfg.split + "_gt",
-                batch.test_filename + ".txt",
-            )
-
             gt2pred, pred2gt = eval.assign_instances_for_scan(
-                batch.test_filename, pred_info, gt_file
+                batch.test_filename,
+                pred_info,
+                batch.instance_labels.detach().cpu().numpy(),
             )
 
             matches["instance"] = {"gt": gt2pred, "pred": pred2gt}
@@ -607,7 +596,7 @@ class PointGroupWrapper(pl.LightningModule):
                     str(point_cloud_folder / "instance_pred.pcd"), pcd
                 )
 
-            gt_ids = util_3d.load_ids(gt_file)
+            gt_ids = batch.instance_labels.detach().cpu().numpy()
             instance_ids = set(gt_ids)
 
             self.color_point_cloud_instance_ground_truth(pcd, instance_ids, gt_ids)

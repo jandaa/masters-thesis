@@ -9,7 +9,10 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from util import utils
-from dataloaders.scannetv2 import ScannetDataModule
+from dataloaders.scannetv2 import (
+    ScannetDataModule,
+    ScannetDataInterface,
+)
 from model.pointgroup import PointGroupWrapper
 
 
@@ -30,13 +33,34 @@ def get_checkpoint_callback():
 @hydra.main(config_path="config", config_name="config")
 def semantics(cfg: DictConfig) -> None:
 
+    train_split = [
+        "scene0000_00",
+        "scene0000_01",
+        "scene0000_02",
+        "scene0001_00",
+        "scene0002_00",
+    ]
+    val_split = [
+        "scene0002_01",
+        "scene0217_00",
+    ]
+    test_split = [
+        "scene0003_02",
+    ]
+    scannet = ScannetDataInterface(
+        scans_dir=Path(cfg.dataset_dir) / "scans",
+        train_split=train_split,
+        val_split=val_split,
+        test_split=test_split,
+    )
+
     # Load a checkpoint if given
     checkpoint_path = None
     if cfg.checkpoint:
         checkpoint_path = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
 
     log.info("Loading data module")
-    scannet = ScannetDataModule(cfg)
+    scannet = ScannetDataModule(cfg, scannet)
     scannet.setup()
 
     log.info("Creating model")

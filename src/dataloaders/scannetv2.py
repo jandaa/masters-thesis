@@ -28,17 +28,6 @@ log = logging.getLogger(__name__)
 class ScannetDataInterface(DataInterface):
     """
     Interface to load required data for a scene
-
-    properties
-    ----------
-
-    scans_dir: directory of all scans and their files
-
-    train_split: list of all scans belonging to training set
-
-    val_split: list of all scans belonging to validations set
-
-    test_split: list of all scans belonging to test set
     """
 
     scans_dir: Path
@@ -54,6 +43,7 @@ class ScannetDataInterface(DataInterface):
     instances_file_extension: str = ".aggregation.json"
     ignore_label: int = -100
     ignore_classes: list = field(default_factory=lambda: ["wall", "floor"])
+    force_reload: bool = False
 
     # Default categories
     semantic_categories: list = field(
@@ -116,7 +106,7 @@ class ScannetDataInterface(DataInterface):
         processed_scene = scene / (scene.name + ".pth")
 
         # If already preprocessed, then load previous
-        if processed_scene.exists() and not force_reload:
+        if processed_scene.exists() and not force_reload and not self.force_reload:
             (points, features, semantic_labels, instance_labels) = torch.load(
                 str(processed_scene)
             )
@@ -177,7 +167,7 @@ class ScannetDataInterface(DataInterface):
         nyu_id_remap = self._nyu_id_remap
         semantic_labels = [nyu_id_remap[label] for label in semantic_labels]
 
-        return semantic_labels
+        return np.array(semantic_labels)
 
     def _extract_instance_labels(self, scene):
 
@@ -251,35 +241,38 @@ scannet_semantic_categories = [
 
 
 class ScannetDataModule(pl.LightningDataModule):
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, data_interface: DataInterface):
         super().__init__()
-        self.data_dir = cfg.dataset_dir
-        self.filename_suffix = cfg.dataset.filename_suffix
 
+        # Dataloader specific parameters
         self.batch_size = cfg.dataset.batch_size
-        self.train_workers = cfg.model.train.train_workers
-        self.val_workers = cfg.model.train.train_workers
-
         self.full_scale = cfg.dataset.full_scale
         self.scale = cfg.dataset.scale
         self.max_npoint = cfg.dataset.max_npoint
         self.mode = cfg.dataset.mode
 
+        # What kind of test?
+        # val == with labels
+        # test == without labels
         self.test_split = cfg.model.test.split  # val or test
+
+        # Number of workers
+        self.train_workers = cfg.model.train.train_workers
+        self.val_workers = cfg.model.train.train_workers
         self.test_workers = cfg.model.test.test_workers
 
-    def setup(self, stage=None):
-        _, self.train_files = self.load_data_files("train")
-        _, self.val_files = self.load_data_files("val")
-        self.test_filenames, self.test_files = self.load_data_files("val")
+        # Load data from interface
+        self.train_data = data_interface.train_data
+        self.val_data = data_interface.val_data
+        self.test_data = data_interface.val_data
 
-        log.info(f"Training samples: {len(self.train_files)}")
-        log.info(f"Validation samples: {len(self.val_files)}")
-        log.info(f"Testing samples: {len(self.test_files)}")
+        log.info(f"Training samples: {len(self.train_data)}")
+        log.info(f"Validation samples: {len(self.train_data)}")
+        log.info(f"Testing samples: {len(self.train_data)}")
 
     def train_dataloader(self):
         return DataLoader(
-            list(range(len(self.train_files))),
+            list(range(len(self.train_data))),
             batch_size=self.batch_size,
             collate_fn=self.train_merge,
             num_workers=self.train_workers,
@@ -291,7 +284,7 @@ class ScannetDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            list(range(len(self.val_files))),
+            list(range(len(self.val_data))),
             batch_size=self.batch_size,
             collate_fn=self.val_merge,
             num_workers=self.val_workers,
@@ -302,7 +295,7 @@ class ScannetDataModule(pl.LightningDataModule):
 
     def test_dataloader(self):
         return DataLoader(
-            list(range(len(self.test_files))),
+            list(range(len(self.test_data))),
             batch_size=1,
             collate_fn=self.test_merge,
             num_workers=self.test_workers,
@@ -310,14 +303,6 @@ class ScannetDataModule(pl.LightningDataModule):
             drop_last=False,
             pin_memory=True,
         )
-
-    def load_data_files(self, split_type):
-        filenames = sorted(
-            glob.glob(
-                os.path.join(self.data_dir, split_type, "*" + self.filename_suffix)
-            )
-        )
-        return filenames, [torch.load(i) for i in filenames]
 
     # Elastic distortion
     def elastic(self, x, gran, mag):
@@ -449,15 +434,15 @@ class ScannetDataModule(pl.LightningDataModule):
         return instance_label
 
     def train_merge(self, id):
-        return self.merge(id, self.train_files)
+        return self.merge(id, self.train_data)
 
     def val_merge(self, id):
-        return self.merge(id, self.val_files)
+        return self.merge(id, self.val_data)
 
     def test_merge(self, id):
-        return self.merge(id, self.test_files, is_test=True)
+        return self.merge(id, self.test_data, is_test=True)
 
-    def merge(self, id, files, is_test=False):
+    def merge(self, id, scenes, is_test=False):
 
         # Make sure valid test split option is specified
         if is_test and self.test_split not in ["val", "test"]:
@@ -480,24 +465,24 @@ class ScannetDataModule(pl.LightningDataModule):
         total_inst_num = 0
         for i, idx in enumerate(id):
 
-            if are_labels_available:
-                xyz_origin, rgb, label, instance_label = files[idx]
-            else:
-                xyz_origin, rgb = self.test_files[idx]
+            scene = scenes[idx]
 
             if is_test:
 
-                xyz_middle = self.dataAugment(xyz_origin, False, True, True)
+                xyz_middle = self.dataAugment(scene.points, False, True, True)
 
                 xyz = xyz_middle * self.scale
 
                 xyz -= xyz.min(0)
 
-                feats.append(torch.from_numpy(rgb))
+                feats.append(torch.from_numpy(scene.features))
+
+                label = scene.semantic_labels
+                instance_label = scene.instance_labels
 
             else:
                 ### jitter / flip x / rotation
-                xyz_middle = self.dataAugment(xyz_origin, True, True, True)
+                xyz_middle = self.dataAugment(scene.points, True, True, True)
 
                 ### scale
                 xyz = xyz_middle * self.scale
@@ -514,9 +499,11 @@ class ScannetDataModule(pl.LightningDataModule):
 
                 xyz_middle = xyz_middle[valid_idxs]
                 xyz = xyz[valid_idxs]
-                rgb = rgb[valid_idxs]
-                label = label[valid_idxs]
-                instance_label = self.getCroppedInstLabel(instance_label, valid_idxs)
+                rgb = scene.features[valid_idxs]
+                label = scene.semantic_labels[valid_idxs]
+                instance_label = self.getCroppedInstLabel(
+                    scene.instance_labels, valid_idxs
+                )
 
                 feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
 
@@ -584,9 +571,7 @@ class ScannetDataModule(pl.LightningDataModule):
             )  # int (total_nInst)
 
         if is_test:
-            test_filename = Path(self.test_filenames[id[0]]).stem.replace(
-                "_inst_nostuff", ""
-            )
+            test_filename = scenes[id[0]].name
         else:
             test_filename = None
 
