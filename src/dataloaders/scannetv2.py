@@ -525,6 +525,12 @@ class ScannetDataInterface:
             segments = np.array(json.load(segment_file.open())["segIndices"])
             segments_to_instances = json.load(instances_file.open())["segGroups"]
 
+            # Duplicate values in scene0217_00
+            if scene.name == "scene0217_00":
+                segments_to_instances = segments_to_instances[
+                    : int(len(segments_to_instances) / 2)
+                ]
+
             # Map segmenets to instances
             instance_index = 0
             instance_labels = np.ones(points.shape[0]) * self.ignore_label
