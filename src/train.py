@@ -9,10 +9,8 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from util import utils
-from dataloaders.scannetv2 import (
-    ScannetDataModule,
-    ScannetDataInterface,
-)
+from dataloaders.dataloader import DataModule
+from dataloaders.scannetv2 import ScannetDataInterface
 from model.pointgroup import PointGroupWrapper
 
 
@@ -60,7 +58,7 @@ def semantics(cfg: DictConfig) -> None:
         checkpoint_path = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
 
     log.info("Loading data module")
-    scannet = ScannetDataModule(cfg, scannet)
+    scannet = DataModule(cfg, scannet)
     scannet.setup()
 
     log.info("Creating model")
