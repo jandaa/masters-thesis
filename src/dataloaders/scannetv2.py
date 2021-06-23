@@ -386,24 +386,57 @@ import csv
 import json
 from plyfile import PlyData
 from collections import defaultdict
+from abc import ABC, abstractmethod
 
 
 @dataclass
 class Scene:
     """
-    A single scene with points, features, semantic
-    and instance information.
+    A single scene with points and features to
+    be used as inputs for segmentation
     """
 
     name: str
     points: np.array
     features: np.array
+
+
+@dataclass
+class SceneWithLabels(Scene):
+    """
+    A single scene with additional semantic and instance labels
+    for training and evaluation.
+    """
+
     semantic_labels: np.array
     instance_labels: np.array
 
 
 @dataclass
-class ScannetDataInterface:
+class DataInterface(ABC):
+    """
+    General data interface that is able to load
+    each data split type.
+    """
+
+    @property
+    @abstractmethod
+    def train_data(self) -> list:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def val_data(self) -> list:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def test_data(self) -> list:
+        raise NotImplementedError()
+
+
+@dataclass
+class ScannetDataInterface(DataInterface):
     """
     Interface to load required data for a scene
 
@@ -437,20 +470,16 @@ class ScannetDataInterface:
     ignore_classes: list = field(default_factory=lambda: ["wall", "floor"])
 
     @property
-    def train_data(self):
+    def train_data(self) -> list:
         return [self._load(scene) for scene in self.train_split]
 
     @property
-    def val_data(self):
+    def val_data(self) -> list:
         return [self._load(scene) for scene in self.val_split]
 
     @property
-    def test_data(self):
+    def test_data(self) -> list:
         return [self._load(scene) for scene in self.test_split]
-
-    @property
-    def _scannet_labels_filename(self):
-        return self.scans_dir / self.raw_labels_filename
 
     @property
     def _required_extensions(self):
@@ -460,6 +489,16 @@ class ScannetDataInterface:
             self.segment_file_extension,
             self.instances_file_extension,
         ]
+
+    @property
+    def _required_extensions_test(self):
+        return [
+            self.mesh_file_extension,
+        ]
+
+    @property
+    def _scannet_labels_filename(self):
+        return self.scans_dir / self.raw_labels_filename
 
     @property
     def _nyu_id_remap(self):
@@ -481,13 +520,13 @@ class ScannetDataInterface:
             )
         )
 
-    def _load(self, scene):
+    def _load(self, scene, force_reload=False):
         scene = self.scans_dir / scene
         processed_scene = scene / (scene.name + ".pth")
 
         # If already preprocessed, then load previous
-        if processed_scene.exists():
-            (points, colors, semantic_labels, instance_labels) = torch.load(
+        if processed_scene.exists() and not force_reload:
+            (points, features, semantic_labels, instance_labels) = torch.load(
                 str(processed_scene)
             )
 
@@ -496,68 +535,90 @@ class ScannetDataInterface:
             # Make sure all files exist
             self._check_all_files_exist_in_scene(scene)
 
-            # Read raw points file
-            mesh_file = scene / (scene.name + self.mesh_file_extension)
-            label_file = scene / (scene.name + self.labels_file_extension)
-            segment_file = scene / (scene.name + self.segment_file_extension)
-            instances_file = scene / (scene.name + self.instances_file_extension)
-
-            # Read the raw data and extract the inputs
-            raw = PlyData.read(mesh_file.open(mode="rb"))["vertex"]
-            points = np.array([raw["x"], raw["y"], raw["z"]]).T
-            colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
-
-            points = points.astype(np.float32)
-            colors = colors.astype(np.float32)
-
-            # Zero and normalize inputs
-            points -= points.mean(0)
-            colors = colors / 127.5 - 1
-
-            # Read semantic labels and Remap them all
-            nyu_id_remap = self._nyu_id_remap
-            semantic_labels = PlyData.read(label_file.open(mode="rb"))["vertex"][
-                "label"
-            ]
-            semantic_labels = [nyu_id_remap[label] for label in semantic_labels]
-
-            # Load all segment and instance info
-            segments = np.array(json.load(segment_file.open())["segIndices"])
-            segments_to_instances = json.load(instances_file.open())["segGroups"]
-
-            # Duplicate values in scene0217_00
-            if scene.name == "scene0217_00":
-                segments_to_instances = segments_to_instances[
-                    : int(len(segments_to_instances) / 2)
-                ]
-
-            # Map segmenets to instances
-            instance_index = 0
-            instance_labels = np.ones(points.shape[0]) * self.ignore_label
-            for instance in segments_to_instances:
-
-                # Ignore classes
-                if instance["label"] in self.ignore_classes:
-                    continue
-
-                for segment in instance["segments"]:
-                    instance_labels[np.where(segments == segment)] = instance_index
-
-                instance_index += 1
+            # Load the required data
+            points, features = self._extract_inputs(scene)
+            semantic_labels = self._extract_semantic_labels(scene)
+            instance_labels = self._extract_instance_labels(scene)
 
             # Save data to avoid re-computation in the future
             torch.save(
-                (points, colors, semantic_labels, instance_labels),
+                (points, features, semantic_labels, instance_labels),
                 processed_scene,
             )
 
-        return Scene(
+        return SceneWithLabels(
             name=scene.name,
             points=points,
-            features=colors,
+            features=features,
             semantic_labels=semantic_labels,
             instance_labels=instance_labels,
         )
+
+    def _extract_inputs(self, scene):
+
+        # Define raw points file
+        mesh_file = scene / (scene.name + self.mesh_file_extension)
+
+        # Read the raw data and extract the inputs
+        raw = PlyData.read(mesh_file.open(mode="rb"))["vertex"]
+        points = np.array([raw["x"], raw["y"], raw["z"]]).T
+        colors = np.array([raw["red"], raw["green"], raw["blue"]]).T
+
+        points = points.astype(np.float32)
+        colors = colors.astype(np.float32)
+
+        # Zero and normalize inputs
+        points -= points.mean(0)
+        colors = colors / 127.5 - 1
+
+        return points, colors
+
+    def _extract_semantic_labels(self, scene):
+
+        # Define label files
+        label_file = scene / (scene.name + self.labels_file_extension)
+
+        # Read semantic labels
+        semantic_labels = PlyData.read(label_file.open(mode="rb"))
+        semantic_labels = semantic_labels["vertex"]["label"]
+
+        # Remap them to use nyu id's
+        nyu_id_remap = self._nyu_id_remap
+        semantic_labels = [nyu_id_remap[label] for label in semantic_labels]
+
+        return semantic_labels
+
+    def _extract_instance_labels(self, scene):
+
+        # Define instance label and segmentation files
+        segment_file = scene / (scene.name + self.segment_file_extension)
+        instances_file = scene / (scene.name + self.instances_file_extension)
+
+        # Load all segment and instance info
+        segments = np.array(json.load(segment_file.open())["segIndices"])
+        segments_to_instances = json.load(instances_file.open())["segGroups"]
+
+        # Eliminate duplicate instances in scene0217_00
+        if scene.name == "scene0217_00":
+            segments_to_instances = segments_to_instances[
+                : int(len(segments_to_instances) / 2)
+            ]
+
+        # Map segments to instances
+        instance_index = 0
+        instance_labels = np.ones(segments.size) * self.ignore_label
+        for instance in segments_to_instances:
+
+            # Ignore classes
+            if instance["label"] in self.ignore_classes:
+                continue
+
+            for segment in instance["segments"]:
+                instance_labels[np.where(segments == segment)] = instance_index
+
+            instance_index += 1
+
+        return instance_labels
 
     def _check_all_files_exist_in_scene(self, scene):
         error = False
@@ -568,7 +629,9 @@ class ScannetDataInterface:
                 error = True
 
         if error:
-            raise RuntimeError(f"Missing files in scene: {scene.name}. See error log.")
+            raise RuntimeError(
+                f"Missing files in scene: {scene.name}. See error log for details."
+            )
 
 
 scannet_semantic_categories = [
