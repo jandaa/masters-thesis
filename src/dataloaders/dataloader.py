@@ -32,7 +32,7 @@ class DataModule(pl.LightningDataModule):
         # Dataloader specific parameters
         self.batch_size = cfg.dataset.batch_size
         self.full_scale = cfg.dataset.full_scale
-        self.scale = cfg.dataset.scale
+        self.scale = cfg.dataset.scale  # voxel_size = 1 / scale, scale 50(2cm)
         self.max_npoint = cfg.dataset.max_npoint
         self.mode = cfg.dataset.mode
 
@@ -89,41 +89,36 @@ class DataModule(pl.LightningDataModule):
             pin_memory=True,
         )
 
-    # Elastic distortion
-    def elastic(self, x, gran, mag):
-        blur0 = np.ones((3, 1, 1)).astype("float32") / 3
-        blur1 = np.ones((1, 3, 1)).astype("float32") / 3
-        blur2 = np.ones((1, 1, 3)).astype("float32") / 3
+    def elastic_distortion(self, x, granularity, magnitude):
+        # rng = np.random
+        rng = np.random.RandomState(2)
 
-        bb = np.abs(x).max(0).astype(np.int32) // gran + 3
-        noise = [
-            np.random.randn(bb[0], bb[1], bb[2]).astype("float32") for _ in range(3)
+        blurs = [
+            np.ones(shape).astype("float32") / 3
+            for shape in [(3, 1, 1), (1, 3, 1), (1, 1, 3)]
         ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur0, mode="constant", cval=0)
-            for n in noise
+
+        # Select random noise for each voxel of bounding box
+        bounding_box = np.abs(x).max(0).astype(np.int32) // granularity + 3
+        noise = [rng.randn(*list(bounding_box)).astype("float32") for _ in range(3)]
+
+        # Apply bluring filters on the noise
+        for _ in range(2):
+            for blur in blurs:
+                noise = [
+                    scipy.ndimage.filters.convolve(n, blur, mode="constant", cval=0)
+                    for n in noise
+                ]
+
+        # Interpolate between the axes
+        ax = [
+            np.linspace(
+                -(side_length - 1) * granularity,
+                (side_length - 1) * granularity,
+                side_length,
+            )
+            for side_length in bounding_box
         ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur1, mode="constant", cval=0)
-            for n in noise
-        ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur2, mode="constant", cval=0)
-            for n in noise
-        ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur0, mode="constant", cval=0)
-            for n in noise
-        ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur1, mode="constant", cval=0)
-            for n in noise
-        ]
-        noise = [
-            scipy.ndimage.filters.convolve(n, blur2, mode="constant", cval=0)
-            for n in noise
-        ]
-        ax = [np.linspace(-(b - 1) * gran, (b - 1) * gran, b) for b in bb]
         interp = [
             scipy.interpolate.RegularGridInterpolator(
                 ax, n, bounds_error=0, fill_value=0
@@ -131,10 +126,7 @@ class DataModule(pl.LightningDataModule):
             for n in noise
         ]
 
-        def g(x_):
-            return np.hstack([i(x_)[:, None] for i in interp])
-
-        return x + g(x) * mag
+        return x + np.hstack([i(x)[:, None] for i in interp]) * magnitude
 
     def getInstanceInfo(self, xyz, instance_label):
         """
@@ -169,14 +161,17 @@ class DataModule(pl.LightningDataModule):
             "instance_pointnum": instance_pointnum,
         }
 
-    def dataAugment(self, xyz, jitter=False, flip=False, rot=False):
+    def augment_data(self, xyz, jitter=False, flip=False, rot=False):
+        # rng = np.random
+        rng = np.random.RandomState(2)
+
         m = np.eye(3)
         if jitter:
-            m += np.random.randn(3, 3) * 0.1
+            m += rng.randn(3, 3) * 0.1
         if flip:
-            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
+            m[0][0] *= rng.randint(0, 2) * 2 - 1  # flip x randomly
         if rot:
-            theta = np.random.rand() * 2 * math.pi
+            theta = rng.rand() * 2 * math.pi
             m = np.matmul(
                 m,
                 [
@@ -191,6 +186,9 @@ class DataModule(pl.LightningDataModule):
         """
         :param xyz: (n, 3) >= 0
         """
+        # rng = np.random
+        rng = np.random.RandomState(2)
+
         xyz_offset = xyz.copy()
         valid_idxs = xyz_offset.min(1) >= 0
         assert valid_idxs.sum() == xyz.shape[0]
@@ -198,9 +196,7 @@ class DataModule(pl.LightningDataModule):
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
         while valid_idxs.sum() > self.max_npoint:
-            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(
-                3
-            )
+            offset = np.clip(full_scale - room_range + 0.001, None, 0) * rng.rand(3)
             xyz_offset = xyz + offset
             valid_idxs = (xyz_offset.min(1) >= 0) * (
                 (xyz_offset < full_scale).sum(1) == 3
@@ -236,14 +232,14 @@ class DataModule(pl.LightningDataModule):
         # Whether semantics and instance labels are available
         are_labels_available = is_test and self.test_split == "val" or not is_test
 
-        locs = []
-        locs_float = []
-        feats = []
-        labels = []
-        instance_labels = []
+        batch_coordinates = []
+        batch_point_coordinates = []
+        batch_features = []
+        batch_semantic_labels = []
+        batch_instance_labels = []
 
-        instance_infos = []  # (N, 9)
-        instance_pointnum = []  # (total_nInst), int
+        batch_instance_infos = []  # (N, 9)
+        batch_instance_pointnum = []  # (total_nInst), int
 
         batch_offsets = [0]
 
@@ -254,27 +250,31 @@ class DataModule(pl.LightningDataModule):
 
             if is_test:
 
-                xyz_middle = self.dataAugment(scene.points, False, True, True)
+                xyz_middle = self.augment_data(scene.points, False, True, True)
 
                 xyz = xyz_middle * self.scale
 
                 xyz -= xyz.min(0)
 
-                feats.append(torch.from_numpy(scene.features))
+                batch_features.append(torch.from_numpy(scene.features))
 
-                label = scene.semantic_labels
-                instance_label = scene.instance_labels
+                semantic_labels = scene.semantic_labels
+                instance_labels = scene.instance_labels
 
             else:
                 ### jitter / flip x / rotation
-                xyz_middle = self.dataAugment(scene.points, True, True, True)
+                xyz_middle = self.augment_data(scene.points, True, True, True)
 
                 ### scale
                 xyz = xyz_middle * self.scale
 
                 ### elastic
-                xyz = self.elastic(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-                xyz = self.elastic(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+                xyz = self.elastic_distortion(
+                    xyz, 6 * self.scale // 50, 40 * self.scale / 50
+                )
+                xyz = self.elastic_distortion(
+                    xyz, 20 * self.scale // 50, 160 * self.scale / 50
+                )
 
                 ### offset
                 xyz -= xyz.min(0)
@@ -285,37 +285,36 @@ class DataModule(pl.LightningDataModule):
                 xyz_middle = xyz_middle[valid_idxs]
                 xyz = xyz[valid_idxs]
                 rgb = scene.features[valid_idxs]
-                label = scene.semantic_labels[valid_idxs]
-                instance_label = self.getCroppedInstLabel(
+                semantic_labels = scene.semantic_labels[valid_idxs]
+                instance_labels = self.getCroppedInstLabel(
                     scene.instance_labels, valid_idxs
                 )
 
-                feats.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
+                torch.set_rng_state(torch.manual_seed(10).get_state())
+                batch_features.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
 
             if are_labels_available:
                 ### get instance information
                 inst_num, inst_infos = self.getInstanceInfo(
-                    xyz_middle, instance_label.astype(np.int32)
+                    xyz_middle, instance_labels.astype(np.int32)
                 )
-                inst_info = inst_infos[
-                    "instance_info"
-                ]  # (n, 9), (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
-                inst_pointnum = inst_infos["instance_pointnum"]  # (nInst), list
 
-                instance_label[np.where(instance_label != -100)] += total_inst_num
+                instance_labels[np.where(instance_labels != -100)] += total_inst_num
                 total_inst_num += inst_num
 
                 # Add training and validation info
-                instance_infos.append(torch.from_numpy(inst_info))
-                instance_pointnum.extend(inst_pointnum)
+                batch_instance_infos.append(
+                    torch.from_numpy(inst_infos["instance_info"])
+                )
+                batch_instance_pointnum.extend(inst_infos["instance_pointnum"])
 
-                labels.append(torch.from_numpy(label))
-                instance_labels.append(torch.from_numpy(instance_label))
+                batch_semantic_labels.append(torch.from_numpy(semantic_labels))
+                batch_instance_labels.append(torch.from_numpy(instance_labels))
 
             ### merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
 
-            locs.append(
+            batch_coordinates.append(
                 torch.cat(
                     [
                         torch.LongTensor(xyz.shape[0], 1).fill_(i),
@@ -324,35 +323,39 @@ class DataModule(pl.LightningDataModule):
                     1,
                 )
             )
-            locs_float.append(torch.from_numpy(xyz_middle))
+            batch_point_coordinates.append(torch.from_numpy(xyz_middle))
 
         ### merge all the scenes in the batchd
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
 
-        locs = torch.cat(
-            locs, 0
+        coordinates = torch.cat(
+            batch_coordinates, 0
         )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        locs_float = torch.cat(locs_float, 0).to(torch.float32)  # float (N, 3)
-        feats = torch.cat(feats, 0)  # float (N, C)
+        point_coordinates = torch.cat(batch_point_coordinates, 0).to(
+            torch.float32
+        )  # float (N, 3)
+        features = torch.cat(batch_features, 0)  # float (N, C)
 
         spatial_shape = np.clip(
-            (locs.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None
+            (coordinates.max(0)[0][1:] + 1).numpy(), self.full_scale[0], None
         )  # long (3)
 
         ### voxelize
-        voxel_locs, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(
-            locs, self.batch_size, self.mode
-        )
+        (
+            voxel_coordinates,
+            point_to_voxel_map,
+            voxel_to_point_map,
+        ) = pointgroup_ops.voxelization_idx(coordinates, self.batch_size, self.mode)
 
         if are_labels_available:
-            labels = torch.cat(labels, 0).long()  # long (N)
-            instance_labels = torch.cat(instance_labels, 0).long()  # long (N)
+            semantic_labels = torch.cat(batch_semantic_labels, 0).long()  # long (N)
+            instance_labels = torch.cat(batch_instance_labels, 0).long()  # long (N)
 
-            instance_infos = torch.cat(instance_infos, 0).to(
+            instance_infos = torch.cat(batch_instance_infos, 0).to(
                 torch.float32
             )  # float (N, 9) (meanxyz, minxyz, maxxyz)
             instance_pointnum = torch.tensor(
-                instance_pointnum, dtype=torch.int
+                batch_instance_pointnum, dtype=torch.int
             )  # int (total_nInst)
 
         if is_test:
@@ -361,13 +364,13 @@ class DataModule(pl.LightningDataModule):
             test_filename = None
 
         return PointGroupBatch(
-            coordinates=locs,
-            voxel_coordinates=voxel_locs,
-            point_to_voxel_map=p2v_map,
-            voxel_to_point_map=v2p_map,
-            point_coordinates=locs_float,
-            features=feats,
-            labels=labels,
+            coordinates=coordinates,
+            voxel_coordinates=voxel_coordinates,
+            point_to_voxel_map=point_to_voxel_map,
+            voxel_to_point_map=voxel_to_point_map,
+            point_coordinates=point_coordinates,
+            features=features,
+            labels=semantic_labels,
             instance_labels=instance_labels,
             instance_info=instance_infos,
             instance_pointnum=instance_pointnum,
