@@ -112,7 +112,7 @@ class PointGroupBatch(PointGroupInput):
 
     labels: torch.Tensor = torch.tensor([])
     instance_labels: torch.Tensor = torch.tensor([])
-    instance_info: torch.Tensor = torch.tensor([])
+    instance_centers: torch.Tensor = torch.tensor([])
     instance_pointnum: torch.Tensor = torch.tensor([])
     id: torch.Tensor = torch.tensor([])
     offsets: torch.Tensor = torch.tensor([])

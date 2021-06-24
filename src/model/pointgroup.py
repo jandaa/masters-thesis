@@ -666,7 +666,7 @@ class PointGroupWrapper(pl.LightningModule):
         semantic_loss = self.semantic_criterion(semantic_scores, semantic_labels)
 
         """offset loss"""
-        gt_offsets = batch.instance_info[:, 0:3] - batch.point_coordinates  # (N, 3)
+        gt_offsets = batch.instance_centers - batch.point_coordinates  # (N, 3)
         pt_diff = output.point_offsets - gt_offsets  # (N, 3)
         pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
         valid = (batch.instance_labels != self.dataset_cfg.ignore_label).float()

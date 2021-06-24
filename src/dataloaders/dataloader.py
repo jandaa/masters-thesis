@@ -128,38 +128,24 @@ class DataModule(pl.LightningDataModule):
 
         return x + np.hstack([i(x)[:, None] for i in interp]) * magnitude
 
-    def getInstanceInfo(self, xyz, instance_label):
+    def get_instance_centers(self, xyz, instance_labels):
         """
         :param xyz: (n, 3)
         :param instance_label: (n), int, (0~nInst-1, -100)
         :return: instance_num, dict
         """
-        instance_info = (
-            np.ones((xyz.shape[0], 9), dtype=np.float32) * -100.0
-        )  # (n, 9), float, (cx, cy, cz, minx, miny, minz, maxx, maxy, maxz)
+
+        instance_centers = np.ones(xyz.shape, dtype=np.float32) * -100
         instance_pointnum = []  # (nInst), int
-        instance_num = int(instance_label.max()) + 1
-        for i_ in range(instance_num):
-            inst_idx_i = np.where(instance_label == i_)
 
-            ### instance_info
-            xyz_i = xyz[inst_idx_i]
-            min_xyz_i = xyz_i.min(0)
-            max_xyz_i = xyz_i.max(0)
-            mean_xyz_i = xyz_i.mean(0)
-            instance_info_i = instance_info[inst_idx_i]
-            instance_info_i[:, 0:3] = mean_xyz_i
-            instance_info_i[:, 3:6] = min_xyz_i
-            instance_info_i[:, 6:9] = max_xyz_i
-            instance_info[inst_idx_i] = instance_info_i
+        # unique_instances = np.unique(instance_labels)
+        number_of_instances = int(instance_labels.max()) + 1
+        for instance_label in range(number_of_instances):
+            instance_indices = np.where(instance_labels == instance_label)
+            instance_centers[instance_indices] = xyz[instance_indices].mean(0)
+            instance_pointnum.append(instance_indices[0].size)
 
-            ### instance_pointnum
-            instance_pointnum.append(inst_idx_i[0].size)
-
-        return instance_num, {
-            "instance_info": instance_info,
-            "instance_pointnum": instance_pointnum,
-        }
+        return number_of_instances, instance_pointnum, instance_centers
 
     def augment_data(self, xyz, jitter=False, flip=False, rot=False):
         # rng = np.random
@@ -238,7 +224,7 @@ class DataModule(pl.LightningDataModule):
         batch_semantic_labels = []
         batch_instance_labels = []
 
-        batch_instance_infos = []  # (N, 9)
+        batch_instance_centers = []  # (N, 9)
         batch_instance_pointnum = []  # (total_nInst), int
 
         batch_offsets = [0]
@@ -295,18 +281,28 @@ class DataModule(pl.LightningDataModule):
 
             if are_labels_available:
                 ### get instance information
-                inst_num, inst_infos = self.getInstanceInfo(
+                (
+                    number_of_instances,
+                    instance_pointnum,
+                    instance_centers,
+                ) = self.get_instance_centers(
                     xyz_middle, instance_labels.astype(np.int32)
                 )
 
+                # number_of_instances, inst_infos = self.getInstanceInfo(
+                #     xyz_middle, instance_labels.astype(np.int32)
+                # )
+                # instance_pointnum = inst_infos["instance_pointnum"]
+                # instance_centers = inst_infos["instance_info"]
+
+                # TODO: why do this?
+                # They do this because they combine all the scenes in the batch into one vector
                 instance_labels[np.where(instance_labels != -100)] += total_inst_num
-                total_inst_num += inst_num
+                total_inst_num += number_of_instances
 
                 # Add training and validation info
-                batch_instance_infos.append(
-                    torch.from_numpy(inst_infos["instance_info"])
-                )
-                batch_instance_pointnum.extend(inst_infos["instance_pointnum"])
+                batch_instance_centers.append(torch.from_numpy(instance_centers))
+                batch_instance_pointnum.extend(instance_pointnum)
 
                 batch_semantic_labels.append(torch.from_numpy(semantic_labels))
                 batch_instance_labels.append(torch.from_numpy(instance_labels))
@@ -351,7 +347,7 @@ class DataModule(pl.LightningDataModule):
             semantic_labels = torch.cat(batch_semantic_labels, 0).long()  # long (N)
             instance_labels = torch.cat(batch_instance_labels, 0).long()  # long (N)
 
-            instance_infos = torch.cat(batch_instance_infos, 0).to(
+            instance_centers = torch.cat(batch_instance_centers, 0).to(
                 torch.float32
             )  # float (N, 9) (meanxyz, minxyz, maxxyz)
             instance_pointnum = torch.tensor(
@@ -372,7 +368,7 @@ class DataModule(pl.LightningDataModule):
             features=features,
             labels=semantic_labels,
             instance_labels=instance_labels,
-            instance_info=instance_infos,
+            instance_centers=instance_centers,
             instance_pointnum=instance_pointnum,
             offsets=batch_offsets,
             id=id,
