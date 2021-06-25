@@ -1,6 +1,10 @@
 name: scannetv2
 filename_suffix: _inst_nostuff.pth
 
+train_split_file: scannetv2_train.txt
+val_split_file: scannetv2_val.txt
+test_split_file: scannetv2_test.txt
+
 classes: 20
 ignore_label: -100
 

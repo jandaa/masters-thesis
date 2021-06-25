@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from util import utils
 from dataloaders.dataloader import DataModule
-from dataloaders.scannetv2 import ScannetDataInterface
+from dataloaders.data_interface import DataInterfaceFactory
 from model.pointgroup import PointGroupWrapper
 
 
@@ -31,35 +31,14 @@ def get_checkpoint_callback():
 @hydra.main(config_path="config", config_name="config")
 def semantics(cfg: DictConfig) -> None:
 
-    train_split = [
-        "scene0000_00",
-        "scene0000_01",
-        "scene0000_02",
-        "scene0001_00",
-        "scene0002_00",
-    ]
-    val_split = [
-        "scene0002_01",
-        "scene0217_00",
-    ]
-    test_split = [
-        "scene0003_02",
-    ]
-    scannet = ScannetDataInterface(
-        scans_dir=Path(cfg.dataset_dir) / "scans",
-        train_split=train_split,
-        val_split=val_split,
-        test_split=test_split,
-    )
-
     # Load a checkpoint if given
     checkpoint_path = None
     if cfg.checkpoint:
         checkpoint_path = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
 
     log.info("Loading data module")
-    scannet = DataModule(cfg, scannet)
-    scannet.setup()
+    data_interface_factory = DataInterfaceFactory(cfg.dataset_dir, cfg.dataset)
+    data_loader = DataModule(data_interface_factory.get_interface(), cfg)
 
     log.info("Creating model")
     model = PointGroupWrapper(cfg)
@@ -79,7 +58,7 @@ def semantics(cfg: DictConfig) -> None:
     if "train" in cfg.tasks:
 
         log.info("starting training")
-        trainer.fit(model, scannet.train_dataloader(), scannet.val_dataloader())
+        trainer.fit(model, data_loader.train_dataloader(), data_loader.val_dataloader())
 
         # Load the best checkpoint so far if desired
         if cfg.eval_on_best:
@@ -95,7 +74,7 @@ def semantics(cfg: DictConfig) -> None:
             )
 
         log.info("Running on test set")
-        trainer.test(model, scannet.test_dataloader())
+        trainer.test(model, data_loader.test_dataloader())
 
     # Visualize results
     if "visualize" in cfg.tasks:
@@ -108,3 +87,38 @@ def semantics(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     semantics()
+
+
+## Just in case
+# scannet = DataModule(scannet_interface, cfg)
+# scannet_original = OriginalDataModule(scannet_interface, cfg)
+
+# # Make sure both output the same thing
+# import random
+# import torch
+# import numpy as np
+
+# for i in range(len(scannet_interface.train_data)):
+#     ids = random.sample(range(len(scannet_interface.train_data)), 3)
+
+#     np.random.seed(42)
+#     batch = scannet.merge(ids, scannet_interface.train_data)
+#     batch_original = scannet_original.merge(ids, scannet_interface.train_data)
+
+#     # Make sure all parts are the same
+#     assert torch.all(batch.coordinates == batch_original.coordinates)
+#     assert torch.all(batch.voxel_coordinates == batch_original.voxel_coordinates)
+#     assert torch.all(batch.point_to_voxel_map == batch_original.point_to_voxel_map)
+#     assert torch.all(batch.voxel_to_point_map == batch_original.voxel_to_point_map)
+#     assert torch.all(batch.point_coordinates == batch_original.point_coordinates)
+#     assert torch.all(batch.features == batch_original.features)
+#     assert torch.all(batch.labels == batch_original.labels)
+#     assert torch.all(batch.instance_labels == batch_original.instance_labels)
+#     assert torch.all(
+#         batch.instance_centers == batch_original.instance_centers[:, 0:3]
+#     )
+#     assert torch.all(batch.instance_pointnum == batch_original.instance_pointnum)
+#     assert torch.all(batch.offsets == batch_original.offsets)
+#     assert batch.id == batch_original.id
+#     assert np.all(batch.spatial_shape == batch_original.spatial_shape)
+#     assert batch.test_filename == batch_original.test_filename

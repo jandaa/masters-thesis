@@ -18,7 +18,7 @@ check_val_every_n_epoch: 10
 
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint
-checkpoint: last.ckpt
+checkpoint:
 
 # whether to run the evaluation on the checkpoint with
 # lowest validation loss (otherwise use latest checkpoint)

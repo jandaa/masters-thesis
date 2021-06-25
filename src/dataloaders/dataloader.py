@@ -49,7 +49,7 @@ class DataModule(pl.LightningDataModule):
         # Load data from interface
         self.train_data = data_interface.train_data
         self.val_data = data_interface.val_data
-        self.test_data = data_interface.val_data
+        self.test_data = data_interface.test_data
 
         log.info(f"Training samples: {len(self.train_data)}")
         log.info(f"Validation samples: {len(self.train_data)}")
@@ -288,12 +288,6 @@ class DataModule(pl.LightningDataModule):
                 ) = self.get_instance_centers(
                     xyz_middle, instance_labels.astype(np.int32)
                 )
-
-                # number_of_instances, inst_infos = self.getInstanceInfo(
-                #     xyz_middle, instance_labels.astype(np.int32)
-                # )
-                # instance_pointnum = inst_infos["instance_pointnum"]
-                # instance_centers = inst_infos["instance_info"]
 
                 # TODO: why do this?
                 # They do this because they combine all the scenes in the batch into one vector
