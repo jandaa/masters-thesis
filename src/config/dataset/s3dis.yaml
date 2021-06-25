@@ -17,3 +17,20 @@ batch_size: 3
 full_scale: [128, 512]
 max_npoint: 250000
 mode: 4 # 4=mean
+
+categories:
+  [
+    "ceiling",
+    "floor",
+    "wall",
+    "beam",
+    "column",
+    "window",
+    "door",
+    "table",
+    "chair",
+    "sofa",
+    "bookcase",
+    "board",
+    "clutter",
+  ]

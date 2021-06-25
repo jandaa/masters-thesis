@@ -37,6 +37,10 @@ class DataInterface(ABC):
     each data split type.
     """
 
+    semantic_categories: list
+    index_to_label_map: map = field(init=False)
+    label_to_index_map: map = field(init=False)
+
     @property
     @abstractmethod
     def train_data(self) -> list:

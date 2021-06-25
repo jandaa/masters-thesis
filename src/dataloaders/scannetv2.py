@@ -26,6 +26,7 @@ class ScannetDataInterface(DataInterface):
     train_split: list
     val_split: list
     test_split: list
+    semantic_categories: list
 
     # Constants
     raw_labels_filename: str = "../scannetv2-labels.combined.tsv"
@@ -34,13 +35,41 @@ class ScannetDataInterface(DataInterface):
     segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
     instances_file_extension: str = ".aggregation.json"
     ignore_label: int = -100
-    ignore_classes: list = field(default_factory=lambda: ["wall", "floor"])
+    ignore_classes: list = field(
+        default_factory=lambda: ["wall", "floor", "unannotated"]
+    )
     force_reload: bool = False
 
-    # Default categories
-    semantic_categories: list = field(
-        default_factory=lambda: scannet_semantic_categories
-    )
+    _nyu_id_remap: map = field(init=False)
+
+    def __post_init__(self):
+
+        # Remove classes that are ignored from semantic labels
+        self.semantic_categories = [
+            semantic_category
+            for semantic_category in self.semantic_categories
+            if semantic_category not in self.ignore_classes
+        ]
+
+        # Get map from nyu ids to our ids
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        nyu_label_to_id_map = {
+            line["nyu40class"]: int(line["nyu40id"])
+            for line in reader
+            if line["nyu40class"] in self.semantic_categories
+        }
+        nyu_ids = sorted(set(nyu_label_to_id_map.values()))
+
+        self._nyu_id_remap = defaultdict(
+            lambda: self.ignore_label,
+            {nyu_id: i for i, nyu_id in enumerate(nyu_ids)},
+        )
+        self.label_to_index_map = {
+            label: self._nyu_id_remap[id] for label, id in nyu_label_to_id_map.items()
+        }
+        self.index_to_label_map = {
+            index: label_name for label_name, index in self.label_to_index_map.items()
+        }
 
     @property
     def train_data(self) -> list:
@@ -72,26 +101,6 @@ class ScannetDataInterface(DataInterface):
     @property
     def _scannet_labels_filename(self):
         return self.scans_dir / self.raw_labels_filename
-
-    @property
-    def _nyu_id_remap(self):
-        return defaultdict(
-            lambda: self.ignore_label,
-            {nyu_id: i for i, nyu_id in enumerate(self._nyu_ids)},
-        )
-
-    @property
-    def _nyu_ids(self):
-        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
-        return sorted(
-            set(
-                [
-                    int(line["nyu40id"])
-                    for line in reader
-                    if line["nyu40class"] in self.semantic_categories
-                ]
-            )
-        )
 
     def _load(self, scene, force_reload=False):
         scene = self.scans_dir / scene
@@ -156,8 +165,7 @@ class ScannetDataInterface(DataInterface):
         semantic_labels = semantic_labels["vertex"]["label"]
 
         # Remap them to use nyu id's
-        nyu_id_remap = self._nyu_id_remap
-        semantic_labels = [nyu_id_remap[label] for label in semantic_labels]
+        semantic_labels = [self._nyu_id_remap[label] for label in semantic_labels]
 
         return np.array(semantic_labels)
 
@@ -205,28 +213,3 @@ class ScannetDataInterface(DataInterface):
             raise RuntimeError(
                 f"Missing files in scene: {scene.name}. See error log for details."
             )
-
-
-scannet_semantic_categories = [
-    "unannotated",
-    "wall",
-    "floor",
-    "chair",
-    "table",
-    "desk",
-    "bed",
-    "bookshelf",
-    "sofa",
-    "sink",
-    "bathtub",
-    "toilet",
-    "curtain",
-    "counter",
-    "door",
-    "window",
-    "shower curtain",
-    "refridgerator",
-    "picture",
-    "cabinet",
-    "otherfurniture",
-]

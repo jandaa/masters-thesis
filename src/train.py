@@ -38,10 +38,11 @@ def semantics(cfg: DictConfig) -> None:
 
     log.info("Loading data module")
     data_interface_factory = DataInterfaceFactory(cfg.dataset_dir, cfg.dataset)
-    data_loader = DataModule(data_interface_factory.get_interface(), cfg)
+    data_interface = data_interface_factory.get_interface()
+    data_loader = DataModule(data_interface, cfg)
 
     log.info("Creating model")
-    model = PointGroupWrapper(cfg)
+    model = PointGroupWrapper(cfg, data_interface=data_interface)
 
     log.info("Building trainer")
     checkpoint_callback = get_checkpoint_callback()
@@ -70,7 +71,7 @@ def semantics(cfg: DictConfig) -> None:
 
         if checkpoint_path:
             model = PointGroupWrapper.load_from_checkpoint(
-                cfg=cfg, checkpoint_path=checkpoint_path
+                cfg=cfg, data_interface=data_interface, checkpoint_path=checkpoint_path
             )
 
         log.info("Running on test set")

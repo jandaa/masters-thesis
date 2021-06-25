@@ -1,5 +1,4 @@
 name: scannetv2
-filename_suffix: _inst_nostuff.pth
 
 train_split_file: scannetv2_train.txt
 val_split_file: scannetv2_val.txt
@@ -14,3 +13,28 @@ batch_size: 3
 full_scale: [128, 512]
 max_npoint: 250000
 mode: 4 # 4=mean
+
+categories:
+  [
+    "unannotated",
+    "wall",
+    "floor",
+    "cabinet",
+    "bed",
+    "chair",
+    "sofa",
+    "table",
+    "door",
+    "window",
+    "bookshelf",
+    "picture",
+    "counter",
+    "desk",
+    "curtain",
+    "refridgerator",
+    "shower curtain",
+    "toilet",
+    "sink",
+    "bathtub",
+    "otherfurniture",
+  ]

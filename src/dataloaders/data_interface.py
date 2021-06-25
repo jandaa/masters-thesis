@@ -37,14 +37,17 @@ class DataInterfaceFactory:
 
         return ScannetDataInterface(
             scans_dir=self.dataset_dir / "scans",
+            semantic_categories=self.dataset_cfg.categories,
             train_split=train_split,
             val_split=val_split,
             test_split=test_split,
+            # force_reload=True,
         )
 
     def _get_interface_s3dis(self) -> DataInterface:
         return S3DISDataInterface(
             dataset_dir=Path(self.dataset_dir),
+            semantic_categories=self.dataset_cfg.categories,
             train_split=self.dataset_cfg.train_split,
             val_split=self.dataset_cfg.val_split,
             test_split=self.dataset_cfg.test_split,

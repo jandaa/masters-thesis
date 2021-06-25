@@ -21,7 +21,13 @@ import util.utils_3d as util_3d
 import util.utils as utils
 import util.eval as eval
 import util.eval_semantic as eval_semantic
-from util.types import PointGroupBatch, PointGroupInput, PointGroupOutput, LossType
+from util.types import (
+    DataInterface,
+    PointGroupBatch,
+    PointGroupInput,
+    PointGroupOutput,
+    LossType,
+)
 
 log = logging.getLogger(__name__)
 
@@ -478,7 +484,7 @@ class PointGroup(nn.Module):
 
 
 class PointGroupWrapper(pl.LightningModule):
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, data_interface: DataInterface):
         super().__init__()
 
         self.model = PointGroup(cfg)
@@ -494,6 +500,10 @@ class PointGroupWrapper(pl.LightningModule):
         self.test_cfg = cfg.model.test
 
         self.save_point_cloud = True
+
+        self.semantic_categories = data_interface.semantic_categories
+        self.index_to_label_map = data_interface.index_to_label_map
+        self.label_to_index_map = data_interface.label_to_index_map
 
         self.semantic_colours = [
             np.random.choice(range(256), size=3) / 255.0
@@ -556,6 +566,7 @@ class PointGroupWrapper(pl.LightningModule):
                 batch.test_filename,
                 pred_info,
                 batch.instance_labels.detach().cpu().numpy(),
+                self.index_to_label_map,
             )
 
             matches["instance"] = {"gt": gt2pred, "pred": pred2gt}
@@ -653,9 +664,9 @@ class PointGroupWrapper(pl.LightningModule):
                 instance_matches[scene_name]["gt"] = output["instance"]["gt"]
                 instance_matches[scene_name]["pred"] = output["instance"]["pred"]
 
-            ap_scores = eval.evaluate_matches(instance_matches)
-            avgs = eval.compute_averages(ap_scores)
-            eval.print_results(avgs)
+            ap_scores = eval.evaluate_matches(instance_matches, self.semantic_categories)
+            avgs = eval.compute_averages(ap_scores, self.semantic_categories)
+            eval.print_results(avgs, self.semantic_categories)
 
     def loss_fn(self, batch, output):
 

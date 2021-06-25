@@ -6,30 +6,12 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from plyfile import PlyData
-
 import torch
 import numpy as np
 
 from util.types import DataInterface, SceneWithLabels
 
 log = logging.getLogger(__name__)
-
-s3dis_semantic_categories = [
-    "ceiling",
-    "floor",
-    "wall",
-    "beam",
-    "column",
-    "window",
-    "door",
-    "table",
-    "chair",
-    "sofa",
-    "bookcase",
-    "board",
-    "clutter",
-]
 
 
 @dataclass
@@ -49,17 +31,17 @@ class S3DISDataInterface(DataInterface):
     force_reload: bool = False
     num_threads: int = 8
 
-    category_to_index_map: map = field(init=False)
-    semantic_categories: list = field(default_factory=lambda: s3dis_semantic_categories)
-
     def __post_init__(self):
-        self.category_to_index_map = defaultdict(
+        self.label_to_index_map = defaultdict(
             lambda: self.ignore_label,
             {
                 label_name: index
                 for index, label_name in enumerate(self.semantic_categories)
             },
         )
+        self.index_to_label_map = {
+            index: label_name for index, label_name in self.label_to_index_map.items()
+        }
 
     @property
     def train_data(self) -> list:
@@ -146,7 +128,7 @@ class S3DISDataInterface(DataInterface):
                 if object.name.startswith("."):
                     continue
 
-                semantic_label = self.category_to_index_map[object.name.split("_")[0]]
+                semantic_label = self.label_to_index_map[object.name.split("_")[0]]
                 object_points = np.loadtxt(str(object), delimiter=" ")
                 object_points = object_points.astype(np.float32)
 
