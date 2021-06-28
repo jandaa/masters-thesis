@@ -14,7 +14,7 @@ optimizer:
 
 train:
   epochs: 384
-  train_workers: 12 # data loader workers
+  train_workers: 4 # data loader workers
 
   step_epoch: 384
   multiplier: 0.5
@@ -29,23 +29,23 @@ train:
   score_fullscale: 14
   score_mode: 4 # mean
 
+  prepare_epochs: 128
+
   pretrain_path:
   pretrain_module: []
   fix_module: []
 
-group:
+cluster:
   # point grouping
-  cluster_radius: 0.03
-  cluster_meanActive: 50
-  cluster_shift_meanActive: 300
-  cluster_npoint_thre: 50
-
-  prepare_epochs: 128
+  radius: 0.03
+  meanActive: 50
+  shift_meanActive: 300
+  npoint_threshold: 50
 
 test:
   split: val
   test_epoch: 384
-  test_workers: 12
+  test_workers: 4
   test_seed: 567
 
   TEST_NMS_THRESH: 0.3

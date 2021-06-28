@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --gres=gpu:1       # Request GPU "generic resources"
+#SBATCH --gres=gpu:2       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=16  # Cores proportional to GPUs: 6 on Cedar, 10 on Béluga, 16 on Graham.
 #SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
-#SBATCH --time=2-00:00:00     # DD-HH:MM:SS
+#SBATCH --time=1-00:00:00     # DD-HH:MM:SS
 
 module load python/3.8
 module load sparsehash
@@ -38,4 +38,14 @@ python setup.py develop
 cd $base_dir
 python src/train.py \
     dataset_dir=~/projects/def-jskelly/ajanda/scannet/ \
-    dataset.batch_size=5 \
+    dataset.batch_size=8 \
+    gpus=2 \
+    checkpoint=\'last.ckpt\' \
+    hydra.run.dir=outputs/2021-06-18/13-47-43 \
+
+    # Optionally uncomment line and replace experiment_name
+    # to store in this location. If the directory alread exists
+    # it will continue training from the last checkpoint
+
+   
+   
