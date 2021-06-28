@@ -73,15 +73,27 @@ class ScannetDataInterface(DataInterface):
 
     @property
     def train_data(self) -> list:
-        return [self._load(scene) for scene in self.train_split]
+        return [
+            self._load(self.scans_dir / scene) 
+            for scene in self.train_split 
+            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
+        ]
 
     @property
     def val_data(self) -> list:
-        return [self._load(scene) for scene in self.val_split]
+        return [
+            self._load(self.scans_dir / scene) 
+            for scene in self.val_split 
+            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
+        ]
 
     @property
     def test_data(self) -> list:
-        return [self._load(scene) for scene in self.test_split]
+        return [
+            self._load(self.scans_dir / scene) 
+            for scene in self.test_split 
+            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
+        ]
 
     @property
     def _required_extensions(self):
@@ -101,10 +113,9 @@ class ScannetDataInterface(DataInterface):
     @property
     def _scannet_labels_filename(self):
         return self.scans_dir / self.raw_labels_filename
-
-    def _load(self, scene, force_reload=False):
-        scene = self.scans_dir / scene
-        processed_scene = scene / (scene.name + ".pth")
+    
+    def _load(self, scene: Path, force_reload=False):
+        processed_scene = self._get_processed_scene_name(scene)
 
         # If already preprocessed, then load previous
         if processed_scene.exists() and not force_reload and not self.force_reload:
@@ -113,9 +124,8 @@ class ScannetDataInterface(DataInterface):
             )
 
         else:
-
-            # Make sure all files exist
-            self._check_all_files_exist_in_scene(scene)
+            
+            log.info(f"Loading scene: {scene.name}")
 
             # Load the required data
             points, features = self._extract_inputs(scene)
@@ -200,16 +210,22 @@ class ScannetDataInterface(DataInterface):
             instance_index += 1
 
         return instance_labels
+    
+    def _get_processed_scene_name(self, scene: Path):
+        return scene / (scene.name + ".pth")
 
-    def _check_all_files_exist_in_scene(self, scene):
-        error = False
+    def _do_all_files_exist_in_scene(self, scene):
+        processed_scene_name = self._get_processed_scene_name(scene)
+        if processed_scene_name.exists():
+            return True
+
+        all_files_exist = True
         for ext in self._required_extensions:
             filename = scene / (scene.stem + ext)
             if not filename.exists():
                 log.error(f"scene {scene.name} is missing file {filename.name}")
-                error = True
-
-        if error:
-            raise RuntimeError(
-                f"Missing files in scene: {scene.name}. See error log for details."
-            )
+                all_files_exist = False
+        
+        if not all_files_exist:
+            log.error(f"skipping scene: {scene.name} due to missing files")
+        return all_files_exist
