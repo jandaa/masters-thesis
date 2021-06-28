@@ -7,8 +7,6 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 
-import os
-
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -17,7 +15,6 @@ import spconv
 from spconv.modules import SparseModule
 
 from packages.pointgroup_ops.functions import pointgroup_ops
-import util.utils_3d as util_3d
 import util.utils as utils
 import util.eval as eval
 import util.eval_semantic as eval_semantic
@@ -30,30 +27,6 @@ from util.types import (
 )
 
 log = logging.getLogger(__name__)
-
-# TODO: Attach this to the dataset itself
-semantic_label_idx = [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    14,
-    16,
-    24,
-    28,
-    33,
-    34,
-    36,
-    39,
-]
 
 
 class ResidualBlock(SparseModule):
@@ -424,10 +397,9 @@ class PointGroup(nn.Module):
         )
         proposals_pred[proposals_idx[:, 0].long(), proposals_idx[:, 1].long()] = 1
 
-        semantic_id = torch.tensor(semantic_label_idx, device=scores_pred.device)[
-            output.semantic_pred[
-                proposals_idx[:, 1][proposals_offset[:-1].long()].long()
-            ]
+        # Takes the first point in each proposal as the semantic label
+        semantic_id = output.semantic_pred[
+            proposals_idx[:, 1][proposals_offset[:-1].long()].long()
         ]
 
         ##### score threshold
@@ -664,7 +636,9 @@ class PointGroupWrapper(pl.LightningModule):
                 instance_matches[scene_name]["gt"] = output["instance"]["gt"]
                 instance_matches[scene_name]["pred"] = output["instance"]["pred"]
 
-            ap_scores = eval.evaluate_matches(instance_matches, self.semantic_categories)
+            ap_scores = eval.evaluate_matches(
+                instance_matches, self.semantic_categories
+            )
             avgs = eval.compute_averages(ap_scores, self.semantic_categories)
             eval.print_results(avgs, self.semantic_categories)
 
