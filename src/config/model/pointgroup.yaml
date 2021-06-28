@@ -16,9 +16,6 @@ train:
   epochs: 384
   train_workers: 4 # data loader workers
 
-  step_epoch: 384
-  multiplier: 0.5
-
   save_freq: 16 # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, offset_dir_loss, score_loss
 
@@ -31,28 +28,24 @@ train:
 
   prepare_epochs: 128
 
-  pretrain_path:
-  pretrain_module: []
   fix_module: []
 
 cluster:
   # point grouping
   radius: 0.03
   meanActive: 50
-  shift_meanActive: 300
+  # shift_meanActive: 300
   npoint_threshold: 50
 
 test:
   split: val
-  test_epoch: 384
   test_workers: 4
-  test_seed: 567
 
   TEST_NMS_THRESH: 0.3
   TEST_SCORE_THRESH: 0.09
   TEST_NPOINT_THRESH: 100
 
   eval: True
-  save_semantic: False
-  save_pt_offsets: False
-  save_instance: True
+  # save_semantic: False
+  # save_pt_offsets: False
+  # save_instance: True
