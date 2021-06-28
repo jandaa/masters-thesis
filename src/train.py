@@ -25,6 +25,7 @@ def get_checkpoint_callback():
         monitor="val_loss",
         mode="min",
         save_top_k=3,
+        every_n_val_epochs=1,
     )
 
 
