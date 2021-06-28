@@ -233,7 +233,7 @@ class PointGroup(nn.Module):
 
         self.apply(self.set_bn_init)
 
-        module_map = {
+        self.module_map = {
             "input_conv": self.input_conv,
             "unet": self.unet,
             "output_layer": self.output_layer,
@@ -246,10 +246,7 @@ class PointGroup(nn.Module):
         }
 
         # Don't train any layers specified in fix modules
-        for module_name in cfg.model.train.fix_module:
-            mod = module_map[module_name]
-            for param in mod.parameters():
-                param.requires_grad = False
+        self.fix_modules(cfg.model.train.fix_module)
 
     def forward(
         self,
@@ -453,6 +450,12 @@ class PointGroup(nn.Module):
         if classname.find("BatchNorm") != -1:
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
+
+    def fix_modules(self, modules):
+        for module_name in modules:
+            mod = self.module_map[module_name]
+            for param in mod.parameters():
+                param.requires_grad = False
 
 
 class PointGroupWrapper(pl.LightningModule):
