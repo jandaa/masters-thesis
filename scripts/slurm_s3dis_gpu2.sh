@@ -25,7 +25,6 @@ cat requirements.prod | xargs -n 1 pip3 install --no-index
 
 # Run from the root of repository (e.g. sbatch scripts/slurm.sh)
 base_dir=$PWD
-dataset_dir=~/projects/def-jskelly/ajanda/scannetv2/
 
 cd $base_dir/src/packages/spconv
 python setup.py bdist_wheel
@@ -37,13 +36,15 @@ python setup.py develop
 
 # Train model
 cd $base_dir
+dataset_dir=~/projects/def-jskelly/ajanda/datasets/S3DIS/
 python src/train.py \
     dataset_dir=$dataset_dir \
+    dataset=s3dis \
     dataset.batch_size=8 \
     gpus=2 \
     max_epochs=512 \
     model.train.prepare_epochs=256 \
     model.optimizer.lr=0.005 \
-    hydra.run.dir=outputs/s3dis/multi-gpu-v1 \
+    hydra.run.dir=outputs/s3dis/multi-gpu-v1
    
    
