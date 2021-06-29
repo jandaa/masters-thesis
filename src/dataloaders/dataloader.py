@@ -52,8 +52,8 @@ class DataModule(pl.LightningDataModule):
         self.test_data = data_interface.test_data
 
         log.info(f"Training samples: {len(self.train_data)}")
-        log.info(f"Validation samples: {len(self.train_data)}")
-        log.info(f"Testing samples: {len(self.train_data)}")
+        log.info(f"Validation samples: {len(self.val_data)}")
+        log.info(f"Testing samples: {len(self.test_data)}")
 
     def train_dataloader(self):
         return DataLoader(
