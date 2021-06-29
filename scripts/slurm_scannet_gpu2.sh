@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --gres=gpu:2       # Request GPU "generic resources"
-#SBATCH --cpus-per-task=16  # Cores proportional to GPUs: 6 on Cedar, 10 on Béluga, 16 on Graham.
+#SBATCH --cpus-per-task=20  # Cores proportional to GPUs: 6 on Cedar, 10 on Béluga, 16 on Graham.
 #SBATCH --mem=32000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
 #SBATCH --time=1-00:00:00     # DD-HH:MM:SS
 
@@ -34,9 +34,13 @@ pip3 install *.whl
 cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
 
+# Untar data
+dataset=~/projects/def-jskelly/ajanda/datasets/scannetv2.tar
+tar -xf $dataset -C $SLURM_TMPDIR
+
 # Train model
 cd $base_dir
-dataset_dir=~/scratch/datasets/scannet/
+dataset_dir=$SLURM_TMPDIR/scannet
 python src/train.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
