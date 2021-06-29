@@ -34,9 +34,13 @@ pip3 install *.whl
 cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
 
+# Untar data
+dataset=~projects/def-jskelly/ajanda/datasets/S3DIS.tar
+tar -xf $dataset -C $SLURM_TMPDIR
+
 # Train model
 cd $base_dir
-dataset_dir=~/projects/def-jskelly/ajanda/datasets/S3DIS/
+dataset_dir=$SLURM_TMPDIR/S3DIS/
 python src/train.py \
     dataset_dir=$dataset_dir \
     dataset=s3dis \
