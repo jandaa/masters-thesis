@@ -119,9 +119,14 @@ class ScannetDataInterface(DataInterface):
 
         # If already preprocessed, then load previous
         if processed_scene.exists() and not force_reload and not self.force_reload:
-            (points, features, semantic_labels, instance_labels) = torch.load(
-                str(processed_scene)
-            )
+            log.info(f"Trying to load preprocessed scene: {scene.name}")
+            try:
+                (points, features, semantic_labels, instance_labels) = torch.load(
+                    str(processed_scene)
+                )
+            except:
+                log.info(f"Error trying to force reload: {scene.name}")
+                return self._load(scene, force_reload=True)
 
         else:
             
@@ -131,6 +136,8 @@ class ScannetDataInterface(DataInterface):
             points, features = self._extract_inputs(scene)
             semantic_labels = self._extract_semantic_labels(scene)
             instance_labels = self._extract_instance_labels(scene)
+
+            log.info(f"Saving scene: {scene.name}")
 
             # Save data to avoid re-computation in the future
             torch.save(

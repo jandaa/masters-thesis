@@ -106,10 +106,14 @@ class S3DISDataInterface(DataInterface):
 
         # Load processed scene if already preprocessed
         if processed_scene.exists() and not force_reload and not self.force_reload:
-            (points, features, semantic_labels, instance_labels) = torch.load(
-                str(processed_scene)
-            )
-
+            try:
+                (points, features, semantic_labels, instance_labels) = torch.load(
+                    str(processed_scene)
+                )
+            except:
+                log.info(f"Error loading {scene.name}. Trying to force reload.")
+                return self._load_room(room, force_reload=True)
+            
         # Process scene if not already done so
         else:
 
