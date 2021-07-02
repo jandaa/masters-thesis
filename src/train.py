@@ -7,7 +7,6 @@ from omegaconf import DictConfig
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.plugins import DDPPlugin
 
 from util import utils
 from dataloaders.dataloader import DataModule
