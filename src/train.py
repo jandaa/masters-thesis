@@ -25,7 +25,6 @@ def get_checkpoint_callback():
         monitor="val_loss",
         mode="min",
         save_top_k=-1,
-        # period=cfg.check_val_every_n_epoch,
     )
 
 
