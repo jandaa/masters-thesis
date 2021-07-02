@@ -74,24 +74,24 @@ class ScannetDataInterface(DataInterface):
     @property
     def train_data(self) -> list:
         return [
-            self._load(self.scans_dir / scene) 
-            for scene in self.train_split 
+            self._load(self.scans_dir / scene)
+            for scene in self.train_split
             if self._do_all_files_exist_in_scene(self.scans_dir / scene)
         ]
 
     @property
     def val_data(self) -> list:
         return [
-            self._load(self.scans_dir / scene) 
-            for scene in self.val_split 
+            self._load(self.scans_dir / scene)
+            for scene in self.val_split
             if self._do_all_files_exist_in_scene(self.scans_dir / scene)
         ]
 
     @property
     def test_data(self) -> list:
         return [
-            self._load(self.scans_dir / scene) 
-            for scene in self.test_split 
+            self._load(self.scans_dir / scene)
+            for scene in self.test_split
             if self._do_all_files_exist_in_scene(self.scans_dir / scene)
         ]
 
@@ -113,13 +113,13 @@ class ScannetDataInterface(DataInterface):
     @property
     def _scannet_labels_filename(self):
         return self.scans_dir / self.raw_labels_filename
-    
+
     def _load(self, scene: Path, force_reload=False):
         processed_scene = self._get_processed_scene_name(scene)
 
         # If already preprocessed, then load previous
         if processed_scene.exists() and not force_reload and not self.force_reload:
-            log.info(f"Trying to load preprocessed scene: {scene.name}")
+            # log.info(f"Trying to load preprocessed scene: {scene.name}")
             try:
                 (points, features, semantic_labels, instance_labels) = torch.load(
                     str(processed_scene)
@@ -129,7 +129,7 @@ class ScannetDataInterface(DataInterface):
                 return self._load(scene, force_reload=True)
 
         else:
-            
+
             log.info(f"Loading scene: {scene.name}")
 
             # Load the required data
@@ -217,7 +217,7 @@ class ScannetDataInterface(DataInterface):
             instance_index += 1
 
         return instance_labels
-    
+
     def _get_processed_scene_name(self, scene: Path):
         return scene / (scene.name + ".pth")
 
@@ -232,7 +232,7 @@ class ScannetDataInterface(DataInterface):
             if not filename.exists():
                 log.error(f"scene {scene.name} is missing file {filename.name}")
                 all_files_exist = False
-        
+
         if not all_files_exist:
             log.error(f"skipping scene: {scene.name} due to missing files")
         return all_files_exist
