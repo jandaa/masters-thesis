@@ -25,8 +25,8 @@ def get_checkpoint_callback():
         save_last=True,
         monitor="val_loss",
         mode="min",
-        save_top_k=10,
-        # every_n_val_epochs=1,
+        save_top_k=-1,
+        # period=cfg.check_val_every_n_epoch,
     )
 
 
@@ -51,7 +51,6 @@ def semantics(cfg: DictConfig) -> None:
     trainer = pl.Trainer(
         gpus=cfg.gpus,
         accelerator=cfg.accelerator,
-        plugins=DDPPlugin(find_unused_parameters=False),
         resume_from_checkpoint=checkpoint_path,
         max_epochs=cfg.max_epochs,
         check_val_every_n_epoch=cfg.check_val_every_n_epoch,
