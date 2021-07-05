@@ -4,8 +4,8 @@ classes: 13
 ignore_label: -100
 
 train_split: [1, 2, 3, 4, 6]
-val_split: [5]
-test_split: [5]
+val_split: [6]
+test_split: [6]
 
 input_channel: 3
 scale: 50 # voxel_size = 1 / scale, scale 50(2cm)

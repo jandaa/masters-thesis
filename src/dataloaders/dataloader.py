@@ -187,7 +187,7 @@ class DataModule(pl.LightningDataModule):
             valid_idxs = (xyz_offset.min(1) >= 0) * (
                 (xyz_offset < full_scale).sum(1) == 3
             )
-            full_scale[:2] -= 32
+            full_scale[:2] -= 4
 
         return xyz_offset, valid_idxs
 

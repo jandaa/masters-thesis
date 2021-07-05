@@ -111,7 +111,7 @@ class S3DISDataInterface(DataInterface):
                     str(processed_scene)
                 )
             except:
-                log.info(f"Error loading {scene.name}. Trying to force reload.")
+                log.info(f"Error loading {room.name}. Trying to force reload.")
                 return self._load_room(room, force_reload=True)
             
         # Process scene if not already done so

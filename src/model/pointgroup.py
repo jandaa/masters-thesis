@@ -502,7 +502,7 @@ class PointGroupWrapper(pl.LightningModule):
         loss = self.loss_fn(batch, output)
 
         # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True, sync_dist=True)
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
         log("train_loss", loss.total_loss)
         log("semantic_loss", loss.semantic_loss)
         log("offset_norm_loss", loss.offset_norm_loss)
