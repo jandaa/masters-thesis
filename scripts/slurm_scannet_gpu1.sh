@@ -44,11 +44,6 @@ dataset_dir=$SLURM_TMPDIR/scannet
 python src/train.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
-    dataset.batch_size=8 \
-    gpus=2 \
-    max_epochs=512 \
-    model.train.prepare_epochs=256 \
-    model.optimizer.lr=0.005 \
-    hydra.run.dir=outputs/scannetv2/multi-gpu-v1 \
+    hydra.run.dir=outputs/scannetv2/single-gpu-v1 \
    
    
