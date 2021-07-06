@@ -35,7 +35,7 @@ cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
 
 # Untar data
-dataset=~projects/def-jskelly/ajanda/datasets/S3DIS.tar
+dataset=~/projects/def-jskelly/ajanda/datasets/S3DIS.tar
 tar -xf $dataset -C $SLURM_TMPDIR
 
 # Train model
