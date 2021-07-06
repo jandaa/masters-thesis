@@ -15,6 +15,7 @@ optimizer:
 train:
   epochs: 384
   train_workers: 4 # data loader workers
+  multiplier: 0.5
 
   save_freq: 16 # also eval_freq
   loss_weight: [1.0, 1.0, 1.0, 1.0] # semantic_loss, offset_norm_loss, offset_dir_loss, score_loss
@@ -34,7 +35,7 @@ cluster:
   # point grouping
   radius: 0.03
   meanActive: 50
-  # shift_meanActive: 300
+  shift_meanActive: 300
   npoint_threshold: 50
 
 test:

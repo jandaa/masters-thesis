@@ -8,13 +8,12 @@ dataset_dir: ??? # Must be provided at command line
 # 3. visualize - generate visualization output
 tasks:
   - train
-  - eval
 
 # Trainer configuration
 gpus: 1
 accelerator: "ddp"
-max_epochs: 364
-check_val_every_n_epoch: 10
+max_epochs: 384
+check_val_every_n_epoch: 20
 
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint
