@@ -309,10 +309,16 @@ class PointGroup(nn.Module):
                 batch_idxs_,
                 batch_offsets_,
                 object_idxs,
+                self.cluster.shift_meanActive,
             )
 
             proposals_idx, proposals_offset = self.get_proposal_offsets(
-                coords_, semantic_preds_cpu, batch_idxs_, batch_offsets_, object_idxs
+                coords_,
+                semantic_preds_cpu,
+                batch_idxs_,
+                batch_offsets_,
+                object_idxs,
+                self.cluster.meanActive,
             )
 
             # Concatonate clustering from both P(coordinates) & Q(shifted coordinates)
@@ -357,6 +363,7 @@ class PointGroup(nn.Module):
         batch_indices,
         batch_offsets,
         object_idxs,
+        mean_active,
     ):
         """Get indices and offsets of proposals"""
         idx, start_len = pointgroup_ops.ballquery_batch_p(
@@ -364,7 +371,7 @@ class PointGroup(nn.Module):
             batch_indices,
             batch_offsets,
             self.cluster.radius,
-            self.cluster.meanActive,
+            mean_active,
         )
         proposals_idx, proposals_offset = pointgroup_ops.bfs_cluster(
             semantic_predictions_cpu,
