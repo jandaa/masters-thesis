@@ -90,8 +90,6 @@ class DataModule(pl.LightningDataModule):
         )
 
     def elastic_distortion(self, x, granularity, magnitude):
-        # rng = np.random
-        rng = np.random.RandomState(2)
 
         blurs = [
             np.ones(shape).astype("float32") / 3
@@ -100,7 +98,7 @@ class DataModule(pl.LightningDataModule):
 
         # Select random noise for each voxel of bounding box
         bounding_box = np.abs(x).max(0).astype(np.int32) // granularity + 3
-        noise = [rng.randn(*list(bounding_box)).astype("float32") for _ in range(3)]
+        noise = [np.random.randn(*list(bounding_box)).astype("float32") for _ in range(3)]
 
         # Apply bluring filters on the noise
         for _ in range(2):
@@ -148,16 +146,13 @@ class DataModule(pl.LightningDataModule):
         return number_of_instances, instance_pointnum, instance_centers
 
     def augment_data(self, xyz, jitter=False, flip=False, rot=False):
-        # rng = np.random
-        rng = np.random.RandomState(2)
-
         m = np.eye(3)
         if jitter:
-            m += rng.randn(3, 3) * 0.1
+            m += np.random.randn(3, 3) * 0.1
         if flip:
-            m[0][0] *= rng.randint(0, 2) * 2 - 1  # flip x randomly
+            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
         if rot:
-            theta = rng.rand() * 2 * math.pi
+            theta = np.random.rand() * 2 * math.pi
             m = np.matmul(
                 m,
                 [
@@ -172,8 +167,6 @@ class DataModule(pl.LightningDataModule):
         """
         :param xyz: (n, 3) >= 0
         """
-        # rng = np.random
-        rng = np.random.RandomState(2)
 
         xyz_offset = xyz.copy()
         valid_idxs = xyz_offset.min(1) >= 0
@@ -182,7 +175,7 @@ class DataModule(pl.LightningDataModule):
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
         while valid_idxs.sum() > self.max_npoint:
-            offset = np.clip(full_scale - room_range + 0.001, None, 0) * rng.rand(3)
+            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
             xyz_offset = xyz + offset
             valid_idxs = (xyz_offset.min(1) >= 0) * (
                 (xyz_offset < full_scale).sum(1) == 3
@@ -276,7 +269,6 @@ class DataModule(pl.LightningDataModule):
                     scene.instance_labels, valid_idxs
                 )
 
-                torch.set_rng_state(torch.manual_seed(10).get_state())
                 batch_features.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
 
             if are_labels_available:
