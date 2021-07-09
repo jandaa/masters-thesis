@@ -7,6 +7,9 @@ from omegaconf import DictConfig
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+import numpy as np
+import random
+import torch
 
 from util import utils
 from dataloaders.dataloader import DataModule
@@ -28,8 +31,18 @@ def get_checkpoint_callback():
     )
 
 
+def set_random_seeds(cfg):
+    random.seed(cfg.manual_seed)
+    np.random.seed(cfg.manual_seed)
+    torch.manual_seed(cfg.manual_seed)
+    torch.cuda.manual_seed_all(cfg.manual_seed)
+
+
 @hydra.main(config_path="config", config_name="config")
 def semantics(cfg: DictConfig) -> None:
+
+    # Set random seeds for reproductability
+    set_random_seeds(cfg)
 
     # Load a checkpoint if given
     checkpoint_path = None
@@ -88,38 +101,3 @@ def semantics(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     semantics()
-
-
-## Just in case
-# scannet = DataModule(scannet_interface, cfg)
-# scannet_original = OriginalDataModule(scannet_interface, cfg)
-
-# # Make sure both output the same thing
-# import random
-# import torch
-# import numpy as np
-
-# for i in range(len(scannet_interface.train_data)):
-#     ids = random.sample(range(len(scannet_interface.train_data)), 3)
-
-#     np.random.seed(42)
-#     batch = scannet.merge(ids, scannet_interface.train_data)
-#     batch_original = scannet_original.merge(ids, scannet_interface.train_data)
-
-#     # Make sure all parts are the same
-#     assert torch.all(batch.coordinates == batch_original.coordinates)
-#     assert torch.all(batch.voxel_coordinates == batch_original.voxel_coordinates)
-#     assert torch.all(batch.point_to_voxel_map == batch_original.point_to_voxel_map)
-#     assert torch.all(batch.voxel_to_point_map == batch_original.voxel_to_point_map)
-#     assert torch.all(batch.point_coordinates == batch_original.point_coordinates)
-#     assert torch.all(batch.features == batch_original.features)
-#     assert torch.all(batch.labels == batch_original.labels)
-#     assert torch.all(batch.instance_labels == batch_original.instance_labels)
-#     assert torch.all(
-#         batch.instance_centers == batch_original.instance_centers[:, 0:3]
-#     )
-#     assert torch.all(batch.instance_pointnum == batch_original.instance_pointnum)
-#     assert torch.all(batch.offsets == batch_original.offsets)
-#     assert batch.id == batch_original.id
-#     assert np.all(batch.spatial_shape == batch_original.spatial_shape)
-#     assert batch.test_filename == batch_original.test_filename
