@@ -508,16 +508,18 @@ class PointGroupWrapper(pl.LightningModule):
         self, optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6
     ):
         lr = max(base_lr * (multiplier ** (epoch // step_epoch)), clip)
-        lr = 1.0
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
+
+        log = logging.getLogger(__name__)
+        log.info(f"Learning rate for epoch: {lr}")
 
     def on_train_epoch_start(self):
         # Set learning rate for epoch
         self.step_learning_rate(
             self.trainer.optimizers[0],
             self.optimizer_cfg.lr,
-            self.current_epoch - 1,
+            self.current_epoch,
             self.train_cfg.epochs,
             multiplier=self.train_cfg.multiplier,
         )

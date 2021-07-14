@@ -31,7 +31,7 @@ categories:
     "counter",
     "desk",
     "curtain",
-    "refrigerator",
+    "refridgerator",  # this is a spelling mistake in the scannet .tsv file
     "shower curtain",
     "toilet",
     "sink",

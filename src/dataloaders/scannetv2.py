@@ -44,14 +44,12 @@ class ScannetDataInterface(DataInterface):
 
     def __post_init__(self):
 
-        # Remove classes that are ignored from semantic labels
-        self.semantic_categories = [
-            semantic_category
-            for semantic_category in self.semantic_categories
-            if semantic_category not in self.ignore_classes
-        ]
-
         # Get map from nyu ids to our ids
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        self.raw_to_nyu_label_map = {
+            line["raw_category"]: line["nyu40class"] for line in reader
+        }
+
         reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
         nyu_label_to_id_map = {
             line["nyu40class"]: int(line["nyu40id"])
@@ -208,7 +206,7 @@ class ScannetDataInterface(DataInterface):
         for instance in segments_to_instances:
 
             # Ignore classes
-            if instance["label"] in self.ignore_classes:
+            if self.raw_to_nyu_label_map[instance["label"]] in self.ignore_classes:
                 continue
 
             for segment in instance["segments"]:
