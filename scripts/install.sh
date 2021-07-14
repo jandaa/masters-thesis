@@ -2,11 +2,11 @@ python -m venv .venv
 source .venv/bin/activate
 
 # Install pytorch with CUDA version 11.1
-pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+pip3 install torch==1.8.1+cu111 torchvision==0.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 
 # Install all other dependencies
-pip install -r requirements.dev
-pip install -r requirements.prod
+pip3 install -r requirements.dev
+pip3 install -r requirements.prod
 
 base_dir=$PWD
 
@@ -19,7 +19,7 @@ sudo apt-get install libsparsehash-dev libboost-all-dev
 cd $base_dir/src/packages/spconv
 python setup.py bdist_wheel
 cd dist
-pip install *.whl
+pip3 install *.whl
 
 cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
