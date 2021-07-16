@@ -14,9 +14,7 @@ full_scale: [128, 512]
 max_npoint: 250000
 mode: 4 # 4=mean
 
-categories:
-  [
-    "unannotated",
+categories: [
     "wall",
     "floor",
     "cabinet",
@@ -31,7 +29,7 @@ categories:
     "counter",
     "desk",
     "curtain",
-    "refridgerator",  # this is a spelling mistake in the scannet .tsv file
+    "refridgerator", # this is a spelling mistake in the scannet .tsv file
     "shower curtain",
     "toilet",
     "sink",
