@@ -87,6 +87,10 @@ def semantics(cfg: DictConfig) -> None:
                 cfg=cfg, data_interface=data_interface, checkpoint_path=checkpoint_path
             )
 
+            # Set the epoch to that loaded in the module
+            loaded_checkpoint = torch.load(checkpoint_path)
+            trainer.current_epoch = loaded_checkpoint["epoch"]
+
         log.info("Running on test set")
         trainer.test(model, data_loader.test_dataloader())
 
