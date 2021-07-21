@@ -49,8 +49,7 @@ def evaluate_matches(matches, class_labels):
                     gt_instances = [
                         gt
                         for gt in gt_instances
-                        if gt["instance_id"] >= 1000
-                        and gt["vert_count"] >= min_region_size
+                        if gt["vert_count"] >= min_region_size
                         and gt["med_dist"] <= distance_thresh
                         and gt["dist_conf"] >= distance_conf
                     ]
@@ -115,7 +114,7 @@ def evaluate_matches(matches, class_labels):
                             num_ignore = pred["void_intersection"]
                             for gt in pred["matched_gt"]:
                                 # group?
-                                if gt["instance_id"] < 1000:
+                                if gt["label_id"] not in class_labels:
                                     num_ignore += gt["intersection"]
                                 # small ground truth instances
                                 if (
@@ -214,14 +213,16 @@ def compute_averages(aps, class_labels):
     return avg_dict
 
 
-def assign_instances_for_scan(scene_name, pred_info, gt_ids, id_to_label_map):
+def assign_instances_for_scan(
+    scene_name, pred_info, gt_instance_ids, gt_semantic_ids, id_to_label_map
+):
 
     class_ids = list(id_to_label_map.keys())
     class_labels = list(id_to_label_map.values())
 
     # get gt instances
     gt_instances = util_3d.get_instances(
-        gt_ids, class_ids, class_labels, id_to_label_map
+        gt_instance_ids, gt_semantic_ids, class_ids, class_labels, id_to_label_map
     )
 
     # associate
@@ -234,7 +235,8 @@ def assign_instances_for_scan(scene_name, pred_info, gt_ids, id_to_label_map):
         pred2gt[label] = []
     num_pred_instances = 0
     # mask of void labels in the groundtruth
-    bool_void = np.logical_not(np.in1d(gt_ids // 1000, class_ids))
+    bool_void = np.logical_not(np.in1d(gt_semantic_ids, class_ids))
+
     # go thru all prediction masks
     nMask = pred_info["label_id"].shape[0]
     for i in range(nMask):
@@ -245,10 +247,10 @@ def assign_instances_for_scan(scene_name, pred_info, gt_ids, id_to_label_map):
         label_name = id_to_label_map[label_id]
         # read the mask
         pred_mask = pred_info["mask"][i]  # (N), long
-        if len(pred_mask) != len(gt_ids):
+        if len(pred_mask) != len(gt_instance_ids):
             util.print_error(
                 "wrong number of lines in mask#%d: " % (i)
-                + "(%d) vs #mesh vertices (%d)" % (len(pred_mask), len(gt_ids))
+                + "(%d) vs #mesh vertices (%d)" % (len(pred_mask), len(gt_instance_ids))
             )
         # convert to binary
         pred_mask = np.not_equal(pred_mask, 0)
@@ -271,7 +273,7 @@ def assign_instances_for_scan(scene_name, pred_info, gt_ids, id_to_label_map):
         # go thru all gt instances with matching label
         for (gt_num, gt_inst) in enumerate(gt2pred[label_name]):
             intersection = np.count_nonzero(
-                np.logical_and(gt_ids == gt_inst["instance_id"], pred_mask)
+                np.logical_and(gt_instance_ids == gt_inst["instance_id"], pred_mask)
             )
             if intersection > 0:
                 gt_copy = gt_inst.copy()

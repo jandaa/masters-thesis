@@ -90,7 +90,6 @@ class DataModule(pl.LightningDataModule):
         )
 
     def elastic_distortion(self, x, granularity, magnitude):
-
         blurs = [
             np.ones(shape).astype("float32") / 3
             for shape in [(3, 1, 1), (1, 3, 1), (1, 1, 3)]
@@ -98,7 +97,9 @@ class DataModule(pl.LightningDataModule):
 
         # Select random noise for each voxel of bounding box
         bounding_box = np.abs(x).max(0).astype(np.int32) // granularity + 3
-        noise = [np.random.randn(*list(bounding_box)).astype("float32") for _ in range(3)]
+        noise = [
+            np.random.randn(*list(bounding_box)).astype("float32") for _ in range(3)
+        ]
 
         # Apply bluring filters on the noise
         for _ in range(2):
@@ -175,7 +176,9 @@ class DataModule(pl.LightningDataModule):
         full_scale = np.array([self.full_scale[1]] * 3)
         room_range = xyz.max(0) - xyz.min(0)
         while valid_idxs.sum() > self.max_npoint:
-            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
+            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(
+                3
+            )
             xyz_offset = xyz + offset
             valid_idxs = (xyz_offset.min(1) >= 0) * (
                 (xyz_offset < full_scale).sum(1) == 3

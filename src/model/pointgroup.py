@@ -485,7 +485,7 @@ class PointGroupWrapper(pl.LightningModule):
 
         self.semantic_categories = data_interface.semantic_categories
         self.index_to_label_map = data_interface.index_to_label_map
-        self.label_to_index_map = data_interface.label_to_index_map
+        self.instance_categories = list(self.index_to_label_map.values())
 
         self.semantic_colours = [
             np.random.choice(range(256), size=3) / 255.0
@@ -496,6 +496,8 @@ class PointGroupWrapper(pl.LightningModule):
             ignore_index=cfg.dataset.ignore_label
         )
         self.score_criterion = nn.BCELoss(reduction="none")
+
+        self.ignore_label_colour = self.get_random_colour()
 
     @property
     def return_instances(self):
@@ -508,19 +510,18 @@ class PointGroupWrapper(pl.LightningModule):
         self, optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6
     ):
         lr = max(base_lr * (multiplier ** (epoch // step_epoch)), clip)
-        
-        log = logging.getLogger(__name__)
-        log.info(f"Learning rate for epoch: {lr}")
-
         for param_group in optimizer.param_groups:
             param_group["lr"] = lr
+
+        log = logging.getLogger(__name__)
+        log.info(f"Learning rate for epoch: {lr}")
 
     def on_train_epoch_start(self):
         # Set learning rate for epoch
         self.step_learning_rate(
             self.trainer.optimizers[0],
             self.optimizer_cfg.lr,
-            self.current_epoch - 1,
+            self.current_epoch,
             self.train_cfg.epochs,
             multiplier=self.train_cfg.multiplier,
         )
@@ -569,6 +570,7 @@ class PointGroupWrapper(pl.LightningModule):
                 batch.test_filename,
                 pred_info,
                 batch.instance_labels.detach().cpu().numpy(),
+                batch.labels.detach().cpu().numpy(),
                 self.index_to_label_map,
             )
 
@@ -603,18 +605,22 @@ class PointGroupWrapper(pl.LightningModule):
             self.color_point_cloud_semantic(pcd, semantic_gt)
             o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_gt.pcd"), pcd)
 
-            # Save instance predictions
-            if self.return_instances:
-                self.color_point_cloud_instance(pcd, pred_info["mask"])
-                o3d.io.write_point_cloud(
-                    str(point_cloud_folder / "instance_pred.pcd"), pcd
-                )
-
             gt_ids = batch.instance_labels.detach().cpu().numpy()
             instance_ids = set(gt_ids)
 
-            self.color_point_cloud_instance_ground_truth(pcd, instance_ids, gt_ids)
+            gt_instance_colours = self.color_point_cloud_instance_ground_truth(
+                pcd, instance_ids, gt_ids
+            )
             o3d.io.write_point_cloud(str(point_cloud_folder / "instance_gt.pcd"), pcd)
+
+            # Save instance predictions
+            if self.return_instances:
+                self.color_point_cloud_instance(
+                    pcd, pred_info["mask"], gt_instance_colours
+                )
+                o3d.io.write_point_cloud(
+                    str(point_cloud_folder / "instance_pred.pcd"), pcd
+                )
 
         return matches
 
@@ -631,20 +637,45 @@ class PointGroupWrapper(pl.LightningModule):
     def color_point_cloud_instance_ground_truth(
         self, pcd, instance_ids, instance_predictions
     ):
-        instance_colours = np.ones((len(pcd.points), 3)).astype(np.float)
+        instance_colours = (
+            np.ones((len(pcd.points), 3)).astype(np.float) * self.get_random_colour()
+        )
         for instance_id in instance_ids:
-            instance_colours[instance_predictions == instance_id] = (
-                np.random.choice(range(256), size=3).astype(np.float) / 255.0
-            )
+            if instance_id == self.dataset_cfg.ignore_label:
+                colour = self.ignore_label_colour
+            else:
+                colour = self.get_random_colour()
+
+            instance_colours[instance_predictions == instance_id] = colour
+        pcd.colors = o3d.utility.Vector3dVector(instance_colours)
+        return instance_colours
+
+    def color_point_cloud_instance(self, pcd, instance_masks, gt_instance_colours):
+        instance_colours = (
+            np.ones((len(pcd.points), 3)).astype(np.float) * self.ignore_label_colour
+        )
+        colours_used = []
+        for mask in instance_masks:
+            mask = mask == 1
+            colour = self.get_most_common_colour(gt_instance_colours[mask])
+
+            # If colour already used then pick another random colour that
+            # has not already been used.
+            while any(all(colour == colour_used) for colour_used in colours_used):
+                colour = self.get_random_colour()
+            colours_used.append(colour)
+
+            instance_colours[mask] = colour
         pcd.colors = o3d.utility.Vector3dVector(instance_colours)
 
-    def color_point_cloud_instance(self, pcd, instance_masks):
-        instance_colours = np.ones((len(pcd.points), 3)).astype(np.float)
-        for mask in instance_masks:
-            instance_colours[mask] = (
-                np.random.choice(range(256), size=3).astype(np.float) / 255.0
-            )
-        pcd.colors = o3d.utility.Vector3dVector(instance_colours)
+    def get_random_colour(self):
+        return np.random.choice(range(256), size=3).astype(np.float) / 255.0
+
+    def get_most_common_colour(self, colours):
+        unique, counts = np.unique(colours, return_counts=True, axis=0)
+
+        max_count = max(counts)
+        return unique[counts == max_count][0]
 
     def test_epoch_end(self, outputs) -> None:
 
@@ -668,10 +699,10 @@ class PointGroupWrapper(pl.LightningModule):
                 instance_matches[scene_name]["pred"] = output["instance"]["pred"]
 
             ap_scores = eval.evaluate_matches(
-                instance_matches, self.semantic_categories
+                instance_matches, self.instance_categories
             )
-            avgs = eval.compute_averages(ap_scores, self.semantic_categories)
-            eval.print_results(avgs, self.semantic_categories)
+            avgs = eval.compute_averages(ap_scores, self.instance_categories)
+            eval.print_results(avgs, self.instance_categories)
 
     def loss_fn(self, batch, output):
 

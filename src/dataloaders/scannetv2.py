@@ -1,6 +1,8 @@
 import logging
 import csv
 import json
+import concurrent.futures
+from math import floor
 
 from pathlib import Path
 from collections import defaultdict
@@ -39,19 +41,17 @@ class ScannetDataInterface(DataInterface):
         default_factory=lambda: ["wall", "floor", "unannotated"]
     )
     force_reload: bool = False
-
+    num_threads: int = 8
     _nyu_id_remap: map = field(init=False)
 
     def __post_init__(self):
 
-        # Remove classes that are ignored from semantic labels
-        self.semantic_categories = [
-            semantic_category
-            for semantic_category in self.semantic_categories
-            if semantic_category not in self.ignore_classes
-        ]
-
         # Get map from nyu ids to our ids
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        self.raw_to_nyu_label_map = {
+            line["raw_category"]: line["nyu40class"] for line in reader
+        }
+
         reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
         nyu_label_to_id_map = {
             line["nyu40class"]: int(line["nyu40id"])
@@ -65,7 +65,9 @@ class ScannetDataInterface(DataInterface):
             {nyu_id: i for i, nyu_id in enumerate(nyu_ids)},
         )
         self.label_to_index_map = {
-            label: self._nyu_id_remap[id] for label, id in nyu_label_to_id_map.items()
+            label: self._nyu_id_remap[id]
+            for label, id in nyu_label_to_id_map.items()
+            if label not in self.ignore_classes
         }
         self.index_to_label_map = {
             index: label_name for label_name, index in self.label_to_index_map.items()
@@ -73,27 +75,15 @@ class ScannetDataInterface(DataInterface):
 
     @property
     def train_data(self) -> list:
-        return [
-            self._load(self.scans_dir / scene)
-            for scene in self.train_split
-            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
-        ]
+        return self._load_multithread(self.train_split)
 
     @property
     def val_data(self) -> list:
-        return [
-            self._load(self.scans_dir / scene)
-            for scene in self.val_split
-            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
-        ]
+        return self._load_multithread(self.val_split)
 
     @property
     def test_data(self) -> list:
-        return [
-            self._load(self.scans_dir / scene)
-            for scene in self.test_split
-            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
-        ]
+        return self._load_multithread(self.test_split)
 
     @property
     def _required_extensions(self):
@@ -113,6 +103,51 @@ class ScannetDataInterface(DataInterface):
     @property
     def _scannet_labels_filename(self):
         return self.scans_dir / self.raw_labels_filename
+
+    def _get_scenes_per_thread(self, scenes):
+        num_scenes = len(scenes)
+        if num_scenes == 0:
+            return []
+
+        num_threads = min(num_scenes, self.num_threads)
+        num_rooms_per_thread = floor(num_scenes / num_threads)
+
+        def start_index(thread_ind):
+            return thread_ind * num_rooms_per_thread
+
+        def end_index(thread_ind):
+            if thread_ind == num_threads - 1:
+                return None
+            return start_index(thread_ind) + num_rooms_per_thread
+
+        return [
+            scenes[start_index(thread_ind) : end_index(thread_ind)]
+            for thread_ind in range(num_threads)
+        ]
+
+    def _load_multithread(self, scenes) -> list:
+
+        scenes = [
+            scene
+            for scene in scenes
+            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
+        ]
+
+        scenes_per_thread = self._get_scenes_per_thread(scenes)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            threads = [
+                executor.submit(self._load_scenes, scenes)
+                for scenes in scenes_per_thread
+            ]
+
+        output = []
+        for thread in threads:
+            output += thread.result()
+
+        return output
+
+    def _load_scenes(self, scenes):
+        return [self._load(self.scans_dir / scene) for scene in scenes]
 
     def _load(self, scene: Path, force_reload=False):
         processed_scene = self._get_processed_scene_name(scene)
@@ -208,7 +243,7 @@ class ScannetDataInterface(DataInterface):
         for instance in segments_to_instances:
 
             # Ignore classes
-            if instance["label"] in self.ignore_classes:
+            if self.raw_to_nyu_label_map[instance["label"]] in self.ignore_classes:
                 continue
 
             for segment in instance["segments"]:

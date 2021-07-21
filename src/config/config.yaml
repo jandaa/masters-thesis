@@ -1,6 +1,7 @@
 # general parameters
 experiment_name: test_1
 dataset_dir: ??? # Must be provided at command line
+manual_seed: 123
 
 # What tasks to run, Options
 # 1. train - train and run on test set
