@@ -65,7 +65,9 @@ class ScannetDataInterface(DataInterface):
             {nyu_id: i for i, nyu_id in enumerate(nyu_ids)},
         )
         self.label_to_index_map = {
-            label: self._nyu_id_remap[id] for label, id in nyu_label_to_id_map.items()
+            label: self._nyu_id_remap[id]
+            for label, id in nyu_label_to_id_map.items()
+            if label not in self.ignore_classes
         }
         self.index_to_label_map = {
             index: label_name for label_name, index in self.label_to_index_map.items()
