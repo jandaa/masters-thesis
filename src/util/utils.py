@@ -1,6 +1,8 @@
 import sys
 import shutil
+import math
 from pathlib import Path
+import concurrent.futures
 from omegaconf import DictConfig, OmegaConf
 
 import torch
@@ -112,6 +114,45 @@ class Visualizer:
         key_to_callback[ord("Q")] = self.toggle_source
         key_to_callback[ord("E")] = self.toggle_input
         o3d.visualization.draw_geometries_with_key_callbacks([pcd], key_to_callback)
+
+
+def split_data_amount_threads(data, num_threads):
+    """Spread the data accross all the threads as equally as possible."""
+
+    num_threads = min(len(data), num_threads)
+    if num_threads == 0:
+        return []
+    num_rooms_per_thread = math.floor(len(data) / num_threads)
+
+    def start_index(thread_ind):
+        return thread_ind * num_rooms_per_thread
+
+    def end_index(thread_ind):
+        if thread_ind == num_threads - 1:
+            return None
+        return start_index(thread_ind) + num_rooms_per_thread
+
+    return [
+        data[start_index(thread_ind) : end_index(thread_ind)]
+        for thread_ind in range(num_threads)
+    ]
+
+
+def apply_data_operation_in_parallel(callback, datapoints, num_threads):
+    """Apply an operation on all datapoints in parallel"""
+    data_per_thread = split_data_amount_threads(datapoints, num_threads)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        threads = [
+            executor.submit(callback, thread_data) for thread_data in data_per_thread
+        ]
+
+    outputs = []
+    for thread in threads:
+        result = thread.result()
+        if result:
+            outputs += result
+
+    return outputs
 
 
 def get_batch_offsets(batch_idxs, bs):

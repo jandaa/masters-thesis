@@ -31,6 +31,27 @@ class SceneWithLabels(Scene):
 
 
 @dataclass
+class DataPoint(ABC):
+    """
+    General datapoint class that will load the data
+    when called during training
+    """
+
+    @property
+    @abstractmethod
+    def num_points(self) -> int:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def preprocess(self, force_reload=False) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def load(self, force_reload=False) -> SceneWithLabels:
+        raise NotImplementedError()
+
+
+@dataclass
 class DataInterface(ABC):
     """
     General data interface that is able to load
@@ -84,7 +105,8 @@ class PointGroupInput:
 
     @property
     def batch_indices(self):
-        return self.coordinates[:, 0].int()
+        # return self.coordinates[:, 0].int()
+        return self.coordinates
 
 
 @dataclass

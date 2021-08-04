@@ -13,180 +13,100 @@ from plyfile import PlyData
 import torch
 import numpy as np
 
-from util.types import DataInterface, SceneWithLabels
+from util.types import DataInterface, DataPoint, SceneWithLabels
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
-class ScannetDataInterface(DataInterface):
-    """
-    Interface to load required data for a scene
-    """
+class ScannetDataPoint(DataPoint):
 
-    scans_dir: Path
-    train_split: list
-    val_split: list
-    test_split: list
-    semantic_categories: list
+    scene_path: Path
+    force_reload: bool
+    label_to_index_map: dict
+    raw_to_nyu_label_map: dict
+    ignore_label: int
+    ignore_classes: list
 
-    # Constants
-    raw_labels_filename: str = "../scannetv2-labels.combined.tsv"
-    mesh_file_extension: str = "_vh_clean_2.ply"
-    labels_file_extension: str = "_vh_clean_2.labels.ply"
-    segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
-    instances_file_extension: str = ".aggregation.json"
-    ignore_label: int = -100
-    ignore_classes: list = field(
-        default_factory=lambda: ["wall", "floor", "unannotated"]
-    )
-    force_reload: bool = False
-    num_threads: int = 8
-    _nyu_id_remap: map = field(init=False)
+    mesh_file_extension: str
+    labels_file_extension: str
+    segment_file_extension: str
+    instances_file_extension: str
 
     def __post_init__(self):
 
-        # Get map from nyu ids to our ids
-        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
-        self.raw_to_nyu_label_map = {
-            line["raw_category"]: line["nyu40class"] for line in reader
-        }
-
-        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
-        nyu_label_to_id_map = {
-            line["nyu40class"]: int(line["nyu40id"])
-            for line in reader
-            if line["nyu40class"] in self.semantic_categories
-        }
-        nyu_ids = sorted(set(nyu_label_to_id_map.values()))
-
-        self._nyu_id_remap = defaultdict(
-            lambda: self.ignore_label,
-            {nyu_id: i for i, nyu_id in enumerate(nyu_ids)},
+        # Files and names
+        self.scene_name = self.scene_path.name
+        self.processed_scene = self.scene_path / (self.scene_path.name + ".pth")
+        self.scene_details_file = self.scene_path / (
+            self.scene_path.name + "_details.json"
         )
-        self.label_to_index_map = {
-            label: self._nyu_id_remap[id]
-            for label, id in nyu_label_to_id_map.items()
-            if label not in self.ignore_classes
-        }
-        self.index_to_label_map = {
-            index: label_name for label_name, index in self.label_to_index_map.items()
-        }
 
     @property
-    def train_data(self) -> list:
-        return self._load_multithread(self.train_split)
+    def num_points(self) -> int:
+        if not self.is_scene_preprocessed(force_reload=False):
+            self.preprocess()
 
-    @property
-    def val_data(self) -> list:
-        return self._load_multithread(self.val_split)
+        scene = self.load(force_reload=False)
+        return scene.points.shape[0]
+        # with self.scene_details_file.open() as fp:
+        #     details = json.loads(fp.read())
 
-    @property
-    def test_data(self) -> list:
-        return self._load_multithread(self.test_split)
+        # return details["num_points"]
 
-    @property
-    def _required_extensions(self):
-        return [
-            self.mesh_file_extension,
-            self.labels_file_extension,
-            self.segment_file_extension,
-            self.instances_file_extension,
-        ]
+    def is_scene_preprocessed(self, force_reload):
+        return (
+            self.processed_scene.exists()
+            # and self.scene_details_file.exists()
+            and not force_reload
+            and not self.force_reload
+        )
 
-    @property
-    def _required_extensions_test(self):
-        return [
-            self.mesh_file_extension,
-        ]
+    def preprocess(self, force_reload) -> None:
+        if self.is_scene_preprocessed(force_reload):
+            return
 
-    @property
-    def _scannet_labels_filename(self):
-        return self.scans_dir / self.raw_labels_filename
+        log.info(f"Loading scene: {self.scene_name}")
 
-    def _get_scenes_per_thread(self, scenes):
-        num_scenes = len(scenes)
-        if num_scenes == 0:
-            return []
+        # Load the required data
+        points, features = self._extract_inputs(self.scene_path)
+        semantic_labels = self._extract_semantic_labels(self.scene_path)
+        instance_labels = self._extract_instance_labels(self.scene_path)
 
-        num_threads = min(num_scenes, self.num_threads)
-        num_rooms_per_thread = floor(num_scenes / num_threads)
+        # Save data to avoid re-computation in the future
+        log.info(f"Saving scene: {self.scene_name}")
+        torch.save(
+            (points, features, semantic_labels, instance_labels),
+            self.processed_scene,
+        )
 
-        def start_index(thread_ind):
-            return thread_ind * num_rooms_per_thread
+        details = {"num_points": points.shape[0]}
+        with self.scene_details_file.open(mode="w") as fp:
+            json.dump(details, fp)
 
-        def end_index(thread_ind):
-            if thread_ind == num_threads - 1:
-                return None
-            return start_index(thread_ind) + num_rooms_per_thread
+    def load(self, force_reload=False) -> SceneWithLabels:
+        # Load processed scene if already preprocessed
+        if not self.is_scene_preprocessed(force_reload):
+            return self.preprocess(force_reload=force_reload)
 
-        return [
-            scenes[start_index(thread_ind) : end_index(thread_ind)]
-            for thread_ind in range(num_threads)
-        ]
-
-    def _load_multithread(self, scenes) -> list:
-
-        scenes = [
-            scene
-            for scene in scenes
-            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
-        ]
-
-        scenes_per_thread = self._get_scenes_per_thread(scenes)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            threads = [
-                executor.submit(self._load_scenes, scenes)
-                for scenes in scenes_per_thread
-            ]
-
-        output = []
-        for thread in threads:
-            output += thread.result()
-
-        return output
-
-    def _load_scenes(self, scenes):
-        return [self._load(self.scans_dir / scene) for scene in scenes]
-
-    def _load(self, scene: Path, force_reload=False):
-        processed_scene = self._get_processed_scene_name(scene)
-
-        # If already preprocessed, then load previous
-        if processed_scene.exists() and not force_reload and not self.force_reload:
-            # log.info(f"Trying to load preprocessed scene: {scene.name}")
-            try:
-                (points, features, semantic_labels, instance_labels) = torch.load(
-                    str(processed_scene)
-                )
-            except:
-                log.info(f"Error trying to force reload: {scene.name}")
-                return self._load(scene, force_reload=True)
-
-        else:
-
-            log.info(f"Loading scene: {scene.name}")
-
-            # Load the required data
-            points, features = self._extract_inputs(scene)
-            semantic_labels = self._extract_semantic_labels(scene)
-            instance_labels = self._extract_instance_labels(scene)
-
-            log.info(f"Saving scene: {scene.name}")
-
-            # Save data to avoid re-computation in the future
-            torch.save(
-                (points, features, semantic_labels, instance_labels),
-                processed_scene,
+        try:
+            (points, features, semantic_labels, instance_labels) = torch.load(
+                str(self.processed_scene)
             )
 
-        return SceneWithLabels(
-            name=scene.name,
-            points=points,
-            features=features,
-            semantic_labels=semantic_labels,
-            instance_labels=instance_labels,
+        except:
+            log.info(f"Error loading {self.scene_name}. Trying to force reload.")
+            return self.load(force_reload=True)
+
+        scene = SceneWithLabels(
+            name=self.scene_name,
+            points=points.astype(np.float32),
+            features=features.astype(np.float32),
+            semantic_labels=semantic_labels.astype(np.float32),
+            instance_labels=instance_labels.astype(np.float32),
         )
+
+        return scene
 
     def _extract_inputs(self, scene):
 
@@ -252,6 +172,111 @@ class ScannetDataInterface(DataInterface):
             instance_index += 1
 
         return instance_labels
+
+
+@dataclass
+class ScannetDataInterface(DataInterface):
+    """
+    Interface to load required data for a scene
+    """
+
+    scans_dir: Path
+    train_split: list
+    val_split: list
+    test_split: list
+    semantic_categories: list
+
+    # Constants
+    raw_labels_filename: str = "../scannetv2-labels.combined.tsv"
+    mesh_file_extension: str = "_vh_clean_2.ply"
+    labels_file_extension: str = "_vh_clean_2.labels.ply"
+    segment_file_extension: str = "_vh_clean_2.0.010000.segs.json"
+    instances_file_extension: str = ".aggregation.json"
+    ignore_label: int = -100
+    ignore_classes: list = field(
+        default_factory=lambda: ["wall", "floor", "unannotated"]
+    )
+    force_reload: bool = False
+    num_threads: int = 8
+    _nyu_id_remap: map = field(init=False)
+
+    def __post_init__(self):
+
+        # Get map from nyu ids to our ids
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        self.raw_to_nyu_label_map = {
+            line["raw_category"]: line["nyu40class"] for line in reader
+        }
+
+        reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
+        nyu_label_to_id_map = {
+            line["nyu40class"]: int(line["nyu40id"])
+            for line in reader
+            if line["nyu40class"] in self.semantic_categories
+        }
+        nyu_ids = sorted(set(nyu_label_to_id_map.values()))
+
+        self._nyu_id_remap = defaultdict(
+            lambda: self.ignore_label,
+            {nyu_id: i for i, nyu_id in enumerate(nyu_ids)},
+        )
+        self.label_to_index_map = {
+            label: self._nyu_id_remap[id]
+            for label, id in nyu_label_to_id_map.items()
+            if label not in self.ignore_classes
+        }
+        self.index_to_label_map = {
+            index: label_name for label_name, index in self.label_to_index_map.items()
+        }
+
+    @property
+    def train_data(self) -> list:
+        return self._load(self.train_split)
+
+    @property
+    def val_data(self) -> list:
+        return self._load(self.val_split)
+
+    @property
+    def test_data(self) -> list:
+        return self._load(self.test_split)
+
+    def _load(self, scenes: list, force_reload=False):
+        return [
+            ScannetDataPoint(
+                scene_path=self.scans_dir / scene,
+                force_reload=force_reload,
+                label_to_index_map=self.label_to_index_map,
+                ignore_label=self.ignore_label,
+                ignore_classes=self.ignore_classes,
+                raw_to_nyu_label_map=self.raw_to_nyu_label_map,
+                mesh_file_extension=self.mesh_file_extension,
+                labels_file_extension=self.labels_file_extension,
+                segment_file_extension=self.segment_file_extension,
+                instances_file_extension=self.instances_file_extension,
+            )
+            for scene in scenes
+            if self._do_all_files_exist_in_scene(self.scans_dir / scene)
+        ]
+
+    @property
+    def _required_extensions(self):
+        return [
+            self.mesh_file_extension,
+            self.labels_file_extension,
+            self.segment_file_extension,
+            self.instances_file_extension,
+        ]
+
+    @property
+    def _required_extensions_test(self):
+        return [
+            self.mesh_file_extension,
+        ]
+
+    @property
+    def _scannet_labels_filename(self):
+        return self.scans_dir / self.raw_labels_filename
 
     def _get_processed_scene_name(self, scene: Path):
         return scene / (scene.name + ".pth")

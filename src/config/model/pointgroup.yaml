@@ -14,7 +14,7 @@ optimizer:
 
 train:
   epochs: 384
-  train_workers: 4 # data loader workers
+  train_workers: 8 # data loader workers
   multiplier: 0.5
 
   save_freq: 16 # also eval_freq
