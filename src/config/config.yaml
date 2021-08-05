@@ -15,6 +15,7 @@ gpus: 1
 accelerator: "ddp"
 max_epochs: 384
 check_val_every_n_epoch: 20
+preload_data: False
 
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint

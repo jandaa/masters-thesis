@@ -26,9 +26,7 @@ log = logging.getLogger(__name__)
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(
-        self, data_interface: DataInterface, cfg: DictConfig, preload_data: bool = False
-    ):
+    def __init__(self, data_interface: DataInterface, cfg: DictConfig):
         super().__init__()
 
         # Dataloader specific parameters
@@ -37,7 +35,8 @@ class DataModule(pl.LightningDataModule):
         self.max_npoint = cfg.dataset.max_npoint
         self.mode = cfg.dataset.mode
         self.ignore_label = cfg.dataset.ignore_label
-        self.are_scenes_preloaded = preload_data
+        self.are_scenes_preloaded = cfg.preload_data
+        log.info(f"preload_data: {self.are_scenes_preloaded}")
 
         # What kind of test?
         # val == with labels
@@ -67,7 +66,7 @@ class DataModule(pl.LightningDataModule):
                 self.train_workers,
             )
             self.val_data = apply_data_operation_in_parallel(
-                self.preload_scenes,
+                self.preload_scenes_with_crop,
                 self.val_data,
                 self.train_workers,
             )
@@ -80,6 +79,7 @@ class DataModule(pl.LightningDataModule):
         else:
             # Duplicate large scenes because they will ultimately be cropped
             self.train_data = self.duplicate_large_scenes(self.train_data)
+            self.val_data = self.duplicate_large_scenes(self.val_data)
 
         log.info(f"Training samples: {len(self.train_data)}")
         log.info(f"Validation samples: {len(self.val_data)}")
@@ -240,7 +240,10 @@ class DataModule(pl.LightningDataModule):
             return [scene]
 
         num_splits = math.floor(num_points / self.max_npoint)
-        return self.crop(scene, num_splits=num_splits)
+        scenes = self.crop(scene, num_splits=num_splits)
+        if not scenes:
+            return []
+        return scenes
 
     def crop(self, scene: SceneWithLabels, num_splits: int = 1):
         """
@@ -253,6 +256,9 @@ class DataModule(pl.LightningDataModule):
 
         valid_instance_idx = scene.instance_labels != self.ignore_label
         unique_instance_labels = np.unique(scene.instance_labels[valid_instance_idx])
+
+        if unique_instance_labels.size == 0:
+            return False
 
         cropped_scenes = []
         for i in range(num_splits):
@@ -301,7 +307,7 @@ class DataModule(pl.LightningDataModule):
         return self.merge(id, self.train_data, crop=True)
 
     def val_merge(self, id):
-        return self.merge(id, self.val_data)
+        return self.merge(id, self.val_data, crop=True)
 
     def test_merge(self, id):
         return self.merge(id, self.test_data, is_test=True)
@@ -335,7 +341,10 @@ class DataModule(pl.LightningDataModule):
 
                 # Crop scene if it's too big
                 if crop and scene.points.shape[0] > self.max_npoint:
-                    scene = self.crop(scene)[0]
+                    scene = self.crop(scene)
+                    if not scene:
+                        continue
+                    scene = scene[0]
 
             if is_test:
 
