@@ -433,6 +433,10 @@ class DataModule(pl.LightningDataModule):
 
         spatial_shape = (coordinates.max(0)[0][1:] + 1).numpy()
 
+        # Minimum spatial shape must be at least smallest kernel size in UNet
+        for i in range(spatial_shape.size):
+            spatial_shape[i] = max(spatial_shape[i], 128)
+
         ### voxelize
         (
             voxel_coordinates,
