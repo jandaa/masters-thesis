@@ -25,6 +25,7 @@ class ScannetDataPoint(DataPoint):
     force_reload: bool
     label_to_index_map: dict
     raw_to_nyu_label_map: dict
+    _nyu_id_remap: dict
     ignore_label: int
     ignore_classes: list
 
@@ -257,6 +258,7 @@ class ScannetDataInterface(DataInterface):
                 ignore_label=self.ignore_label,
                 ignore_classes=self.ignore_classes,
                 raw_to_nyu_label_map=self.raw_to_nyu_label_map,
+                _nyu_id_remap=self._nyu_id_remap,
                 mesh_file_extension=self.mesh_file_extension,
                 labels_file_extension=self.labels_file_extension,
                 segment_file_extension=self.segment_file_extension,
