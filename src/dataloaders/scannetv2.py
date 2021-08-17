@@ -202,6 +202,13 @@ class ScannetDataInterface(DataInterface):
 
     def __post_init__(self):
 
+        # Specify which categories to ignore
+        self.instance_categories = [
+            label
+            for label in self.semantic_categories
+            if label not in self.ignore_classes
+        ]
+
         # Get map from nyu ids to our ids
         reader = csv.DictReader(self._scannet_labels_filename.open(), delimiter="\t")
         self.raw_to_nyu_label_map = {
@@ -223,7 +230,7 @@ class ScannetDataInterface(DataInterface):
         self.label_to_index_map = {
             label: self._nyu_id_remap[id]
             for label, id in nyu_label_to_id_map.items()
-            if label not in self.ignore_classes
+            # if label not in self.ignore_classes
         }
         self.index_to_label_map = {
             index: label_name for label_name, index in self.label_to_index_map.items()

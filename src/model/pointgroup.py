@@ -255,7 +255,7 @@ class PointGroup(nn.Module):
         return_instances: bool = False,
     ):
         if self.structure.use_coords:
-            features = torch.cat((input.features, input.point_coordinates), 1)
+            features = torch.cat((input.features, input.points), 1)
         else:
             features = input.features
 
@@ -298,7 +298,7 @@ class PointGroup(nn.Module):
             # with batch offsets being what you need to add to the index to get correct batch
             batch_idxs_ = input.batch_indices[object_idxs]
             batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
-            coords_ = input.point_coordinates[object_idxs]
+            coords_ = input.points[object_idxs]
             pt_offsets_ = pt_offsets[object_idxs]
 
             semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
@@ -332,7 +332,7 @@ class PointGroup(nn.Module):
                 proposals_idx,
                 proposals_offset,
                 output_feats,
-                input.point_coordinates,
+                input.points,
                 self.training_params.score_fullscale,
                 self.training_params.score_scale,
                 self.training_params.score_mode,
@@ -466,11 +466,17 @@ class PointGroup(nn.Module):
 
 
 class PointGroupWrapper(pl.LightningModule):
-    def __init__(self, cfg: DictConfig, data_interface: DataInterface):
+    def __init__(
+        self,
+        cfg: DictConfig,
+        data_interface: DataInterface,
+        do_instance_segmentation: bool = False,
+    ):
         super().__init__()
 
         self.model = PointGroup(cfg)
         self.optimizer_cfg = cfg.model.optimizer
+        self.do_instance_segmentation = do_instance_segmentation
 
         # Dataset configuration
         self.dataset_dir = cfg.dataset_dir
@@ -481,11 +487,13 @@ class PointGroupWrapper(pl.LightningModule):
         self.use_coords = cfg.model.structure.use_coords
         self.test_cfg = cfg.model.test
 
-        self.save_point_cloud = True
-
         self.semantic_categories = data_interface.semantic_categories
-        self.index_to_label_map = data_interface.index_to_label_map
-        self.instance_categories = list(self.index_to_label_map.values())
+        self.instance_categories = data_interface.instance_categories
+        self.instance_index_to_label_map = {
+            k: v
+            for k, v in data_interface.index_to_label_map.items()
+            if v in self.instance_categories
+        }
 
         self.semantic_colours = [
             np.random.choice(range(256), size=3) / 255.0
@@ -504,7 +512,10 @@ class PointGroupWrapper(pl.LightningModule):
         """
         Return whether should be using instance segmentation based on the learning curriculum
         """
-        return self.current_epoch > self.train_cfg.prepare_epochs
+        return (
+            self.current_epoch > self.train_cfg.prepare_epochs
+            or self.do_instance_segmentation
+        )
 
     def step_learning_rate(
         self, optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6
@@ -571,13 +582,13 @@ class PointGroupWrapper(pl.LightningModule):
                 pred_info,
                 batch.instance_labels.detach().cpu().numpy(),
                 batch.labels.detach().cpu().numpy(),
-                self.index_to_label_map,
+                self.instance_index_to_label_map,
             )
 
             matches["instance"] = {"gt": gt2pred, "pred": pred2gt}
 
         # Save to file
-        if self.save_point_cloud:
+        if self.test_cfg.save_point_cloud:
 
             point_cloud_folder = Path.cwd() / "predictions"
             if not point_cloud_folder.exists():
@@ -588,9 +599,7 @@ class PointGroupWrapper(pl.LightningModule):
 
             # Set 3D points
             pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(
-                batch.point_coordinates.cpu().numpy()
-            )
+            pcd.points = o3d.utility.Vector3dVector(batch.points.cpu().numpy())
 
             # Save original colour inputs
             pcd.colors = o3d.utility.Vector3dVector(
@@ -678,6 +687,7 @@ class PointGroupWrapper(pl.LightningModule):
         return unique[counts == max_count][0]
 
     def test_epoch_end(self, outputs) -> None:
+        pass
 
         # Semantic eval
         semantic_matches = {}
@@ -713,7 +723,7 @@ class PointGroupWrapper(pl.LightningModule):
         semantic_loss = self.semantic_criterion(semantic_scores, semantic_labels)
 
         """offset loss"""
-        gt_offsets = batch.instance_centers - batch.point_coordinates  # (N, 3)
+        gt_offsets = batch.instance_centers - batch.points  # (N, 3)
         pt_diff = output.point_offsets - gt_offsets  # (N, 3)
         pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
         valid = (batch.instance_labels != self.dataset_cfg.ignore_label).float()
@@ -774,6 +784,9 @@ class PointGroupWrapper(pl.LightningModule):
         )
 
     def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+        torch.cuda.empty_cache()
+
+    def on_test_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
         torch.cuda.empty_cache()
 
     def configure_optimizers(self):

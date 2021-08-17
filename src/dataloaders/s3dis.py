@@ -151,19 +151,25 @@ class S3DISDataInterface(DataInterface):
     def __post_init__(self):
 
         # Ignore stuff classes
+        # TODO: Move this to config file
         self.ignore_label = -100
-        self.ignore_classes = ["wall", "floor", "ceiling", "clutter"]
+        self.ignore_classes = ["wall", "floor", "ceiling"]
+
+        self.instance_categories = [
+            label
+            for label in self.semantic_categories
+            if label not in self.ignore_classes
+        ]
 
         self.label_to_index_map = defaultdict(
             lambda: self.ignore_label,
             {
                 label_name: index
                 for index, label_name in enumerate(self.semantic_categories)
-                if label_name not in self.ignore_classes
             },
         )
         self.index_to_label_map = {
-            index: label_name for index, label_name in self.label_to_index_map.items()
+            index: label_name for label_name, index in self.label_to_index_map.items()
         }
 
         self.fix_any_errors()

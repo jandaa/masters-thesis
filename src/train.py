@@ -42,7 +42,7 @@ def set_random_seeds(cfg):
 def semantics(cfg: DictConfig) -> None:
 
     # Set random seeds for reproductability
-    set_random_seeds(cfg)
+    # set_random_seeds(cfg)
 
     # Load a checkpoint if given
     checkpoint_path = None
@@ -83,13 +83,19 @@ def semantics(cfg: DictConfig) -> None:
         log.info(f"Running evaluation on model {cfg.checkpoint}")
 
         if checkpoint_path:
-            model = PointGroupWrapper.load_from_checkpoint(
-                cfg=cfg, data_interface=data_interface, checkpoint_path=checkpoint_path
-            )
 
             # Set the epoch to that loaded in the module
             loaded_checkpoint = torch.load(checkpoint_path)
-            trainer.current_epoch = loaded_checkpoint["epoch"]
+            do_instance_segmentation = False
+            if loaded_checkpoint["epoch"] >= cfg.model.train.prepare_epochs:
+                do_instance_segmentation = True
+
+            model = PointGroupWrapper.load_from_checkpoint(
+                cfg=cfg,
+                data_interface=data_interface,
+                checkpoint_path=checkpoint_path,
+                do_instance_segmentation=do_instance_segmentation,
+            )
 
         log.info("Running on test set")
         trainer.test(model, data_loader.test_dataloader())

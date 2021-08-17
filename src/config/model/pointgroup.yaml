@@ -47,6 +47,7 @@ test:
   TEST_NPOINT_THRESH: 100
 
   eval: True
+  save_point_cloud: True
   # save_semantic: False
   # save_pt_offsets: False
   # save_instance: True

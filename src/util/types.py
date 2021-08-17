@@ -1,6 +1,5 @@
 from pathlib import Path
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from dataclasses import dataclass, field
 
 import torch
@@ -59,6 +58,7 @@ class DataInterface(ABC):
     """
 
     semantic_categories: list
+    instance_categories: list = field(init=False)
     index_to_label_map: map = field(init=False)
     label_to_index_map: map = field(init=False)
 
@@ -82,8 +82,14 @@ class DataInterface(ABC):
 class PointGroupInput:
     """Input type of Point Group forward function."""
 
+    # input points, float (N, 3)
+    points: torch.Tensor = torch.tensor([])
+
     # features of inputs (e.g. color channels)
     features: torch.Tensor = torch.tensor([])
+
+    # Coordinates of voxels
+    voxel_coordinates: torch.Tensor = torch.tensor([])
 
     # mapping from points to voxels
     point_to_voxel_map: torch.Tensor = torch.tensor([])
@@ -91,22 +97,11 @@ class PointGroupInput:
     # mapping from voxels to points
     voxel_to_point_map: torch.Tensor = torch.tensor([])
 
-    # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-    # TODO: Not sure what coordinates these are
-    coordinates: torch.Tensor = torch.tensor([])
+    # element for each point with index of which batch
+    # the point came from
+    batch_indices: torch.Tensor = torch.tensor([])
 
-    # input points, float (N, 3)
-    point_coordinates: torch.Tensor = torch.tensor([])
-
-    # Coordinates of voxels
-    voxel_coordinates: torch.Tensor = torch.tensor([])
-
-    spatial_shape: int = 3  # TODO: not sure
-
-    @property
-    def batch_indices(self):
-        # return self.coordinates[:, 0].int()
-        return self.coordinates
+    spatial_shape: int = 3  # Shape in terms of voxels
 
 
 @dataclass
@@ -140,12 +135,10 @@ class PointGroupBatch(PointGroupInput):
     instance_labels: torch.Tensor = torch.tensor([])
     instance_centers: torch.Tensor = torch.tensor([])
     instance_pointnum: torch.Tensor = torch.tensor([])
-    id: torch.Tensor = torch.tensor([])
     offsets: torch.Tensor = torch.tensor([])
 
-    id: list = field(default_factory=list)
+    batch_size: int = 0
     test_filename: Path = None
-
     device: str = "cpu"
 
     def to(self, device):
@@ -157,13 +150,9 @@ class PointGroupBatch(PointGroupInput):
 
         return self
 
-    @property
-    def batch_size(self):
-        return len(self)
-
     def __len__(self):
         """Return the size of the batch."""
-        return len(self.id)
+        return self.batch_size
 
 
 @dataclass

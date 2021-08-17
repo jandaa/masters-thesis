@@ -54,7 +54,9 @@ class DataModule(pl.LightningDataModule):
         self.test_data = data_interface.test_data
 
         # Preprocess all data in parallel
-        all_datapoints = self.train_data + self.val_data + self.test_data
+        # TODO: put back test_data
+        # all_datapoints = self.train_data + self.val_data + self.test_data
+        all_datapoints = self.train_data + self.val_data
         apply_data_operation_in_parallel(
             self.preprocess_batch, all_datapoints, self.train_workers
         )
@@ -322,7 +324,7 @@ class DataModule(pl.LightningDataModule):
         are_labels_available = is_test and self.test_split == "val" or not is_test
 
         batch_coordinates = []
-        batch_point_coordinates = []
+        batch_points = []
         batch_features = []
         batch_semantic_labels = []
         batch_instance_labels = []
@@ -394,7 +396,9 @@ class DataModule(pl.LightningDataModule):
                 )
 
                 # They do this because they combine all the scenes in the batch into one vector
-                instance_labels[np.where(instance_labels != -100)] += total_inst_num
+                instance_labels[
+                    np.where(instance_labels != self.ignore_label)
+                ] += total_inst_num
                 total_inst_num += number_of_instances
 
                 # Add training and validation info
@@ -406,7 +410,6 @@ class DataModule(pl.LightningDataModule):
 
             ### merge the scene to the batch
             batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
-
             batch_coordinates.append(
                 torch.cat(
                     [
@@ -416,7 +419,8 @@ class DataModule(pl.LightningDataModule):
                     1,
                 )
             )
-            batch_point_coordinates.append(torch.from_numpy(xyz_middle))
+
+            batch_points.append(torch.from_numpy(xyz_middle))
 
         ### merge all the scenes in the batch
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
@@ -424,9 +428,7 @@ class DataModule(pl.LightningDataModule):
         coordinates = torch.cat(
             batch_coordinates, 0
         )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
-        point_coordinates = torch.cat(batch_point_coordinates, 0).to(
-            torch.float32
-        )  # float (N, 3)
+        points = torch.cat(batch_points, 0).to(torch.float32)  # float (N, 3)
         features = torch.cat(batch_features, 0)  # float (N, C)
 
         spatial_shape = (coordinates.max(0)[0][1:] + 1).numpy()
@@ -436,7 +438,7 @@ class DataModule(pl.LightningDataModule):
             voxel_coordinates,
             point_to_voxel_map,
             voxel_to_point_map,
-        ) = pointgroup_ops.voxelization_idx(coordinates, self.batch_size, self.mode)
+        ) = pointgroup_ops.voxelization_idx(coordinates, len(id), self.mode)
 
         if are_labels_available:
             semantic_labels = torch.cat(batch_semantic_labels, 0).long()  # long (N)
@@ -450,23 +452,23 @@ class DataModule(pl.LightningDataModule):
             )  # int (total_nInst)
 
         if is_test:
-            test_filename = scenes[id[0]].name
+            test_filename = scenes[id[0]].scene_name
         else:
             test_filename = None
 
         return PointGroupBatch(
-            coordinates=coordinates[:, 0].int(),
+            batch_indices=coordinates[:, 0].int(),
             voxel_coordinates=voxel_coordinates,
             point_to_voxel_map=point_to_voxel_map,
             voxel_to_point_map=voxel_to_point_map,
-            point_coordinates=point_coordinates,
+            points=points,
             features=features,
             labels=semantic_labels,
             instance_labels=instance_labels,
             instance_centers=instance_centers,
             instance_pointnum=instance_pointnum,
             offsets=batch_offsets,
-            id=id,
+            batch_size=len(id),
             spatial_shape=spatial_shape,
             test_filename=test_filename,
         )
