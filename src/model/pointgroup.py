@@ -267,7 +267,7 @@ class PointGroup(nn.Module):
             voxel_feats,
             input.voxel_coordinates.int(),
             input.spatial_shape,
-            self.dataset_cfg.batch_size,
+            input.batch_size,
         )
 
         output = self.input_conv(input_)
