@@ -116,6 +116,15 @@ class Visualizer:
         o3d.visualization.draw_geometries_with_key_callbacks([pcd], key_to_callback)
 
 
+def visualize_pointcloud(points, colours):
+    """Convenience function to quickly visualize a point cloud."""
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.cpu().detach().numpy())
+    pcd.colors = o3d.utility.Vector3dVector(colours.cpu().detach().numpy())
+    o3d.visualization.draw_geometries([pcd])
+
+
 def split_data_amount_threads(data, num_threads):
     """Spread the data accross all the threads as equally as possible."""
 
