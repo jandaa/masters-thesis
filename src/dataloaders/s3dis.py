@@ -178,15 +178,16 @@ class S3DISDataInterface(DataInterface):
         """Fix any errors found in the original files"""
 
         annotation = self.dataset_dir / "Area_5/office_19/Annotations/ceiling_1.txt"
-        lines = annotation.open("r").readlines()
-        lines[323473] = (
-            lines[323473]
-            .encode("unicode-escape")
-            .decode()
-            .replace("\\x1", "")
-            .replace("\\n", "\n")
-        )
-        annotation.open("w").writelines(lines)
+        if annotation.exists():
+            lines = annotation.open("r").readlines()
+            lines[323473] = (
+                lines[323473]
+                .encode("unicode-escape")
+                .decode()
+                .replace("\\x1", "")
+                .replace("\\n", "\n")
+            )
+            annotation.open("w").writelines(lines)
 
     @property
     def train_data(self) -> list:
