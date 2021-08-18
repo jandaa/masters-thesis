@@ -33,6 +33,7 @@ class DataModule(pl.LightningDataModule):
         self.batch_size = cfg.dataset.batch_size
         self.scale = cfg.dataset.scale  # voxel_size = 1 / scale, scale 50(2cm)
         self.max_npoint = cfg.dataset.max_npoint
+        self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
         self.mode = cfg.dataset.mode
         self.ignore_label = cfg.dataset.ignore_label
         self.are_scenes_preloaded = cfg.preload_data
@@ -247,11 +248,13 @@ class DataModule(pl.LightningDataModule):
             return []
         return scenes
 
-    def crop(self, scene: SceneWithLabels, num_splits: int = 1):
+    def crop(self, scene: SceneWithLabels, num_splits: int = 1, max_npoint: int = None):
         """
         Crop by picking a random point and selecting all
         neighbouring points up to a max number of points
         """
+        if not max_npoint:
+            max_npoint = self.max_npoint
 
         # Build KDTree
         kd_tree = KDTree(scene.points)
@@ -272,7 +275,7 @@ class DataModule(pl.LightningDataModule):
             query_point = query_points[query_point_ind]
 
             # select subset of neighbouring points from the random center point
-            [_, idx] = kd_tree.query(query_point, k=self.max_npoint)
+            [_, idx] = kd_tree.query(query_point, k=max_npoint)
 
             # Make sure there is at least one instance in the scene
             current_instances = np.unique(scene.instance_labels[idx])
@@ -349,6 +352,12 @@ class DataModule(pl.LightningDataModule):
                     scene = scene[0]
 
             if is_test:
+
+                if scene.points.shape[0] > self.max_pointcloud_size:
+                    scene = self.crop(scene, max_npoint=self.max_pointcloud_size)
+                    if not scene:
+                        continue
+                    scene = scene[0]
 
                 xyz_middle = self.augment_data(scene.points, False, True, True)
 

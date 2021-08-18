@@ -48,6 +48,4 @@ test:
 
   eval: True
   save_point_cloud: True
-  # save_semantic: False
-  # save_pt_offsets: False
-  # save_instance: True
+  max_pointcloud_size: 2000000
