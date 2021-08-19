@@ -29,3 +29,9 @@ categories:
     "board",
     "clutter",
   ]
+
+instance_ignore_categories: [
+  "wall", 
+  "floor", 
+  "ceiling"
+]

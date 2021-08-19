@@ -248,6 +248,12 @@ class DataModule(pl.LightningDataModule):
             return []
         return scenes
 
+    def crop_single(self, scene: SceneWithLabels, max_npoint: int):
+        if scene.points.shape[0] > max_npoint:
+            scene = self.crop(scene, max_npoint=max_npoint)
+            scene = scene[0]
+        return scene
+
     def crop(self, scene: SceneWithLabels, num_splits: int = 1, max_npoint: int = None):
         """
         Crop by picking a random point and selecting all
@@ -344,20 +350,15 @@ class DataModule(pl.LightningDataModule):
             if not self.are_scenes_preloaded:
                 scene = scene.load()
 
-                # Crop scene if it's too big
-                if crop and scene.points.shape[0] > self.max_npoint:
-                    scene = self.crop(scene)
+                if crop:
+                    scene = self.crop_single(scene, max_npoint=self.max_npoint)
                     if not scene:
                         continue
-                    scene = scene[0]
 
             if is_test:
 
-                if scene.points.shape[0] > self.max_pointcloud_size:
-                    scene = self.crop(scene, max_npoint=self.max_pointcloud_size)
-                    if not scene:
-                        continue
-                    scene = scene[0]
+                # Make sure the scene is not way too big
+                scene = self.crop_single(scene, max_npoint=self.max_pointcloud_size)
 
                 xyz_middle = self.augment_data(scene.points, False, True, True)
 

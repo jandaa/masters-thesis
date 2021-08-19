@@ -38,6 +38,8 @@ class DataInterfaceFactory:
         return ScannetDataInterface(
             scans_dir=self.dataset_dir / "scans",
             semantic_categories=self.dataset_cfg.categories,
+            ignore_label=self.dataset_cfg.ignore_label,
+            instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
             train_split=train_split,
             val_split=val_split,
             test_split=test_split,
@@ -48,9 +50,10 @@ class DataInterfaceFactory:
         return S3DISDataInterface(
             dataset_dir=Path(self.dataset_dir),
             semantic_categories=self.dataset_cfg.categories,
+            ignore_label=self.dataset_cfg.ignore_label,
+            instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
             train_split=self.dataset_cfg.train_split,
             val_split=self.dataset_cfg.val_split,
             test_split=self.dataset_cfg.test_split,
             # force_reload=True,
-            # num_threads=1,
         )

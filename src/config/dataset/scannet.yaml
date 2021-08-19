@@ -35,3 +35,9 @@ categories: [
     "bathtub",
     "otherfurniture",
   ]
+
+instance_ignore_categories: [
+  "wall", 
+  "floor", 
+  "unannotated"
+]

@@ -42,6 +42,10 @@ class DataPoint(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def is_scene_preprocessed(self, force_reload) -> bool:
+        raise NotImplementedError()
+
+    @abstractmethod
     def preprocess(self, force_reload=False) -> None:
         raise NotImplementedError()
 
