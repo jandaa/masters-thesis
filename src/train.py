@@ -64,8 +64,9 @@ def semantics(cfg: DictConfig) -> None:
         accelerator=cfg.accelerator,
         resume_from_checkpoint=checkpoint_path,
         max_epochs=cfg.max_epochs,
-        check_val_every_n_epoch=cfg.check_val_every_n_epoch,
+        check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
         callbacks=[checkpoint_callback],
+        precision=16,
     )
 
     # Train model
