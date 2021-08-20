@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --gres=gpu:2       # Request GPU "generic resources"
-#SBATCH --cpus-per-task=20  # Cores proportional to GPUs: 6 on Cedar, 10 on Béluga, 16 on Graham.
+#SBATCH --gres=gpu:4       # Request GPU "generic resources"
+#SBATCH --cpus-per-task=40  # Cores proportional to GPUs: 6 on Cedar, 10 on Béluga, 16 on Graham.
 #SBATCH --mem=47000M       # Memory proportional to GPUs: 32000 Cedar, 47000 Béluga, 64000 Graham.
 #SBATCH --time=1-00:00:00     # DD-HH:MM:SS
 
@@ -44,7 +44,7 @@ dataset_dir=$SLURM_TMPDIR/S3DIS/
 python src/train.py \
     dataset_dir=/home/andrej/datasets/S3DIS \
     dataset=s3dis \
-    dataset.batch_size=2
-    gpus=2
-    hydra.run.dir=outputs/s3dis/gpu-2-v1 \
+    dataset.batch_size=1
+    gpus=4
+    hydra.run.dir=outputs/s3dis/gpu-4-v1 \
     preload_data=True \
