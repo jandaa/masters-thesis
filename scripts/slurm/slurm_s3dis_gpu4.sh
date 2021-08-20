@@ -42,7 +42,7 @@ tar -xf $dataset -C $SLURM_TMPDIR
 cd $base_dir
 dataset_dir=$SLURM_TMPDIR/S3DIS/
 python src/train.py \
-    dataset_dir=/home/andrej/datasets/S3DIS \
+    dataset_dir=$dataset_dir \
     dataset=s3dis \
     dataset.batch_size=1
     gpus=4

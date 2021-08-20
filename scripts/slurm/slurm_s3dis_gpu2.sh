@@ -42,9 +42,9 @@ tar -xf $dataset -C $SLURM_TMPDIR
 cd $base_dir
 dataset_dir=$SLURM_TMPDIR/S3DIS/
 python src/train.py \
-    dataset_dir=/home/andrej/datasets/S3DIS \
+    dataset_dir=$dataset_dir \
     dataset=s3dis \
-    dataset.batch_size=2
-    gpus=2
+    dataset.batch_size=2 \
+    gpus=2 \
     hydra.run.dir=outputs/s3dis/gpu-2-v1 \
     preload_data=True \
