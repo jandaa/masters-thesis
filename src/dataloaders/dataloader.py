@@ -56,8 +56,7 @@ class DataModule(pl.LightningDataModule):
 
         # Preprocess all data in parallel
         # TODO: put back test_data
-        # all_datapoints = self.train_data + self.val_data + self.test_data
-        all_datapoints = self.train_data + self.val_data
+        all_datapoints = self.train_data + self.val_data + self.test_data
         apply_data_operation_in_parallel(
             self.preprocess_batch, all_datapoints, self.train_workers
         )
@@ -159,7 +158,7 @@ class DataModule(pl.LightningDataModule):
     def preprocess_batch(self, datapoints):
         """Run the preprocess function on a batch of datapoints"""
         for datapoint in datapoints:
-            datapoint.preprocess(force_reload=False)
+            datapoint.preprocess(force_reload=True)
 
     def elastic_distortion(self, x, granularity, magnitude):
         blurs = [
