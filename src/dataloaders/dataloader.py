@@ -158,7 +158,7 @@ class DataModule(pl.LightningDataModule):
     def preprocess_batch(self, datapoints):
         """Run the preprocess function on a batch of datapoints"""
         for datapoint in datapoints:
-            datapoint.preprocess(force_reload=True)
+            datapoint.preprocess(force_reload=False)
 
     def elastic_distortion(self, x, granularity, magnitude):
         blurs = [
