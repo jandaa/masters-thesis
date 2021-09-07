@@ -5,15 +5,15 @@ Instance segmentation algorithms built for the ARIBIC project
 
 - Ubuntu 18.04+
 - Python 3.6+
-- g++ 9.3.0
+- gcc 9.3.0+
 
 ## Getting Started
 
-Follow these steps chronologically to start using this project. For those running on SLURM clusters, skip ahead to the SLURM section.
+Follow these steps chronologically to get started using this project. For those running on SLURM clusters, skip ahead to the SLURM section.
 
 ### Python
 
-Make sure that you have a compatable python version. Install using:
+Make sure that you have a compatable python version. Install using
 
 ```shell
 sudo apt-get install python3
@@ -48,7 +48,7 @@ remember to restart your computer after completing this installation. After inst
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
 ```
 
-and reloading with:
+and reloading with
 
 ```shell
 source ~/.bashrc
@@ -65,4 +65,16 @@ sudo bash scripts/install.sh
 
 ### SLURM Compute Clusters
 
-This step is meant onlt for running on SLURM clusters.
+This step is meant onlt for running on SLURM clusters. Most of the installation is already in the slurm script, all that is required is to pre-download any packages that may not be available on the system. This can be down using the following commands:
+
+```shell
+bash scripts/third_party.sh
+bash scripts/pip-download.sh
+```
+
+and then submitting the desired job with
+
+
+```shell
+sbatch scripts/slurm/slurm_*.sh
+```
