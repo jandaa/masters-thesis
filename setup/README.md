@@ -36,6 +36,7 @@ sudo dpkg -i libcudnn8-dev.deb
 remember to restart your computer after completing this installation. After installing, set the LD_LIBRARY_PATH to point to the cuda library by adding this line to your .bashrc
 
 ```bash
+export PATH=/usr/local/cuda/bin:${PATH}
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
 ```
 
