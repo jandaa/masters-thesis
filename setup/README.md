@@ -24,7 +24,7 @@ sudo apt-get install python3-pip python3-venv
 
 ### Nvidia Drivers
 
-This project requires both nvidia [cuDNN](https://developer.nvidia.com/cudnn) and the [cuda toolkit](https://developer.nvidia.com/cuda-downloads) to be installed. 
+This project requires both nvidia [cuDNN](https://developer.nvidia.com/cudnn) and the [cuda toolkit](https://developer.nvidia.com/cuda-downloads) to be installed.
 
 When installing the cuDNN library, download both the runtime and developer library and install each using the following commands.
 
@@ -37,7 +37,7 @@ remember to restart your computer after completing this installation. After inst
 
 ```bash
 export PATH=/usr/local/cuda/bin:${PATH}
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64
 ```
 
 and reloading with
