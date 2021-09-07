@@ -7,6 +7,13 @@ Instance segmentation algorithms built for the ARIBIC project
 - Python 3.6+
 - gcc 9.3.0+
 
+## Getting Started
+
+Please refer to instructions under the ``setup`` folder.
+
+## Downloading Datasets
+Please refer to instructions under the ``datasets`` folder.
+
 ## Training
 
 To train a model, use one of the appropriate scripts located under the ``scripts/experiments/`` directory. Update the path to the dataset root directory and run the stript from the command line. 
@@ -23,9 +30,6 @@ python train.py \
     hydra.run.dir=outputs/scannet/run_dir/ \
     checkpoint=last.ckpt
 ```
-
-## Downloading Datasets
-Please refer to instructions under the ``datasets`` folder.
 
 ## Contributing
 
