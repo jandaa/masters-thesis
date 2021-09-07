@@ -5,16 +5,13 @@ source .venv/bin/activate
 pip3 install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
 
 # Install all other dependencies
-pip3 install -r requirements.dev
-pip3 install -r requirements.prod
+pip3 install -r setup/requirements.dev
+pip3 install -r setup/requirements.prod
 
 base_dir=$PWD
 
 # Install dependencies
 sudo apt-get install libsparsehash-dev libboost-all-dev
-
-# Load in third part source code
-/bin/bash src/thrid_party.sh
 
 cd $base_dir/src/packages/spconv
 python setup.py bdist_wheel

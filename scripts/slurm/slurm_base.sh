@@ -20,8 +20,8 @@ pip3 install  dist/*.tar.gz --no-index
 pip3 install  dist/*.whl --no-index
 
 # install each requirement individually incase some are unavailable
-cat requirements.dev | xargs -n 1 pip3 install --no-index 
-cat requirements.prod | xargs -n 1 pip3 install --no-index
+cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
+cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
 
 # Run from the root of repository (e.g. sbatch scripts/slurm.sh)
 base_dir=$PWD

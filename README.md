@@ -7,74 +7,41 @@ Instance segmentation algorithms built for the ARIBIC project
 - Python 3.6+
 - gcc 9.3.0+
 
-## Getting Started
+## Training
 
-Follow these steps chronologically to get started using this project. For those running on SLURM clusters, skip ahead to the SLURM section.
+To train a model, use one of the appropriate scripts located under the ``scripts/experiments/`` directory. Update the path to the dataset root directory and run the stript from the command line. 
 
-### Python
+## Evaluation
 
-Make sure that you have a compatable python version. Install using
-
-```shell
-sudo apt-get install python3
-```
-OR 
-```shell
-sudo apt-get install python-is-python3
-```
-
-if you want the python command to automatically use python3. Note that the python command should point to python3. If it does not use the command ``update-alternatives`` to set python to python3.
-
-Then install pip and venv to install packages in a seperate virtual environment.
+Evaluating a trained model can be done from the command line, with a few command line arguments that specify the dataset directory, the run directory and the checkpoint to use. This could look like the following:
 
 ```shell
-sudo apt-get install python3-pip python3-venv
+python train.py \
+    tasks=['eval','visualize'] \
+    dataset=scannet \
+    dataset_dir=/path/to/dataset/ \
+    hydra.run.dir=outputs/scannet/run_dir/ \
+    checkpoint=last.ckpt
 ```
 
-### Nvidia Drivers
+## Downloading Datasets
+Please refer to instructions under the ``datasets`` folder.
 
-This project requires both nvidia [cuDNN](https://developer.nvidia.com/cudnn) and the [cuda toolkit](https://developer.nvidia.com/cuda-downloads) to be installed. 
+## Contributing
 
-When installing the cuDNN library, download both the runtime and developer library and install each using the following commands.
+### Formatting
+
+For formatting python code, we use ``black``. The best practice is to setup black to run every time you save. This can be done through the settings of your specific editor or can be run from the command line using:
 
 ```shell
-sudo dpkg -i libcudnn8.deb
-sudo dpkg -i libcudnn8-dev.deb
+black src/
 ```
 
-remember to restart your computer after completing this installation. After installing, set the LD_LIBRARY_PATH to point to the cuda library by adding this line to your .bashrc
+### Pre-Commit Hooks
 
-```bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib
-```
-
-and reloading with
+Before any commit is pushed through, it should first be run using the pre-commit package. This is automatically install in the virtual environment but can also be installed separately using:
 
 ```shell
-source ~/.bashrc
-```
-
-### Installation
-
-Run the following commands to install a virtual entironment with all the requirements. Note this is not necessary if running on a SLURM cluster (refer to the next section).
-
-```shell
-bash scripts/third_party.sh
-sudo bash scripts/install.sh
-```
-
-### SLURM Compute Clusters
-
-This step is meant onlt for running on SLURM clusters. Most of the installation is already in the slurm script, all that is required is to pre-download any packages that may not be available on the system. This can be down using the following commands:
-
-```shell
-bash scripts/third_party.sh
-bash scripts/pip-download.sh
-```
-
-and then submitting the desired job with
-
-
-```shell
-sbatch scripts/slurm/slurm_*.sh
+pip install pre-commit
+pre-commit install
 ```
