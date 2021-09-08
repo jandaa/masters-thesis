@@ -117,6 +117,12 @@ class SceneMeasurement:
         self.points = get_point_cloud(self.depth_image, self.depth_intrinsics)
         self.points = np.dot(self.points, np.transpose(self.pose))
 
+        # Downsample point cloud according to specified voxel size
+        pcd = self.get_open3d_point_cloud()
+        pcd = pcd.voxel_down_sample(info["voxel_size"])
+        self.points = np.asarray(pcd.points)
+        waithere = 1
+
     @property
     def color_image_for_point_cloud(self):
         """Point cloud uses a different ordering of RGB."""
@@ -169,11 +175,12 @@ class SceneMeasurement:
 class SceneMeasurements:
     """Stores all sensor measurements for a single scene."""
 
-    def __init__(self, directory: Path, frame_skip=25):
+    def __init__(self, directory: Path, frame_skip=25, voxel_size=0.02):
         self.directory = directory
 
         # Extract info from info file
         self.info = self.extract_scene_info()
+        self.info["voxel_size"] = voxel_size
 
         # Initalize colours
         self.label_id_to_colour = {i: self.get_random_colour() for i in range(100)}
@@ -194,16 +201,14 @@ class SceneMeasurements:
         kd_trees = [KDTree(frame.points) for frame in self.measurements]
 
         for i, frame1 in enumerate(kd_trees):
-            lower_bound = max(i - window_size, 0)
-            upper_bound = min(i + window_size, len(kd_trees))
-            for j in range(lower_bound, upper_bound):
-                frame2 = kd_trees[j]
-
+            for j, frame2 in enumerate(kd_trees):
                 if i == j:
                     continue
 
                 # Find the percent overlap of the two frames
-                indexes = frame1.query_ball_tree(frame2, 1.5 * 0.05, p=1)
+                indexes = frame1.query_ball_tree(
+                    frame2, 1.5 * self.info["voxel_size"], p=1
+                )
                 overlap = sum(1 for matches in indexes if matches) / len(indexes)
 
                 overlap_matrix[i, j] = overlap
