@@ -3,3 +3,4 @@ flake8
 pre-commit
 cmake
 open3d
+opencv-python
