@@ -6,6 +6,8 @@ import numpy as np
 import open3d as o3d
 import cv2
 
+from scipy.spatial import KDTree
+
 colour_image_extension = ".color.jpg"
 depth_image_extension = ".depth.pgm"
 pose_extension = ".pose.txt"
@@ -145,10 +147,6 @@ class SceneMeasurement:
 
         return pcd
 
-    def show_labels(self):
-        """Show the labels of each pixel in the image."""
-        labels_image = np.zeros()
-
     def show_pointcloud(self):
         """Display the point cloud."""
         pcd = self.get_open3d_point_cloud()
@@ -157,12 +155,15 @@ class SceneMeasurement:
     def show_depth_image(self):
         """Display the depth image."""
         depth = self.depth_image.astype(np.float32)
-        depth = Image.fromarray((depth * 255) / np.max(depth))
-        depth.show()
+        depth = (depth * 255) / np.max(depth)
+
+        cv2.imshow("Depth", depth.astype(np.uint8))
+        cv2.waitKey()
 
     def show_colour_image(self):
         """Display the colour image."""
-        self.color_image.show()
+        cv2.imshow("Color", self.color_image)
+        cv2.waitKey()
 
 
 class SceneMeasurements:
@@ -183,7 +184,33 @@ class SceneMeasurements:
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
 
-        self.visualize_everything_as_video(2)
+        self.overlap_matrix = self.get_overlapping_measurements()
+
+    def get_overlapping_measurements(self, window_size=1):
+        """Get the frames that overlap more than a desired threshold."""
+        num_measurements = len(self.measurements)
+        overlap_matrix = np.zeros((num_measurements, num_measurements))
+
+        kd_trees = [KDTree(frame.points) for frame in self.measurements]
+
+        for i, frame1 in enumerate(kd_trees):
+            lower_bound = max(i - window_size, 0)
+            upper_bound = min(i + window_size, len(kd_trees))
+            for j in range(lower_bound, upper_bound):
+                frame2 = kd_trees[j]
+
+                if i == j:
+                    continue
+
+                # Find the percent overlap of the two frames
+                indexes = frame1.query_ball_tree(frame2, 1.5 * 0.05, p=1)
+                overlap = sum(1 for matches in indexes if matches) / len(indexes)
+
+                overlap_matrix[i, j] = overlap
+                overlap_matrix[i, j] = max(overlap_matrix[i, j], overlap_matrix[j, i])
+                overlap_matrix[j, i] = max(overlap_matrix[i, j], overlap_matrix[j, i])
+
+        return overlap_matrix
 
     def get_random_colour(self):
         return np.random.choice(range(256), size=3).astype(np.uint8)
@@ -316,6 +343,7 @@ if __name__ == "__main__":
     extracted_scenes = [scan for scan in output_dir.iterdir() if scan.is_dir()]
     for scene in extracted_scenes:
         measurements = SceneMeasurements(scene)
+        measurements.visualize_everything_as_video(2)
 
 
 # Extracting code
