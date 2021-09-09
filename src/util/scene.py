@@ -123,10 +123,16 @@ class SceneMeasurement:
         self.points = get_point_cloud(self.depth_image, self.depth_intrinsics)
         self.points = np.dot(self.points, np.transpose(self.pose))
 
+        # Get colours of points in depth map
+        mask = self.depth_image != 0
+        self.point_colors = np.reshape(self.color_image_for_point_cloud[mask], [-1, 3])
+        self.point_colors = self.point_colors / 127.5 - 1
+
         # Downsample point cloud according to specified voxel size
         pcd = self.get_open3d_point_cloud()
         pcd = pcd.voxel_down_sample(info["voxel_size"])
         self.points = np.asarray(pcd.points)
+        self.point_colors = np.asarray(pcd.colors)
 
     @property
     def color_image_for_point_cloud(self):
@@ -145,17 +151,9 @@ class SceneMeasurement:
 
     def get_open3d_point_cloud(self):
         """Generate an open3D point cloud for visualization."""
-
-        # Get colours of points in depth map
-        mask = self.depth_image != 0
-        color_image = np.reshape(self.color_image_for_point_cloud[mask], [-1, 3])
-
-        # store the point cloud for visualization
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.points[:, 0:3])
-        pcd.colors = o3d.utility.Vector3dVector(color_image / 127.5 - 1)
-        pcd = pcd.uniform_down_sample(100)
-
+        pcd.colors = o3d.utility.Vector3dVector(self.point_colors)
         return pcd
 
     def show_pointcloud(self):

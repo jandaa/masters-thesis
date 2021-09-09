@@ -245,10 +245,10 @@ class ScannetDataInterface(DataInterface):
         if self.do_sensor_files_exist_in_scene(datapoint.scene_path):
 
             log.info(f"Loading sensor measurements for scene: {datapoint.scene_name}")
-            measurements = self.preprocess_measurements(datapoint)
+            frames = self.preprocess_measurements(datapoint)
 
             log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
-            measurements.save_to_file()
+            frames.save_to_file()
 
     def preprocess_measurements(self, datapoint: ScannetDataPoint):
         """Preprocess raw sensor measurements of a scene including it's semantic and
