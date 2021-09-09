@@ -121,7 +121,6 @@ class SceneMeasurement:
         pcd = self.get_open3d_point_cloud()
         pcd = pcd.voxel_down_sample(info["voxel_size"])
         self.points = np.asarray(pcd.points)
-        waithere = 1
 
     @property
     def color_image_for_point_cloud(self):

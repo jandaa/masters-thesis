@@ -130,3 +130,5 @@ dmypy.json
 
 src/outputs/
 outputs/
+
+*sens

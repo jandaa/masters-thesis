@@ -20,3 +20,6 @@ pip3 install *.whl
 
 cd $base_dir/src/packages/pointgroup_ops
 python setup.py develop
+
+cd $base_dir/src/packages/SensReader
+make
