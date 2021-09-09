@@ -8,6 +8,7 @@ import cv2
 
 from scipy.spatial import KDTree
 
+measurements_dir_name = "measurements"
 colour_image_extension = ".color.jpg"
 depth_image_extension = ".depth.pgm"
 pose_extension = ".pose.txt"
@@ -71,9 +72,14 @@ class SceneMeasurement:
         self.frame_id = frame_id
 
         # Set filenames
-        color_image_name = directory / (f"frame-{frame_id}" + colour_image_extension)
-        depth_image_name = directory / (f"frame-{frame_id}" + depth_image_extension)
-        pose_info_name = directory / (f"frame-{frame_id}" + pose_extension)
+        measurements_dir = directory / measurements_dir_name
+        color_image_name = measurements_dir / (
+            f"frame-{frame_id}" + colour_image_extension
+        )
+        depth_image_name = measurements_dir / (
+            f"frame-{frame_id}" + depth_image_extension
+        )
+        pose_info_name = measurements_dir / (f"frame-{frame_id}" + pose_extension)
 
         frame_number = int(self.frame_id)
         instance_image_name = directory / (f"instance-filt/{frame_number}.png")
@@ -176,6 +182,7 @@ class SceneMeasurements:
 
     def __init__(self, directory: Path, frame_skip=25, voxel_size=0.02):
         self.directory = directory
+        self.measurements_dir = self.directory / measurements_dir_name
 
         # Extract info from info file
         self.info = self.extract_scene_info()
@@ -222,7 +229,7 @@ class SceneMeasurements:
     def extract_scene_info(self):
         """Extract key value pairs stored in _info.txt."""
         info = {}
-        info_file = self.directory / "_info.txt"
+        info_file = self.measurements_dir / "_info.txt"
 
         with info_file.open("r") as f:
             for line in f:

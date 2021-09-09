@@ -1,18 +1,23 @@
 import logging
 import csv
 import json
+import zipfile
+import shutil
 
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable
-
-from plyfile import PlyData
+from subprocess import Popen, PIPE, DEVNULL
 
 import torch
 import numpy as np
+from hydra.utils import get_original_cwd
+
+from plyfile import PlyData
 
 from util.types import DataInterface, DataPoint, SceneWithLabels
+from util.scene import SceneMeasurements, measurements_dir_name
 
 log = logging.getLogger(__name__)
 
@@ -111,6 +116,11 @@ class ScannetDataInterface(DataInterface):
             self.instances_file_extension,
         ]
         self.required_extensions_test = [self.mesh_file_extension]
+        self.sensor_measurments_extension = ".sens"
+        self.zipfiles_to_extract = [
+            "_2d-instance-filt.zip",
+            "_2d-label-filt.zip",
+        ]
         self.scannet_labels_filename = (
             self.scans_dir / "../scannetv2-labels.combined.tsv"
         )
@@ -189,6 +199,21 @@ class ScannetDataInterface(DataInterface):
             log.error(f"skipping scene: {scene.name} due to missing files")
         return all_files_exist
 
+    def do_sensor_files_exist_in_scene(self, scene):
+        all_files_exist = True
+        extensions = self.zipfiles_to_extract + [self.sensor_measurments_extension]
+        for ext in self.required_extensions:
+            filename = scene / (scene.stem + ext)
+            if not filename.exists():
+                log.error(f"scene {scene.name} is missing file {filename.name}")
+                all_files_exist = False
+
+        if not all_files_exist:
+            log.error(
+                f"skipping measurments in scene: {scene.name} due to missing files"
+            )
+        return all_files_exist
+
     def preprocess(self, datapoint: ScannetDataPoint, force_reload: bool) -> None:
         if datapoint.is_scene_preprocessed(force_reload):
             return
@@ -215,6 +240,59 @@ class ScannetDataInterface(DataInterface):
         details = {"num_points": points.shape[0]}
         with datapoint.scene_details_file.open(mode="w") as fp:
             json.dump(details, fp)
+
+        # Extract sensor measurements if available
+        if self.do_sensor_files_exist_in_scene(datapoint.scene_path):
+
+            log.info(f"Loading sensor measurements for scene: {datapoint.scene_name}")
+            measurements = self.preprocess_measurements(datapoint)
+
+            log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
+            measurements.save_to_file()
+
+    def preprocess_measurements(self, datapoint: ScannetDataPoint):
+        """Preprocess raw sensor measurements of a scene including it's semantic and
+        instance labels."""
+
+        # Extract all data from compressed raw data
+        self.extract_sens_file(datapoint.scene_path)
+        self.extract_zip_files(datapoint.scene_path)
+
+        # Get measurements
+        measurements = SceneMeasurements(datapoint.scene_path)
+
+        # Clean up all extracted raw data
+        for item in datapoint.scene_path.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+
+        return measurements
+
+    def extract_sens_file(self, scene):
+        """Extract all data out of the .sens file."""
+        output_folder = scene / measurements_dir_name
+        if not output_folder.exists():
+            output_folder.mkdir()
+
+        p = Popen(
+            [
+                get_original_cwd() + "/src/packages/SensReader/sens",
+                scene / (scene.name + self.sensor_measurments_extension),
+                output_folder,
+            ],
+            stdin=PIPE,
+            stdout=DEVNULL,
+        )
+        while True:
+            if not p.poll() is None:
+                break
+
+    def extract_zip_files(self, scene):
+        """Unzip all zip files containing label and instance data."""
+        for ext in self.zipfiles_to_extract:
+            file_to_extract = scene / (scene.name + ext)
+            with zipfile.ZipFile(file_to_extract) as zp:
+                zp.extractall(scene)
 
     def extract_inputs(self, scene):
 
