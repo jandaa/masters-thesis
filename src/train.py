@@ -14,7 +14,7 @@ import torch
 from util import utils
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
-from model.pointgroup import PointGroupWrapper
+from model.pointgroup import PointGroupWrapper, PointGroupBackboneWrapper
 
 
 log = logging.getLogger("train")
@@ -67,6 +67,13 @@ def semantics(cfg: DictConfig) -> None:
         check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
         callbacks=[checkpoint_callback],
     )
+
+    if "pretrain" in cfg.tasks:
+        model = PointGroupBackboneWrapper(cfg)
+        log.info("starting pre-training")
+        trainer.fit(
+            model, data_loader.pretrain_dataloader(), data_loader.pretrain_dataloader()
+        )
 
     # Train model
     if "train" in cfg.tasks:

@@ -23,6 +23,7 @@ from util.types import (
     PointGroupBatch,
     PointGroupInput,
     PointGroupOutput,
+    PretrainInput,
     LossType,
 )
 
@@ -175,26 +176,23 @@ class UBlock(nn.Module):
         return output
 
 
-class PointGroup(nn.Module):
+class PointGroupBackbone(nn.Module):
     def __init__(self, cfg: DictConfig):
-        super(PointGroup, self).__init__()
+        super(PointGroupBackbone, self).__init__()
 
         # Dataset specific parameters
         input_c = cfg.dataset.input_channel
         self.dataset_cfg = cfg.dataset
 
         # model parameters
-        self.training_params = cfg.model.train
-        self.cluster = cfg.model.cluster
         self.structure = cfg.model.structure
-        self.test_cfg = cfg.model.test
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
         if self.structure.block_residual:
-            block = ResidualBlock
+            self.block = ResidualBlock
         else:
-            block = VGGBlock
+            self.block = VGGBlock
 
         if self.structure.use_coords:
             input_c += 3
@@ -213,37 +211,19 @@ class PointGroup(nn.Module):
             [m, 2 * m, 3 * m, 4 * m, 5 * m, 6 * m, 7 * m],
             norm_fn,
             cfg.model.structure.block_reps,
-            block,
+            self.block,
             indice_key_id=1,
         )
 
         self.output_layer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
 
-        # semantic segmentation
-        self.linear = nn.Linear(m, self.dataset_cfg.classes)  # bias(default): True
-
-        # offset
-        self.offset = nn.Sequential(nn.Linear(m, m, bias=True), norm_fn(m), nn.ReLU())
-        self.offset_linear = nn.Linear(m, 3, bias=True)
-
-        # score branch
-        self.score_unet = UBlock([m, 2 * m], norm_fn, 2, block, indice_key_id=1)
-        self.score_outputlayer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
-        self.score_linear = nn.Linear(m, 1)
-
-        self.apply(self.set_bn_init)
-
         self.module_map = {
             "input_conv": self.input_conv,
             "unet": self.unet,
             "output_layer": self.output_layer,
-            "linear": self.linear,
-            "offset": self.offset,
-            "offset_linear": self.offset_linear,
-            "score_unet": self.score_unet,
-            "score_outputlayer": self.score_outputlayer,
-            "score_linear": self.score_linear,
         }
+
+        self.apply(self.set_bn_init)
 
         # Don't train any layers specified in fix modules
         self.fix_modules(cfg.model.train.fix_module)
@@ -251,8 +231,6 @@ class PointGroup(nn.Module):
     def forward(
         self,
         input: PointGroupInput,
-        device: str,
-        return_instances: bool = False,
     ):
         if self.structure.use_coords:
             features = torch.cat((input.features, input.points), 1)
@@ -274,6 +252,81 @@ class PointGroup(nn.Module):
         output = self.unet(output)
         output = self.output_layer(output)
         output_feats = output.features[input.point_to_voxel_map.long()]
+
+        return output_feats
+
+    @staticmethod
+    def set_bn_init(m):
+        classname = m.__class__.__name__
+        if classname.find("BatchNorm") != -1:
+            m.weight.data.fill_(1.0)
+            m.bias.data.fill_(0.0)
+
+    def fix_modules(self, modules):
+        for module_name in modules:
+            mod = self.module_map[module_name]
+            for param in mod.parameters():
+                param.requires_grad = False
+
+
+class PointGroup(nn.Module):
+    def __init__(self, cfg: DictConfig):
+        super(PointGroup, self).__init__()
+
+        # Dataset specific parameters
+        input_c = cfg.dataset.input_channel
+        self.dataset_cfg = cfg.dataset
+
+        # model parameters
+        self.training_params = cfg.model.train
+        self.cluster = cfg.model.cluster
+        self.structure = cfg.model.structure
+        self.test_cfg = cfg.model.test
+
+        # Redefine for convenience
+        m = self.structure.m
+
+        self.backbone = PointGroupBackbone(cfg)
+
+        norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
+
+        # semantic segmentation
+        self.linear = nn.Linear(m, self.dataset_cfg.classes)  # bias(default): True
+
+        # offset
+        self.offset = nn.Sequential(nn.Linear(m, m, bias=True), norm_fn(m), nn.ReLU())
+        self.offset_linear = nn.Linear(m, 3, bias=True)
+
+        # score branch
+        self.score_unet = UBlock(
+            [m, 2 * m], norm_fn, 2, self.backbone.block, indice_key_id=1
+        )
+        self.score_outputlayer = spconv.SparseSequential(norm_fn(m), nn.ReLU())
+        self.score_linear = nn.Linear(m, 1)
+
+        self.apply(self.set_bn_init)
+
+        self.module_map = {
+            "linear": self.linear,
+            "offset": self.offset,
+            "offset_linear": self.offset_linear,
+            "score_unet": self.score_unet,
+            "score_outputlayer": self.score_outputlayer,
+            "score_linear": self.score_linear,
+        }
+
+        # Don't train any layers specified in fix modules
+        self.fix_modules(cfg.model.train.fix_module)
+
+    def forward(
+        self,
+        input: PointGroupInput,
+        device: str,
+        return_instances: bool = False,
+    ):
+
+        # Get features of the points
+        output_feats = self.backbone(input)
 
         #### semantic segmentation
         semantic_scores = self.linear(output_feats)  # (N, nClass), float
@@ -465,6 +518,104 @@ class PointGroup(nn.Module):
                 param.requires_grad = False
 
 
+class NCESoftmaxLoss(nn.Module):
+    def __init__(self):
+        super(NCESoftmaxLoss, self).__init__()
+        self.criterion = nn.CrossEntropyLoss()
+
+    def forward(self, x, label):
+        x = x.squeeze()
+        loss = self.criterion(x, label)
+        return loss
+
+
+class PointGroupBackboneWrapper(pl.LightningModule):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super().__init__()
+
+        self.model = PointGroupBackbone(cfg)
+        self.optimizer_cfg = cfg.model.optimizer
+
+        # Dataset configuration
+        self.dataset_dir = cfg.dataset_dir
+        self.dataset_cfg = cfg.dataset
+
+        # Model configuration
+        self.train_cfg = cfg.model.train
+        self.use_coords = cfg.model.structure.use_coords
+        self.test_cfg = cfg.model.test
+
+        self.criterion = NCESoftmaxLoss()
+
+    def training_step(self, batch: PretrainInput, batch_idx: int):
+        output = self.model(batch)
+        loss = self.loss_fn(batch, output)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: PretrainInput, batch_idx: int):
+        output = self.model(batch)
+        loss = self.loss_fn(batch, output)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def loss_fn(self, batch: PretrainInput, output):
+        tau = 0.07
+
+        loss = 0
+        for i, matches in enumerate(batch.correspondances):
+            # matches = batch.correspondances
+
+            # TODO: Make this work with any number of matching frames
+
+            # How to compute the start?
+            points1_start = batch.offsets[2 * i]
+            points2_start = batch.offsets[2 * i + 1]
+
+            point_indices_1 = [points1_start + points1 for points1 in matches.keys()]
+            point_indices_2 = [
+                points2_start + matches[points1] for points1 in matches.keys()
+            ]
+            q = output[point_indices_1]
+            k = output[point_indices_2]
+
+            # Labels
+            npos = len(matches.keys())
+            labels = torch.arange(npos).cuda().long()
+
+            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+            out = torch.div(logits, tau)
+            out = out.squeeze().contiguous()
+
+            loss += self.criterion(out, labels)
+
+        return loss / len(batch.correspondances)
+
+    def configure_optimizers(self):
+        if self.optimizer_cfg.type == "Adam":
+            return torch.optim.Adam(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.optimizer_cfg.lr,
+            )
+        elif self.optimizer_cfg.type == "SGD":
+            return torch.optim.SGD(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.optimizer_cfg.lr,
+                momentum=self.optimizer_cfg.momentum,
+                weight_decay=self.optimizer_cfg.weight_decay,
+            )
+        else:
+            # TODO: Put error logging at high level try catch block
+            log.error(f"Invalid optimizer type: {self.optimizer_type}")
+            raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
+
+
 class PointGroupWrapper(pl.LightningModule):
     def __init__(
         self,
@@ -517,6 +668,7 @@ class PointGroupWrapper(pl.LightningModule):
             or self.do_instance_segmentation
         )
 
+    # TODO: Use a learning rate scheduler
     def step_learning_rate(
         self, optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6
     ):

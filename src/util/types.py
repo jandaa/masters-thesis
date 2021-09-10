@@ -160,6 +160,15 @@ class PointGroupBatch(PointGroupInput):
 
 
 @dataclass
+class PretrainInput(PointGroupInput):
+    """Input type of pretraining objective."""
+
+    correspondances: dict = field(default_factory=dict)
+    batch_size: int = 0
+    offsets: torch.Tensor = torch.tensor([])
+
+
+@dataclass
 class LossType:
     """Loss type containing all different types of losses"""
 

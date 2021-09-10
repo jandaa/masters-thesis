@@ -196,6 +196,7 @@ class SceneMeasurements:
         ]
 
         self.overlap_matrix = self.get_overlapping_measurements()
+        self.matching_frames_map = self.get_matching_frames_map(self.overlap_matrix)
 
     def get_overlapping_measurements(self, window_size=1):
         """Get the frames that overlap more than a desired threshold."""
@@ -211,7 +212,7 @@ class SceneMeasurements:
 
                 # Find the percent overlap of the two frames
                 indexes = frame1.query_ball_tree(
-                    frame2, 1.5 * self.info["voxel_size"], p=1
+                    frame2, 2.0 * self.info["voxel_size"], p=1
                 )
                 overlap = sum(1 for matches in indexes if matches) / len(indexes)
 
@@ -220,6 +221,13 @@ class SceneMeasurements:
                 overlap_matrix[j, i] = max(overlap_matrix[i, j], overlap_matrix[j, i])
 
         return overlap_matrix
+
+    def get_matching_frames_map(self, overlap_matrix, threshold=0.3):
+        """Get the map of each frame with it's corresponding matching frames."""
+        return {
+            i: np.where(overlap_matrix[i] > threshold)[0]
+            for i in range(overlap_matrix.shape[0])
+        }
 
     def get_random_colour(self):
         return np.random.choice(range(256), size=3).astype(np.uint8)

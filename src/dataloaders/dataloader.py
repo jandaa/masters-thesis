@@ -18,7 +18,7 @@ import scipy.interpolate
 from scipy.spatial import KDTree
 from packages.pointgroup_ops.functions import pointgroup_ops
 
-from util.types import PointGroupBatch, DataInterface, SceneWithLabels
+from util.types import PointGroupBatch, DataInterface, PretrainInput, SceneWithLabels
 
 from util.utils import apply_data_operation_in_parallel
 
@@ -50,6 +50,7 @@ class DataModule(pl.LightningDataModule):
         self.test_workers = cfg.model.test.test_workers
 
         # Load data from interface
+        self.pretrain_data = data_interface.pretrain_data
         self.train_data = data_interface.train_data
         self.val_data = data_interface.val_data
         self.test_data = data_interface.test_data
@@ -86,6 +87,18 @@ class DataModule(pl.LightningDataModule):
         log.info(f"Training samples: {len(self.train_data)}")
         log.info(f"Validation samples: {len(self.val_data)}")
         log.info(f"Testing samples: {len(self.test_data)}")
+
+    def pretrain_dataloader(self):
+        return DataLoader(
+            list(range(len(self.pretrain_data))),
+            batch_size=self.batch_size,
+            collate_fn=self.pretrain_merge,
+            num_workers=self.train_workers,
+            shuffle=True,
+            sampler=None,
+            drop_last=True,
+            pin_memory=True,
+        )
 
     def train_dataloader(self):
         return DataLoader(
@@ -484,4 +497,94 @@ class DataModule(pl.LightningDataModule):
             batch_size=len(id),
             spatial_shape=spatial_shape,
             test_filename=test_filename,
+        )
+
+    def pretrain_merge(self, id):
+
+        batch_coordinates = []
+        batch_points = []
+        batch_features = []
+
+        batch_offsets = [0]
+
+        correspondances = []
+
+        for i, idx in enumerate(id):
+
+            scene = self.pretrain_data[idx]
+            if not self.are_scenes_preloaded:
+                scene = scene.load_measurements()
+
+            # pick matching scenes at random
+            frame1 = random.choice(list(scene.matching_frames_map.keys()))
+            frame2 = random.choice(scene.matching_frames_map[frame1])
+
+            frame1 = scene.measurements[frame1]
+            frame2 = scene.measurements[frame2]
+
+            # compute matching points
+            frame1_kd_tree = KDTree(frame1.points)
+            frame2_kd_tree = KDTree(frame2.points)
+            indexes = frame1_kd_tree.query_ball_tree(frame2_kd_tree, 2.0 * 0.02, p=1)
+
+            correspondances.append(
+                {i: index[0] for i, index in enumerate(indexes) if index}
+            )
+
+            for frame in [frame1, frame2]:
+
+                # Randomly rotate each frame
+                xyz_middle = frame.points - frame.points.mean(0)
+                xyz_middle = self.augment_data(xyz_middle, rot=True)
+
+                ### offset
+                xyz = xyz_middle - xyz_middle.min(0)
+
+                # Append
+                batch_features.append(torch.from_numpy(frame.point_colors))
+
+                ### merge the scene to the batch
+                batch_offsets.append(batch_offsets[-1] + xyz.shape[0])
+                batch_coordinates.append(
+                    torch.cat(
+                        [
+                            torch.LongTensor(xyz.shape[0], 1).fill_(i),
+                            torch.from_numpy(xyz).long(),
+                        ],
+                        1,
+                    )
+                )
+
+                batch_points.append(torch.from_numpy(xyz_middle))
+
+        coordinates = torch.cat(
+            batch_coordinates, 0
+        )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
+        points = torch.cat(batch_points, 0).to(torch.float32)  # float (N, 3)
+        features = torch.cat(batch_features, 0).to(torch.float32)  # float (N, C)
+
+        ### voxelize
+        (
+            voxel_coordinates,
+            point_to_voxel_map,
+            voxel_to_point_map,
+        ) = pointgroup_ops.voxelization_idx(coordinates, len(id), self.mode)
+
+        spatial_shape = (coordinates.max(0)[0][1:] + 1).numpy()
+
+        # Minimum spatial shape must be at least smallest kernel size in UNet
+        for i in range(spatial_shape.size):
+            spatial_shape[i] = max(spatial_shape[i], 128)
+
+        return PretrainInput(
+            points=points,
+            features=features,
+            voxel_coordinates=voxel_coordinates,
+            point_to_voxel_map=point_to_voxel_map,
+            voxel_to_point_map=voxel_to_point_map,
+            batch_indices=coordinates[:, 0].int(),
+            spatial_shape=spatial_shape,
+            correspondances=correspondances,
+            batch_size=2 * len(id),
+            offsets=batch_offsets,
         )

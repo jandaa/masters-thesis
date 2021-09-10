@@ -34,6 +34,9 @@ class ScannetDataPoint(DataPoint):
         # Files and names
         self.scene_name = self.scene_path.name
         self.processed_scene = self.scene_path / (self.scene_path.name + ".pth")
+        self.measurements_file = self.scene_path / (
+            self.scene_path.name + "_" + measurements_dir_name + ".pkl"
+        )
         self.scene_details_file = self.scene_path / (
             self.scene_path.name + "_details.json"
         )
@@ -55,6 +58,9 @@ class ScannetDataPoint(DataPoint):
             and not force_reload
             and not self.force_reload
         )
+
+    def does_scene_contain_measurements(self):
+        return self.measurements_file.exists()
 
     def preprocess(self, force_reload=False):
         return self.preprocess_callback(self, force_reload)
@@ -82,6 +88,12 @@ class ScannetDataPoint(DataPoint):
         )
 
         return scene
+
+    def load_measurements(self, force_reload=False) -> SceneMeasurements:
+        if not self.does_scene_contain_measurements():
+            return self.preprocess(force_reload=True)
+
+        return SceneMeasurements.load_scene(self.scene_path)
 
 
 @dataclass
@@ -158,6 +170,10 @@ class ScannetDataInterface(DataInterface):
         }
 
     @property
+    def pretrain_data(self) -> list:
+        return self.load_pretrain(self.train_split)
+
+    @property
     def train_data(self) -> list:
         return self.load(self.train_split)
 
@@ -171,14 +187,7 @@ class ScannetDataInterface(DataInterface):
 
     def load(self, scenes: list, force_reload=False):
         force_reload = force_reload or self.force_reload
-        datapoints = [
-            ScannetDataPoint(
-                scene_path=self.scans_dir / scene,
-                force_reload=force_reload,
-                preprocess_callback=self.preprocess,
-            )
-            for scene in scenes
-        ]
+        datapoints = self.get_datapoints(scenes, force_reload=force_reload)
         if force_reload:
             return [
                 datapoint
@@ -186,6 +195,33 @@ class ScannetDataInterface(DataInterface):
                 if self.do_all_files_exist_in_scene(datapoint.scene_path)
             ]
         return datapoints
+
+    def load_pretrain(self, scenes: list, force_reload=False):
+        force_reload = force_reload or self.force_reload
+        datapoints = self.get_datapoints(scenes, force_reload=force_reload)
+        return [
+            datapoint
+            for datapoint in datapoints
+            if (
+                force_reload
+                and self.do_sensor_files_exist_in_scene(datapoint.scene_path)
+            )
+            or (
+                datapoint.does_scene_contain_measurements()
+                or self.do_sensor_files_exist_in_scene(datapoint.scene_path)
+            )
+        ]
+
+    def get_datapoints(self, scenes: list, force_reload=False):
+        force_reload = force_reload or self.force_reload
+        return [
+            ScannetDataPoint(
+                scene_path=self.scans_dir / scene,
+                force_reload=force_reload,
+                preprocess_callback=self.preprocess,
+            )
+            for scene in scenes
+        ]
 
     def do_all_files_exist_in_scene(self, scene):
         all_files_exist = True
@@ -243,23 +279,24 @@ class ScannetDataInterface(DataInterface):
 
         # Extract sensor measurements if available
         if self.do_sensor_files_exist_in_scene(datapoint.scene_path):
-
-            log.info(f"Loading sensor measurements for scene: {datapoint.scene_name}")
-            frames = self.preprocess_measurements(datapoint)
-
-            log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
-            frames.save_to_file()
+            self.preprocess_measurements(datapoint)
 
     def preprocess_measurements(self, datapoint: ScannetDataPoint):
         """Preprocess raw sensor measurements of a scene including it's semantic and
         instance labels."""
 
+        log.info(f"Loading sensor measurements for scene: {datapoint.scene_name}")
+
         # Extract all data from compressed raw data
         self.extract_sens_file(datapoint.scene_path)
         self.extract_zip_files(datapoint.scene_path)
 
-        # Get measurements
+        # Preprocess measurements
         measurements = SceneMeasurements(datapoint.scene_path)
+
+        # Save measurements
+        log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
+        measurements.save_to_file()
 
         # Clean up all extracted raw data
         for item in datapoint.scene_path.iterdir():
