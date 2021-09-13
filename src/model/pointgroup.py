@@ -656,7 +656,7 @@ class PointGroupWrapper(pl.LightningModule):
         )
         self.score_criterion = nn.BCELoss(reduction="none")
 
-        self.ignore_label_colour = self.get_random_colour()
+        self.ignore_label_colour = utils.get_random_colour()
 
     @property
     def return_instances(self):
@@ -805,7 +805,7 @@ class PointGroupWrapper(pl.LightningModule):
             if instance_id == self.dataset_cfg.ignore_label:
                 colour = self.ignore_label_colour
             else:
-                colour = self.get_random_colour()
+                colour = utils.get_random_colour()
 
             instance_colours[instance_predictions == instance_id] = colour
         pcd.colors = o3d.utility.Vector3dVector(instance_colours)
@@ -823,14 +823,11 @@ class PointGroupWrapper(pl.LightningModule):
             # If colour already used then pick another random colour that
             # has not already been used.
             while any(all(colour == colour_used) for colour_used in colours_used):
-                colour = self.get_random_colour()
+                colour = utils.get_random_colour()
             colours_used.append(colour)
 
             instance_colours[mask] = colour
         pcd.colors = o3d.utility.Vector3dVector(instance_colours)
-
-    def get_random_colour(self):
-        return np.random.choice(range(256), size=3).astype(np.float) / 255.0
 
     def get_most_common_colour(self, colours):
         unique, counts = np.unique(colours, return_counts=True, axis=0)

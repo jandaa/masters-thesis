@@ -7,6 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 
 import torch
 import open3d as o3d
+import numpy as np
 
 
 class Visualizer:
@@ -114,6 +115,10 @@ class Visualizer:
         key_to_callback[ord("Q")] = self.toggle_source
         key_to_callback[ord("E")] = self.toggle_input
         o3d.visualization.draw_geometries_with_key_callbacks([pcd], key_to_callback)
+
+
+def get_random_colour():
+    return np.random.choice(range(256), size=3).astype(np.float) / 255.0
 
 
 def visualize_pointcloud(points, colours):

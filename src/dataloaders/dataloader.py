@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 import numpy as np
+import open3d as o3d
 
 import scipy
 import scipy.ndimage
@@ -20,7 +21,7 @@ from packages.pointgroup_ops.functions import pointgroup_ops
 
 from util.types import PointGroupBatch, DataInterface, PretrainInput, SceneWithLabels
 
-from util.utils import apply_data_operation_in_parallel
+from util.utils import apply_data_operation_in_parallel, get_random_colour
 
 log = logging.getLogger(__name__)
 
@@ -576,7 +577,7 @@ class DataModule(pl.LightningDataModule):
         for i in range(spatial_shape.size):
             spatial_shape[i] = max(spatial_shape[i], 128)
 
-        return PretrainInput(
+        pretrain_input = PretrainInput(
             points=points,
             features=features,
             voxel_coordinates=voxel_coordinates,
@@ -588,3 +589,48 @@ class DataModule(pl.LightningDataModule):
             batch_size=2 * len(id),
             offsets=batch_offsets,
         )
+
+        # Verify that point correspondences are correct
+        # for debugging
+        # self.visualize_correspondances(pretrain_input)
+
+        return pretrain_input
+
+    def visualize_correspondances(self, pretrain_input: PretrainInput):
+        """Visualize the point correspondances between the matched scans in
+        the pretrain input"""
+
+        for i, matches in enumerate(pretrain_input.correspondances):
+            points1_start = pretrain_input.offsets[2 * i]
+            points2_start = pretrain_input.offsets[2 * i + 1]
+
+            # verify that point corresponsances are correct
+            # first verify that the point clouds are correct
+            points1 = pretrain_input.points[points1_start:points2_start]
+            colors1 = pretrain_input.features[points1_start:points2_start]
+            points2 = pretrain_input.points[
+                points2_start : pretrain_input.offsets[2 * (i + 1)]
+            ]
+            colors2 = pretrain_input.features[
+                points2_start : pretrain_input.offsets[2 * (i + 1)]
+            ]
+            pcd1 = o3d.geometry.PointCloud()
+            pcd1.points = o3d.utility.Vector3dVector(points1.cpu().numpy())
+            pcd1.colors = o3d.utility.Vector3dVector(colors1.cpu().numpy())
+
+            pcd2 = o3d.geometry.PointCloud()
+            pcd2.points = o3d.utility.Vector3dVector(points2.cpu().numpy())
+            pcd2.colors = o3d.utility.Vector3dVector(colors2.cpu().numpy())
+            pcd2 = pcd2.translate([1.0, 0, 0])
+
+            correspondences = [(k, v) for k, v in matches.items()]
+
+            correspondences = random.choices(correspondences, k=100)
+            lineset = o3d.geometry.LineSet()
+            lineset = lineset.create_from_point_cloud_correspondences(
+                pcd1, pcd2, correspondences
+            )
+            colors = [get_random_colour() for i in range(len(correspondences))]
+            lineset.colors = o3d.utility.Vector3dVector(colors)
+
+            o3d.visualization.draw_geometries([pcd1, pcd2, lineset])
