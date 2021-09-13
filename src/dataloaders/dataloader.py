@@ -508,7 +508,7 @@ class DataModule(pl.LightningDataModule):
 
         batch_offsets = [0]
 
-        correspondances = []
+        batch_correspondances = []
 
         for i, idx in enumerate(id):
 
@@ -528,9 +528,13 @@ class DataModule(pl.LightningDataModule):
             frame2_kd_tree = KDTree(frame2.points)
             indexes = frame1_kd_tree.query_ball_tree(frame2_kd_tree, 2.0 * 0.02, p=1)
 
-            correspondances.append(
-                {i: index[0] for i, index in enumerate(indexes) if index}
-            )
+            correspondances = {i: index[0] for i, index in enumerate(indexes) if index}
+
+            # select a max number of correspondances
+            keys = list(correspondances.keys())
+            keys = random.choices(keys, k=min(4092, len(keys)))
+            correspondances = {k: correspondances[k] for k in keys}
+            batch_correspondances.append(correspondances)
 
             for frame in [frame1, frame2]:
 
@@ -585,7 +589,7 @@ class DataModule(pl.LightningDataModule):
             voxel_to_point_map=voxel_to_point_map,
             batch_indices=coordinates[:, 0].int(),
             spatial_shape=spatial_shape,
-            correspondances=correspondances,
+            correspondances=batch_correspondances,
             batch_size=2 * len(id),
             offsets=batch_offsets,
         )

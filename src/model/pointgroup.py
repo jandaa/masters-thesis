@@ -553,6 +553,7 @@ class PointGroupBackboneWrapper(pl.LightningModule):
     def training_step(self, batch: PretrainInput, batch_idx: int):
         output = self.model(batch)
         loss = self.loss_fn(batch, output)
+        loss_naive = self.loss_fn_naive(batch, output)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -565,16 +566,39 @@ class PointGroupBackboneWrapper(pl.LightningModule):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
+    def loss_fn_naive(self, batch: PretrainInput, output):
+        tau = 1.00
+
+        loss = 0
+        for i, matches in enumerate(batch.correspondances):
+            points1_start = batch.offsets[2 * i]
+            points2_start = batch.offsets[2 * i + 1]
+
+            for (i, j) in matches.items():
+                fi = output[points1_start + i].cpu().detach().numpy()
+                fj = output[points2_start + j].cpu().detach().numpy()
+
+                # compute nominator
+                nom = np.exp(np.dot(fi, fj / tau))
+
+                # compute denominator
+                denom = 0
+                for (_, k) in matches.items():
+                    if k != i:
+                        fk = output[points2_start + k].cpu().detach().numpy()
+                        denom += np.exp(np.dot(fi, fk / tau))
+
+                if np.isinf(denom):
+                    continue
+                loss -= np.log(nom / denom) / len(matches)
+
+        return loss / len(batch.correspondances)
+
     def loss_fn(self, batch: PretrainInput, output):
         tau = 0.07
 
         loss = 0
         for i, matches in enumerate(batch.correspondances):
-            # matches = batch.correspondances
-
-            # TODO: Make this work with any number of matching frames
-
-            # How to compute the start?
             points1_start = batch.offsets[2 * i]
             points2_start = batch.offsets[2 * i + 1]
 
