@@ -58,7 +58,8 @@ class DataModule(pl.LightningDataModule):
 
         # Preprocess all data in parallel
         # TODO: put back test_data
-        all_datapoints = self.train_data + self.val_data + self.test_data
+        # all_datapoints = self.train_data + self.val_data + self.test_data
+        all_datapoints = self.train_data + self.val_data
         apply_data_operation_in_parallel(
             self.preprocess_batch, all_datapoints, self.train_workers
         )
@@ -526,14 +527,15 @@ class DataModule(pl.LightningDataModule):
             # compute matching points
             frame1_kd_tree = KDTree(frame1.points)
             frame2_kd_tree = KDTree(frame2.points)
-            indexes = frame1_kd_tree.query_ball_tree(frame2_kd_tree, 2.0 * 0.02, p=1)
+            indexes = frame1_kd_tree.query_ball_tree(frame2_kd_tree, 2.0 * 0.05, p=1)
 
             correspondances = {i: index[0] for i, index in enumerate(indexes) if index}
 
             # select a max number of correspondances
             keys = list(correspondances.keys())
-            keys = random.choices(keys, k=min(4092, len(keys)))
-            correspondances = {k: correspondances[k] for k in keys}
+            if len(keys) > 4092:
+                keys = random.choices(keys, k=min(4092, len(keys)))
+                correspondances = {k: correspondances[k] for k in keys}
             batch_correspondances.append(correspondances)
 
             for frame in [frame1, frame2]:

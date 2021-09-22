@@ -178,7 +178,7 @@ class SceneMeasurement:
 class SceneMeasurements:
     """Stores all sensor measurements for a single scene."""
 
-    def __init__(self, directory: Path, frame_skip=25, voxel_size=0.02):
+    def __init__(self, directory: Path, frame_skip=25, voxel_size=0.05):
         self.directory = directory
         self.measurements_dir = self.directory / measurements_dir_name
 
@@ -195,10 +195,36 @@ class SceneMeasurements:
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
 
-        self.overlap_matrix = self.get_overlapping_measurements()
+        self.overlap_matrix = self.get_overlapping_measurements_by_camera_pose()
         self.matching_frames_map = self.get_matching_frames_map(self.overlap_matrix)
 
-    def get_overlapping_measurements(self, window_size=1):
+    def get_overlapping_measurements_by_camera_pose(self):
+        """Get the overlap of measurements based on their relative pose error."""
+        num_measurements = len(self.measurements)
+        overlap_matrix = np.zeros((num_measurements, num_measurements))
+
+        for i, frame1 in enumerate(self.measurements):
+            for j, frame2 in enumerate(self.measurements):
+                if i == j:
+                    continue
+
+                pose_diff = np.linalg.inv(frame1.pose) @ frame2.pose
+                dT = np.linalg.norm(pose_diff[0:3, 3])
+                dtheta = np.arccos((np.trace(pose_diff[0:3, 0:3]) - 1) / 2)
+
+                if dT < 2.0 and dtheta < (3.14 / 1.5):
+                    kd_tree1 = KDTree(frame1.points)
+                    kd_tree2 = KDTree(frame2.points)
+
+                    indexes = kd_tree1.query_ball_tree(kd_tree2, 2.0 * 0.05, p=1)
+
+                    num_matches = sum(1 for matches in indexes if matches)
+                    if num_matches > 1000:
+                        overlap_matrix[i, j] = 1.0
+
+        return overlap_matrix
+
+    def get_overlapping_measurements(self, overlaps=None):
         """Get the frames that overlap more than a desired threshold."""
         num_measurements = len(self.measurements)
         overlap_matrix = np.zeros((num_measurements, num_measurements))
@@ -209,6 +235,9 @@ class SceneMeasurements:
             for j, frame2 in enumerate(kd_trees):
                 if i == j:
                     continue
+                if type(overlaps) == np.ndarray:
+                    if not overlaps[i, j]:
+                        continue
 
                 # Find the percent overlap of the two frames
                 indexes = frame1.query_ball_tree(
@@ -216,9 +245,14 @@ class SceneMeasurements:
                 )
                 overlap = sum(1 for matches in indexes if matches) / len(indexes)
 
-                overlap_matrix[i, j] = overlap
-                overlap_matrix[i, j] = max(overlap_matrix[i, j], overlap_matrix[j, i])
-                overlap_matrix[j, i] = max(overlap_matrix[i, j], overlap_matrix[j, i])
+                if overlap > 0.3:
+                    overlap_matrix[i, j] = overlap
+                    overlap_matrix[i, j] = max(
+                        overlap_matrix[i, j], overlap_matrix[j, i]
+                    )
+                    overlap_matrix[j, i] = max(
+                        overlap_matrix[i, j], overlap_matrix[j, i]
+                    )
 
         return overlap_matrix
 
@@ -227,6 +261,7 @@ class SceneMeasurements:
         return {
             i: np.where(overlap_matrix[i] > threshold)[0]
             for i in range(overlap_matrix.shape[0])
+            if np.sum(overlap_matrix[i]) != 0
         }
 
     def get_random_colour(self):

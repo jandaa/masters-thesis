@@ -553,7 +553,6 @@ class PointGroupBackboneWrapper(pl.LightningModule):
     def training_step(self, batch: PretrainInput, batch_idx: int):
         output = self.model(batch)
         loss = self.loss_fn(batch, output)
-        loss_naive = self.loss_fn_naive(batch, output)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -567,7 +566,7 @@ class PointGroupBackboneWrapper(pl.LightningModule):
         self.log("val_loss", loss, sync_dist=True)
 
     def loss_fn_naive(self, batch: PretrainInput, output):
-        tau = 1.00
+        tau = 0.07
 
         loss = 0
         for i, matches in enumerate(batch.correspondances):

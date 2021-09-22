@@ -256,7 +256,7 @@ class ScannetDataInterface(DataInterface):
 
         if not self.do_all_files_exist_in_scene(datapoint.scene_path):
             raise RuntimeError(
-                "Trying to preprocess scene {datapoint.scene_name} but missing original files"
+                f"Trying to preprocess scene {datapoint.scene_name} but missing original files"
             )
 
         log.info(f"Loading scene: {datapoint.scene_name}")
