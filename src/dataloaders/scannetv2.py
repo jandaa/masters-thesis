@@ -238,7 +238,7 @@ class ScannetDataInterface(DataInterface):
     def do_sensor_files_exist_in_scene(self, scene):
         all_files_exist = True
         extensions = self.zipfiles_to_extract + [self.sensor_measurments_extension]
-        for ext in self.required_extensions:
+        for ext in extensions:
             filename = scene / (scene.stem + ext)
             if not filename.exists():
                 log.error(f"scene {scene.name} is missing file {filename.name}")

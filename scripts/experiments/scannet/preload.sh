@@ -7,4 +7,4 @@ python src/train.py \
     tasks=['pretrain'] \
     preload_data=False \
     dataset.batch_size=2 \
-    model.train.train_workers=4 \
+    model.train.train_workers=8 \
