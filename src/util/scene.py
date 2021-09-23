@@ -366,14 +366,14 @@ class SceneMeasurements:
         return pickle.load(pickled_file.open("rb"))
 
 
-if __name__ == "__main__":
-    scans_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/scans"
-    output_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/outputs"
+# if __name__ == "__main__":
+#     scans_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/scans"
+#     output_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/outputs"
 
-    extracted_scenes = [scan for scan in output_dir.iterdir() if scan.is_dir()]
-    for scene in extracted_scenes:
-        measurements = SceneMeasurements(scene)
-        measurements.visualize_everything_as_video(2)
+#     extracted_scenes = [scan for scan in output_dir.iterdir() if scan.is_dir()]
+#     for scene in extracted_scenes:
+#         measurements = SceneMeasurements(scene)
+#         measurements.visualize_everything_as_video(2)
 
 
 # Extracting code

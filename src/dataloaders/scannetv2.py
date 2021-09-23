@@ -8,7 +8,7 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable
-from subprocess import Popen, PIPE, DEVNULL
+import subprocess
 
 import torch
 import numpy as np
@@ -107,6 +107,7 @@ class ScannetDataInterface(DataInterface):
     val_split: list
     test_split: list
     semantic_categories: list
+    dataset_cfg: dict
 
     ignore_label: int
     instance_ignore_classes: list
@@ -292,7 +293,11 @@ class ScannetDataInterface(DataInterface):
         self.extract_zip_files(datapoint.scene_path)
 
         # Preprocess measurements
-        measurements = SceneMeasurements(datapoint.scene_path)
+        measurements = SceneMeasurements(
+            datapoint.scene_path,
+            frame_skip=self.dataset_cfg.pretrain.frame_skip,
+            voxel_size=self.dataset_cfg.pretrain.voxel_size,
+        )
 
         # Save measurements
         log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
@@ -311,18 +316,16 @@ class ScannetDataInterface(DataInterface):
         if not output_folder.exists():
             output_folder.mkdir()
 
-        p = Popen(
+        subprocess.call(
             [
                 get_original_cwd() + "/src/packages/SensReader/sens",
                 scene / (scene.name + self.sensor_measurments_extension),
                 output_folder,
             ],
-            stdin=PIPE,
-            stdout=DEVNULL,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
         )
-        while True:
-            if not p.poll() is None:
-                break
+        log.info(f"Extracted sens file for {scene.name}")
 
     def extract_zip_files(self, scene):
         """Unzip all zip files containing label and instance data."""

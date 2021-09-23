@@ -38,7 +38,9 @@ class DataModule(pl.LightningDataModule):
         self.mode = cfg.dataset.mode
         self.ignore_label = cfg.dataset.ignore_label
         self.are_scenes_preloaded = cfg.preload_data
+        self.force_reload = cfg.force_reload
         log.info(f"preload_data: {self.are_scenes_preloaded}")
+        log.info(f"force_reload: {self.force_reload}")
 
         # What kind of test?
         # val == with labels
@@ -173,7 +175,7 @@ class DataModule(pl.LightningDataModule):
     def preprocess_batch(self, datapoints):
         """Run the preprocess function on a batch of datapoints"""
         for datapoint in datapoints:
-            datapoint.preprocess(force_reload=False)
+            datapoint.preprocess(force_reload=self.force_reload)
 
     def elastic_distortion(self, x, granularity, magnitude):
         blurs = [

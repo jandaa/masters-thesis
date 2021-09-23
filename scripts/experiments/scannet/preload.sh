@@ -6,5 +6,6 @@ python src/train.py \
     gpus=[0] \
     tasks=['pretrain'] \
     preload_data=False \
+    force_reload=True \
     dataset.batch_size=2 \
     model.train.train_workers=8 \

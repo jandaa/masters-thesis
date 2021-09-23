@@ -1,0 +1,162 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Train Scannet",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=~/datasets/scannet/",
+                "dataset=scannet",
+                "tasks=['train']",
+                "hydra.run.dir=outputs/scannetv2/single-gpu-v2",
+                "gpus=[0]",
+                "preload_data=False",
+                "check_val_every_n_epoch=20",
+                "checkpoint=last.ckpt"
+            ]
+        },
+        {
+            "name": "Train Scannet Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=~/datasets/scannet/",
+                "dataset=scannet",
+                "tasks=['train']",
+                "hydra.run.dir=outputs/scannetv2/debug",
+                "gpus=[0]",
+                "preload_data=False",
+                "check_val_every_n_epoch=20",
+                "dataset.test_split_file=scannetv2-val-debug.txt",
+                "model.train.train_workers=1",
+            ]
+        },
+        {
+            "name": "Train S3DIS",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['train']",
+                "dataset_dir=/home/andrej/datasets/S3DIS",
+                "dataset=s3dis",
+                "hydra.run.dir=outputs/s3dis/dev",
+                "check_val_every_n_epoch=20",
+                "gpus=[0]",
+                "preload_data=True",
+            ]
+        },
+        {
+            "name": "Eval S3DIS",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=/home/andrej/datasets/S3DIS",
+                "dataset=s3dis",
+                "tasks=['eval']",
+                "hydra.run.dir=outputs/s3dis/single-gpu-v1/",
+                "checkpoint=\"epoch=275-step=30911-val_loss=0.53.ckpt\"",
+                "gpus=[0]"
+            ]
+        },
+        {
+            "name": "Visualize S3DIS",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=/home/andrej/datasets/S3DIS",
+                "dataset=s3dis",
+                "tasks=['visualize']",
+                "hydra.run.dir=outputs/s3dis/single-gpu-v1/",
+                "gpus=[0]"
+            ]
+        },
+        {
+            "name": "Eval Scannet",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=~/datasets/scannet/",
+                "dataset=scannet",
+                "tasks=['eval']",
+                "hydra.run.dir=outputs/scannetv2/single-gpu-v2",
+                "dataset.test_split_file=scannetv2-val.txt",
+                "checkpoint=\"last.ckpt\"",
+            ]
+        },
+        {
+            "name": "Visualize Scannet",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=~/datasets/scannet/",
+                "dataset=scannet",
+                "tasks=['visualize']",
+                "hydra.run.dir=outputs/scannetv2/single-gpu-v1",
+                "dataset.test_split_file=scannetv2-val.txt",
+                "checkpoint=\"last.ckpt\"",
+            ]
+        },
+        {
+            "name": "Eval Scannet Single GPU",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=~/datasets/scannet/",
+                "dataset=scannet",
+                "tasks=['visualize']",
+                "hydra.run.dir=outputs/scannetv2/single-gpu-v1",
+                "dataset.test_split_file=scannetv2-val.txt",
+                "checkpoint=\"epoch=383-step=115199-val_loss=0.46.ckpt\"",
+            ]
+        },
+        {
+            "name": "Attach C++",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "${workspaceFolder}/.venv/bin/python",
+            "processId": "${command:pickProcess}",
+            "MIMode": "gdb"
+        },
+        {
+            "name": "Debug Contrastive Loss",
+            "type": "python",
+            "request": "launch",
+            "program": "src/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=/media/starslab/datasets/scannet",
+                "dataset=scannet",
+                "tasks=['pretrain']",
+                "hydra.run.dir=outputs/scannetv2/debug",
+                "gpus=[0]",
+                "preload_data=False",
+                "check_val_every_n_epoch=20",
+                "dataset.batch_size=1",
+                "dataset.train_split_file=scannetv2-train-debug.txt",
+                "dataset.val_split_file=scannetv2-val-debug.txt",
+                "dataset.test_split_file=scannetv2-val-debug.txt",
+                "model.train.train_workers=1",
+            ]
+        },
+    ]
+}
