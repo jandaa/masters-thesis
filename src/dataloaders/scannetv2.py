@@ -316,7 +316,7 @@ class ScannetDataInterface(DataInterface):
         if not output_folder.exists():
             output_folder.mkdir()
 
-        subprocess.call(
+        subprocess.run(
             [
                 get_original_cwd() + "/src/packages/SensReader/sens",
                 scene / (scene.name + self.sensor_measurments_extension),
