@@ -50,7 +50,7 @@ def semantics(cfg: DictConfig) -> None:
         checkpoint_path = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
 
     log.info("Loading data module")
-    data_interface_factory = DataInterfaceFactory(cfg.dataset_dir, cfg.dataset)
+    data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
     data_loader = DataModule(data_interface, cfg)
 

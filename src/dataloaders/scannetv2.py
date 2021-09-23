@@ -186,10 +186,9 @@ class ScannetDataInterface(DataInterface):
     def test_data(self) -> list:
         return self.load(self.test_split)
 
-    def load(self, scenes: list, force_reload=False):
-        force_reload = force_reload or self.force_reload
-        datapoints = self.get_datapoints(scenes, force_reload=force_reload)
-        if force_reload:
+    def load(self, scenes: list):
+        datapoints = self.get_datapoints(scenes, force_reload=self.force_reload)
+        if self.force_reload:
             return [
                 datapoint
                 for datapoint in datapoints
@@ -197,14 +196,13 @@ class ScannetDataInterface(DataInterface):
             ]
         return datapoints
 
-    def load_pretrain(self, scenes: list, force_reload=False):
-        force_reload = force_reload or self.force_reload
-        datapoints = self.get_datapoints(scenes, force_reload=force_reload)
+    def load_pretrain(self, scenes: list):
+        datapoints = self.get_datapoints(scenes, force_reload=self.force_reload)
         return [
             datapoint
             for datapoint in datapoints
             if (
-                force_reload
+                self.force_reload
                 and self.do_sensor_files_exist_in_scene(datapoint.scene_path)
             )
             or (
@@ -310,21 +308,29 @@ class ScannetDataInterface(DataInterface):
 
         return measurements
 
-    def extract_sens_file(self, scene):
+    def extract_sens_file(self, scene, level=0):
         """Extract all data out of the .sens file."""
+        if level > 3:
+            raise RuntimeError(f"Timing out for scene {scene.name}")
+
         output_folder = scene / measurements_dir_name
         if not output_folder.exists():
             output_folder.mkdir()
 
-        subprocess.run(
-            [
-                get_original_cwd() + "/src/packages/SensReader/sens",
-                scene / (scene.name + self.sensor_measurments_extension),
-                output_folder,
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-        )
+        try:
+            subprocess.run(
+                [
+                    get_original_cwd() + "/src/packages/SensReader/sens",
+                    scene / (scene.name + self.sensor_measurments_extension),
+                    output_folder,
+                ],
+                timeout=30,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+            )
+        except subprocess.TimeoutExpired:
+            return self.extract_sens_file(scene, level=level + 1)
+
         log.info(f"Extracted sens file for {scene.name}")
 
     def extract_zip_files(self, scene):

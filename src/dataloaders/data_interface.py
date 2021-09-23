@@ -12,9 +12,10 @@ log = logging.getLogger(__name__)
 class DataInterfaceFactory:
     """Factory that returns the interface specified by the dataset type chosen."""
 
-    def __init__(self, dataset_dir, dataset_cfg):
-        self.dataset_cfg = dataset_cfg
-        self.dataset_dir = Path(dataset_dir)
+    def __init__(self, cfg):
+        self.force_reload = cfg.force_reload
+        self.dataset_cfg = cfg.dataset
+        self.dataset_dir = Path(cfg.dataset_dir)
 
     def get_interface(self) -> DataInterface:
         if self.dataset_cfg.name == "scannetv2":
@@ -41,6 +42,7 @@ class DataInterfaceFactory:
             ignore_label=self.dataset_cfg.ignore_label,
             instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
             dataset_cfg=self.dataset_cfg,
+            force_reload=self.force_reload,
             train_split=train_split,
             val_split=val_split,
             test_split=test_split,
@@ -55,4 +57,5 @@ class DataInterfaceFactory:
             train_split=self.dataset_cfg.train_split,
             val_split=self.dataset_cfg.val_split,
             test_split=self.dataset_cfg.test_split,
+            force_reload=self.force_reload,
         )
