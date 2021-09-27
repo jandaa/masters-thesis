@@ -60,12 +60,13 @@ class DataModule(pl.LightningDataModule):
 
         # Show how many scenes need to be preprocessed:
         # all_datapoints = self.train_data + self.val_data + self.test_data
-        all_datapoints = self.train_data + self.val_data
+        all_datapoints = data_interface.all_unique_data
         datapoints_to_preprocess = [
             datapoint
             for datapoint in all_datapoints
             if not datapoint.is_scene_preprocessed(self.force_reload)
         ]
+
         num_scenes_to_preprocess = self.num_scenes_to_preprocess(
             datapoints_to_preprocess
         )

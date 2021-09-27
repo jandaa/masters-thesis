@@ -175,6 +175,12 @@ class ScannetDataInterface(DataInterface):
         return self.load_pretrain(self.train_split)
 
     @property
+    def all_unique_data(self) -> list:
+        all_unique_scenes = self.train_split + self.val_split + self.test_split
+        all_unique_scenes = set(all_unique_scenes)
+        return self.load(all_unique_scenes)
+
+    @property
     def train_data(self) -> list:
         return self.load(self.train_split)
 
