@@ -597,6 +597,8 @@ class DataModule(pl.LightningDataModule):
 
                 batch_points.append(torch.from_numpy(xyz_middle))
 
+                # self.visualize_partitions(xyz)
+
         coordinates = torch.cat(
             batch_coordinates, 0
         )  # long (N, 1 + 3), the batch item idx is put in locs[:, 0]
@@ -634,6 +636,27 @@ class DataModule(pl.LightningDataModule):
         # self.visualize_correspondances(pretrain_input)
 
         return pretrain_input
+
+    def visualize_partitions(self, xyz):
+        """Visualize partitions of shape context."""
+
+        from util.shape_context import ShapeContext
+
+        partitioner = ShapeContext()
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(xyz)
+
+        partition = partitioner.compute_partitions(xyz)
+        partition = partition[1000]
+        colours = np.zeros(xyz.shape)
+        for partition_id in range(partitioner.partitions):
+            mask_q = partition == partition_id
+            # mask_q.fill_diagonal_(True)
+            colours[mask_q] = get_random_colour()
+
+        pcd.colors = o3d.utility.Vector3dVector(colours)
+        o3d.visualization.draw_geometries([pcd])
 
     def visualize_correspondances(self, pretrain_input: PretrainInput):
         """Visualize the point correspondances between the matched scans in

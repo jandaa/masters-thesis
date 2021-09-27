@@ -20,8 +20,6 @@ def get_point_cloud(depth, intrinsics):
     Apply pose transformation if supplied
     """
 
-    # return np.ones((depth.shape[0], depth.shape[1], 4))
-
     cx = intrinsics[0, 2]
     cy = intrinsics[1, 2]
     fx = intrinsics[0, 0]
