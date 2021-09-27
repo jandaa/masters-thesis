@@ -2,6 +2,7 @@ wheel
 hydra-core
 numpy
 pytorch-lightning==1.4.2
+opencv-python
 plyfile
 scipy
 open3d
