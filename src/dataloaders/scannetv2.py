@@ -306,31 +306,22 @@ class ScannetDataInterface(DataInterface):
             if item.is_dir():
                 shutil.rmtree(item)
 
-        return measurements
-
-    def extract_sens_file(self, scene, level=0):
+    def extract_sens_file(self, scene):
         """Extract all data out of the .sens file."""
-        if level > 3:
-            raise RuntimeError(f"Timing out for scene {scene.name}")
 
         output_folder = scene / measurements_dir_name
         if not output_folder.exists():
             output_folder.mkdir()
 
-        try:
-            subprocess.run(
-                [
-                    get_original_cwd() + "/src/packages/SensReader/sens",
-                    scene / (scene.name + self.sensor_measurments_extension),
-                    output_folder,
-                ],
-                timeout=30,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.DEVNULL,
-            )
-        except subprocess.TimeoutExpired:
-            return self.extract_sens_file(scene, level=level + 1)
-
+        subprocess.run(
+            [
+                get_original_cwd() + "/src/packages/SensReader/sens",
+                scene / (scene.name + self.sensor_measurments_extension),
+                output_folder,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+        )
         log.info(f"Extracted sens file for {scene.name}")
 
     def extract_zip_files(self, scene):

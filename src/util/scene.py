@@ -20,6 +20,8 @@ def get_point_cloud(depth, intrinsics):
     Apply pose transformation if supplied
     """
 
+    # return np.ones((depth.shape[0], depth.shape[1], 4))
+
     cx = intrinsics[0, 2]
     cy = intrinsics[1, 2]
     fx = intrinsics[0, 0]
@@ -29,20 +31,16 @@ def get_point_cloud(depth, intrinsics):
     y_coords = np.linspace(0, depth.shape[0] - 1, depth.shape[0])
     x, y = np.meshgrid(x_coords, y_coords)
 
-    uv_depth = np.zeros((depth.shape[0], depth.shape[1], 3))
-    uv_depth[:, :, 0] = x
-    uv_depth[:, :, 1] = y
-    uv_depth[:, :, 2] = depth
-    uv_depth = np.reshape(uv_depth, [-1, 3])
-    uv_depth = uv_depth[np.where(uv_depth[:, 2] != 0), :].squeeze()
+    mask = np.where(depth != 0)
+    x = x[mask]
+    y = y[mask]
+    depth = depth[mask]
 
-    n = uv_depth.shape[0]
+    n = depth.shape[0]
     points = np.ones((n, 4))
-    X = (uv_depth[:, 0] - cx) * uv_depth[:, 2] / fx
-    Y = (uv_depth[:, 1] - cy) * uv_depth[:, 2] / fy
-    points[:, 0] = X
-    points[:, 1] = Y
-    points[:, 2] = uv_depth[:, 2]
+    points[:, 0] = (x - cx) * depth / fx
+    points[:, 1] = (y - cy) * depth / fy
+    points[:, 2] = np.copy(depth)
 
     return points
 
@@ -203,6 +201,10 @@ class SceneMeasurements:
         num_measurements = len(self.measurements)
         overlap_matrix = np.zeros((num_measurements, num_measurements))
 
+        kd_trees = {
+            i: KDTree(frame.points) for i, frame in enumerate(self.measurements)
+        }
+
         for i, frame1 in enumerate(self.measurements):
             for j in range(0, i):
 
@@ -220,8 +222,8 @@ class SceneMeasurements:
                 dtheta = np.arccos((np.trace(pose_diff[0:3, 0:3]) - 1) / 2)
 
                 if dT < 2.0 and dtheta < (3.14 / 1.5):
-                    kd_tree1 = KDTree(frame1.points)
-                    kd_tree2 = KDTree(frame2.points)
+                    kd_tree1 = kd_trees[i]
+                    kd_tree2 = kd_trees[j]
 
                     indexes = kd_tree1.query_ball_tree(
                         kd_tree2, 2.0 * self.info["voxel_size"], p=1
