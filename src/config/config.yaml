@@ -18,6 +18,9 @@ check_val_every_n_epoch: 20
 preload_data: False
 force_reload: False
 
+# Fraction of training set to use during training
+limit_train_batches: 1.0
+
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint
 checkpoint:

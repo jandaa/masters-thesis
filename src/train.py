@@ -66,6 +66,7 @@ def semantics(cfg: DictConfig) -> None:
         max_epochs=cfg.max_epochs,
         check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
         callbacks=[checkpoint_callback],
+        limit_train_batches=cfg.limit_train_batches,
     )
 
     if "pretrain" in cfg.tasks:
