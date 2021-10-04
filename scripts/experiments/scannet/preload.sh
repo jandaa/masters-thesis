@@ -1,11 +1,16 @@
-source .venv/bin/activate
-python src/train.py \
-    dataset_dir=/media/starslab/datasets/scannet \
-    dataset=scannet \
-    hydra.run.dir=outputs/scannetv2/preload \
-    gpus=[0] \
-    tasks=['pretrain'] \
-    preload_data=False \
-    force_reload=True \
-    dataset.batch_size=2 \
-    model.train.train_workers=8 \
+export SCANNET_DIR=/media/starslab/datasets/scannet
+export HYDRA_FULL_ERROR=1
+
+preprocess() {
+    filename=$1
+    python src/preprocess.py \
+        dataset_dir=$SCANNET_DIR \
+        dataset=scannet \
+        sens_file=$filename \
+        force_reload=True
+}
+
+export -f preprocess
+
+# preprocess
+parallel -j 8 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`

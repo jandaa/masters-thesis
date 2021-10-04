@@ -1,0 +1,9 @@
+# Must be provided at command line
+dataset_dir: ??? 
+sens_file: ???
+
+# Options
+force_reload: True
+
+defaults:
+  - dataset: scannet

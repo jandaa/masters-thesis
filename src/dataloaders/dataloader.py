@@ -58,25 +58,6 @@ class DataModule(pl.LightningDataModule):
         self.val_data = data_interface.val_data
         self.test_data = data_interface.test_data
 
-        # Show how many scenes need to be preprocessed:
-        # all_datapoints = self.train_data + self.val_data + self.test_data
-        all_datapoints = data_interface.all_unique_data
-        datapoints_to_preprocess = [
-            datapoint
-            for datapoint in all_datapoints
-            if not datapoint.is_scene_preprocessed(self.force_reload)
-        ]
-
-        num_scenes_to_preprocess = self.num_scenes_to_preprocess(
-            datapoints_to_preprocess
-        )
-        log.info(f"Number of scenes to preprocess:{num_scenes_to_preprocess}")
-
-        # Preprocess in parallel
-        apply_data_operation_in_parallel(
-            self.preprocess_batch, datapoints_to_preprocess, self.train_workers
-        )
-
         if self.are_scenes_preloaded:
             self.train_data = apply_data_operation_in_parallel(
                 self.preload_scenes_with_crop,
@@ -182,31 +163,6 @@ class DataModule(pl.LightningDataModule):
             new_datapoints += [datapoint] * number_of_splits
 
         return new_datapoints
-
-    def preprocess_batch(self, datapoints):
-        """Run the preprocess function on a batch of datapoints"""
-        # Log how many scenes in total need to be preprocessed
-        num_scenes_to_preprocess = self.num_scenes_to_preprocess(datapoints)
-        remaining_scenes_to_preprocess = num_scenes_to_preprocess
-        log.info(f"Number of scenes to preprocess in thread:{num_scenes_to_preprocess}")
-
-        for datapoint in datapoints:
-            datapoint.preprocess(force_reload=self.force_reload)
-
-            # Log how many scenes still need to be preprocessed
-            remaining_scenes_to_preprocess -= 1
-            log.info(f"remaining scenes in thread: {remaining_scenes_to_preprocess}")
-
-        # Notify user that the preprocessing for this thread has finished
-        log.info(f"Finised preprocessing {num_scenes_to_preprocess} in this thread")
-
-    def num_scenes_to_preprocess(self, datapoints):
-        """Return the number of scenes that need to be preprocessed."""
-        return sum(
-            1
-            for datapoint in datapoints
-            if not datapoint.is_scene_preprocessed(self.force_reload)
-        )
 
     def elastic_distortion(self, x, granularity, magnitude):
         blurs = [

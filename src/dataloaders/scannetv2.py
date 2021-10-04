@@ -220,13 +220,15 @@ class ScannetDataInterface(DataInterface):
     def get_datapoints(self, scenes: list, force_reload=False):
         force_reload = force_reload or self.force_reload
         return [
-            ScannetDataPoint(
-                scene_path=self.scans_dir / scene,
-                force_reload=force_reload,
-                preprocess_callback=self.preprocess,
-            )
-            for scene in scenes
+            self.get_datapoint(scene, force_reload=force_reload) for scene in scenes
         ]
+
+    def get_datapoint(self, scene: str, force_reload=False):
+        return ScannetDataPoint(
+            scene_path=self.scans_dir / scene,
+            force_reload=force_reload,
+            preprocess_callback=self.preprocess,
+        )
 
     def do_all_files_exist_in_scene(self, scene):
         all_files_exist = True
