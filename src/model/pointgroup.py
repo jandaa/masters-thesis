@@ -270,7 +270,7 @@ class PointGroupBackbone(nn.Module):
 
 
 class PointGroup(nn.Module):
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, backbone: PointGroupBackbone = None):
         super(PointGroup, self).__init__()
 
         # Dataset specific parameters
@@ -286,7 +286,11 @@ class PointGroup(nn.Module):
         # Redefine for convenience
         m = self.structure.m
 
-        self.backbone = PointGroupBackbone(cfg)
+        # if a pretrained backbone exists use it otherwise start from scratch
+        if backbone:
+            self.backbone = backbone
+        else:
+            self.backbone = PointGroupBackbone(cfg)
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
@@ -644,11 +648,12 @@ class PointGroupWrapper(pl.LightningModule):
         self,
         cfg: DictConfig,
         data_interface: DataInterface,
+        backbone: PointGroupBackbone = None,
         do_instance_segmentation: bool = False,
     ):
         super().__init__()
 
-        self.model = PointGroup(cfg)
+        self.model = PointGroup(cfg, backbone=backbone)
         self.optimizer_cfg = cfg.model.optimizer
         self.do_instance_segmentation = do_instance_segmentation
 

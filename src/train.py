@@ -20,6 +20,17 @@ from model.pointgroup import PointGroupWrapper, PointGroupBackboneWrapper
 log = logging.getLogger("train")
 
 
+def get_pretrain_checkpoint_callback():
+    return ModelCheckpoint(
+        dirpath="pretrain_checkpoints",
+        filename="{epoch}-{step}-{val_loss:.2f}",
+        save_last=True,
+        monitor="val_loss",
+        mode="min",
+        save_top_k=-1,
+    )
+
+
 def get_checkpoint_callback():
     return ModelCheckpoint(
         dirpath="checkpoints",
@@ -54,30 +65,63 @@ def semantics(cfg: DictConfig) -> None:
     data_interface = data_interface_factory.get_interface()
     data_loader = DataModule(data_interface, cfg)
 
-    log.info("Creating model")
-    model = PointGroupWrapper(cfg, data_interface=data_interface)
-
-    log.info("Building trainer")
-    checkpoint_callback = get_checkpoint_callback()
-    trainer = pl.Trainer(
-        gpus=cfg.gpus,
-        accelerator=cfg.accelerator,
-        resume_from_checkpoint=checkpoint_path,
-        max_epochs=cfg.max_epochs,
-        check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
-        callbacks=[checkpoint_callback],
-        limit_train_batches=cfg.limit_train_batches,
-    )
+    # load pretrained backbone if desired
+    backbone = None
+    if cfg.pretrain_checkpoint:
+        pretrain_checkpoint = str(
+            Path.cwd() / "pretrain_checkpoints" / cfg.pretrain_checkpoint
+        )
+        backbone = PointGroupBackboneWrapper.load_from_checkpoint(
+            cfg=cfg,
+            checkpoint_path=pretrain_checkpoint,
+        )
 
     if "pretrain" in cfg.tasks:
-        model = PointGroupBackboneWrapper(cfg)
+
+        log.info("Creating backbone model")
+        backbone = PointGroupBackboneWrapper(cfg)
+
+        log.info("Building trainer")
+        checkpoint_callback = get_pretrain_checkpoint_callback()
+
+        trainer = pl.Trainer(
+            gpus=cfg.gpus,
+            accelerator=cfg.accelerator,
+            resume_from_checkpoint=pretrain_checkpoint,
+            max_epochs=cfg.dataset.pretrain.max_epochs,
+            check_val_every_n_epoch=5,
+            callbacks=[checkpoint_callback],
+            limit_train_batches=cfg.limit_train_batches,
+        )
+
         log.info("starting pre-training")
         trainer.fit(
-            model, data_loader.pretrain_dataloader(), data_loader.pretrain_dataloader()
+            backbone,
+            data_loader.pretrain_dataloader(),
+            data_loader.pretrain_dataloader(),
         )
+        log.info("finished pretraining")
 
     # Train model
     if "train" in cfg.tasks:
+
+        log.info("Creating model")
+        model = PointGroupWrapper(
+            cfg, data_interface=data_interface, backbone=backbone.model
+        )
+
+        log.info("Building trainer")
+        checkpoint_callback = get_checkpoint_callback()
+
+        trainer = pl.Trainer(
+            gpus=cfg.gpus,
+            accelerator=cfg.accelerator,
+            resume_from_checkpoint=checkpoint_path,
+            max_epochs=cfg.max_epochs,
+            check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
+            callbacks=[checkpoint_callback],
+            limit_train_batches=cfg.limit_train_batches,
+        )
 
         log.info("starting training")
         trainer.fit(model, data_loader.train_dataloader(), data_loader.val_dataloader())
