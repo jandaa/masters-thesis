@@ -307,11 +307,11 @@ class ScannetDataInterface(DataInterface):
 
         # Save measurements
         log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
-        measurements.save_to_file()
+        measurements.save_to_file(datapoint.scene_path)
 
         # Clean up all extracted raw data
         for item in datapoint.scene_path.iterdir():
-            if item.is_dir():
+            if item.is_dir() and not item.name == "frames":
                 shutil.rmtree(item)
 
     def extract_sens_file(self, scene):

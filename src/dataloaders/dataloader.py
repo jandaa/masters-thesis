@@ -32,6 +32,7 @@ class DataModule(pl.LightningDataModule):
 
         # Dataloader specific parameters
         self.batch_size = cfg.dataset.batch_size
+        self.pretrain_batch_size = cfg.dataset.pretrain.batch_size
         self.scale = cfg.dataset.scale  # voxel_size = 1 / scale, scale 50(2cm)
         self.max_npoint = cfg.dataset.max_npoint
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
@@ -87,7 +88,7 @@ class DataModule(pl.LightningDataModule):
     def pretrain_dataloader(self):
         return DataLoader(
             list(range(len(self.pretrain_data))),
-            batch_size=self.batch_size,
+            batch_size=self.pretrain_batch_size,
             collate_fn=self.pretrain_merge,
             num_workers=self.train_workers,
             shuffle=True,
@@ -506,19 +507,17 @@ class DataModule(pl.LightningDataModule):
             if not self.are_scenes_preloaded:
                 scene = scene.load_measurements()
 
+            if not scene.matching_frames_map:
+                continue
+
             # pick matching scenes at random
             frame1 = random.choice(list(scene.matching_frames_map.keys()))
             frame2 = random.choice(scene.matching_frames_map[frame1])
 
-            frame1 = scene.measurements[frame1]
-            frame2 = scene.measurements[frame2]
+            correspondances = scene.correspondance_map[frame1][frame2]
 
-            # compute matching points
-            frame1_kd_tree = KDTree(frame1.points)
-            frame2_kd_tree = KDTree(frame2.points)
-            indexes = frame1_kd_tree.query_ball_tree(frame2_kd_tree, 2.0 * 0.05, p=1)
-
-            correspondances = {i: index[0] for i, index in enumerate(indexes) if index}
+            frame1 = scene.get_measurement(frame1)
+            frame2 = scene.get_measurement(frame2)
 
             # select a max number of correspondances
             keys = list(correspondances.keys())

@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import cv2
+import random
 
 from scipy.spatial import KDTree
 
@@ -130,6 +131,9 @@ class SceneMeasurement:
         self.points = np.asarray(pcd.points)
         self.point_colors = np.asarray(pcd.colors)
 
+        # save all processed data to file
+        self.save_to_file(directory)
+
     @property
     def color_image_for_point_cloud(self):
         """Point cloud uses a different ordering of RGB."""
@@ -170,43 +174,79 @@ class SceneMeasurement:
         cv2.imshow("Color", self.color_image)
         cv2.waitKey()
 
+    @staticmethod
+    def get_pickle_file(directory, frame_id):
+        if not type(frame_id) == str:
+            frame_id = format(frame_id, "06d")
+        return directory / "frames" / f"frame_{frame_id}.pkl"
+
+    def save_to_file(self, directory):
+        """Pickle the entire object into a single binary file."""
+        pickle.dump(self, self.get_pickle_file(directory, self.frame_id).open("wb"))
+
+    @staticmethod
+    def load(directory: Path, frame_id):
+        """Load from a previously pickled measurements file."""
+        return pickle.load(
+            SceneMeasurement.get_pickle_file(directory, frame_id).open("rb")
+        )
+
 
 class SceneMeasurements:
     """Stores all sensor measurements for a single scene."""
 
     def __init__(self, directory: Path, frame_skip=25, voxel_size=0.05):
-        self.directory = directory
-        self.measurements_dir = self.directory / measurements_dir_name
+        self.set_directories(directory)
+
+        # create frame measurements directory
+        frame_dir = self.directory / "frames"
+        if not frame_dir.exists():
+            frame_dir.mkdir()
 
         # Extract info from info file
         self.info = self.extract_scene_info()
         self.info["voxel_size"] = voxel_size
+        self.info["frame_skip"] = frame_skip
 
         # Initalize colours
         self.label_id_to_colour = {i: self.get_random_colour() for i in range(100)}
         self.instance_id_to_colour = {i: self.get_random_colour() for i in range(100)}
 
-        self.measurements = [
+        measurements = [
             SceneMeasurement(directory, self.info, f"{frame:06d}")
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
+        self.num_measurements = len(measurements)
 
-        self.overlap_matrix = self.get_overlapping_measurements()
+        # extract inter-measurement info
+        indices_map = self.get_overlap_indices(measurements)
+        self.overlap_matrix = self.get_overlapping_measurements(indices_map)
+        self.correspondance_map = self.get_correspondance_map(
+            indices_map, self.overlap_matrix
+        )
         self.matching_frames_map = self.get_matching_frames_map(self.overlap_matrix)
 
-    def get_overlapping_measurements(self):
+    def set_directories(self, root_dir):
+        """Set all the directories."""
+        self.directory = root_dir
+        self.measurements_dir = root_dir / measurements_dir_name
+
+    def get_measurement(self, ind):
+        """Get the measurement for a specific measurement index"""
+        frame_id = ind * self.info["frame_skip"]
+        return SceneMeasurement.load(self.directory, frame_id)
+
+    def get_overlap_indices(self, measurements, search_mult=2.0):
         """Get the overlap of measurements based on their relative pose error."""
-        num_measurements = len(self.measurements)
-        overlap_matrix = np.zeros((num_measurements, num_measurements))
+        indexes_map = {}
 
-        kd_trees = {
-            i: KDTree(frame.points) for i, frame in enumerate(self.measurements)
-        }
+        kd_trees = {i: KDTree(frame.points) for i, frame in enumerate(measurements)}
 
-        for i, frame1 in enumerate(self.measurements):
+        for i, frame1 in enumerate(measurements):
+            indexes_map[i] = {}
             for j in range(0, i):
 
-                frame2 = self.measurements[j]
+                frame2 = measurements[j]
 
                 # Compute pose1 inverse
                 R1 = frame1.pose[0:3, 0:3]
@@ -223,16 +263,40 @@ class SceneMeasurements:
                     kd_tree1 = kd_trees[i]
                     kd_tree2 = kd_trees[j]
 
-                    indexes = kd_tree1.query_ball_tree(
-                        kd_tree2, 2.0 * self.info["voxel_size"], p=1
+                    indexes_map[i][j] = kd_tree1.query_ball_tree(
+                        kd_tree2, search_mult * self.info["voxel_size"], p=1
                     )
-                    num_matches = sum(1 for matches in indexes if matches)
 
-                    if num_matches > 1000:
-                        overlap_matrix[i, j] = 1.0
-                        overlap_matrix[j, i] = 1.0
+        return indexes_map
+
+    def get_overlapping_measurements(self, indices_map):
+        overlap_matrix = np.zeros((self.num_measurements, self.num_measurements))
+
+        for i, indices_map_i in indices_map.items():
+            for j, indices_i_j in indices_map_i.items():
+
+                num_matches = sum(1 for matches in indices_i_j if matches)
+
+                if num_matches > 1000:
+                    overlap_matrix[i, j] = 1.0
+                    # overlap_matrix[j, i] = 1.0
 
         return overlap_matrix
+
+    def get_correspondance_map(self, indices_map, overlap_matrix, max=4092):
+        """Returns the number of correspondacnes."""
+        correspondances_map = {}
+        for i, indices_map_i in indices_map.items():
+            correspondances_map[i] = {}
+            for j, indices_i_j in indices_map_i.items():
+                if overlap_matrix[i, j]:
+                    correspondances_map[i][j] = {
+                        point: index[0]
+                        for point, index in enumerate(indices_i_j)
+                        if index
+                    }
+
+        return correspondances_map
 
     def get_matching_frames_map(self, overlap_matrix, threshold=0.3):
         """Get the map of each frame with it's corresponding matching frames."""
@@ -341,9 +405,9 @@ class SceneMeasurements:
         """Get a list of all colour images."""
         return [measurement.color_image for measurement in self.measurements]
 
-    def save_to_file(self):
+    def save_to_file(self, directory):
         """Pickle the entire object into a single binary file."""
-        pickled_file = self.directory / (self.directory.name + "_measurements.pkl")
+        pickled_file = directory / (directory.name + "_measurements.pkl")
         pickle.dump(self, pickled_file.open("wb"))
 
     @staticmethod
@@ -363,7 +427,9 @@ class SceneMeasurements:
         SceneMeasurements object loaded from the pickled measurements file.
         """
         pickled_file = directory / (directory.name + "_measurements.pkl")
-        return pickle.load(pickled_file.open("rb"))
+        scene = pickle.load(pickled_file.open("rb"))
+        scene.set_directories(directory)
+        return scene
 
 
 # if __name__ == "__main__":

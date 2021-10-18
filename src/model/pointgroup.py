@@ -10,6 +10,7 @@ import open3d as o3d
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+from torch.optim.lr_scheduler import ExponentialLR
 
 import spconv
 from spconv.modules import SparseModule
@@ -626,14 +627,14 @@ class PointGroupBackboneWrapper(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.optimizer_cfg.type == "Adam":
-            return torch.optim.Adam(
+            optimizer = torch.optim.Adam(
                 filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.optimizer_cfg.lr,
+                lr=self.dataset_cfg.pretrain.learning_rate,
             )
         elif self.optimizer_cfg.type == "SGD":
-            return torch.optim.SGD(
+            optimizer = torch.optim.SGD(
                 filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.optimizer_cfg.lr,
+                lr=self.dataset_cfg.pretrain.learning_rate,
                 momentum=self.optimizer_cfg.momentum,
                 weight_decay=self.optimizer_cfg.weight_decay,
             )
@@ -641,6 +642,9 @@ class PointGroupBackboneWrapper(pl.LightningModule):
             # TODO: Put error logging at high level try catch block
             log.error(f"Invalid optimizer type: {self.optimizer_type}")
             raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
+
+        scheduler = ExponentialLR(optimizer, 0.99)
+        return [optimizer], [scheduler]
 
 
 class PointGroupWrapper(pl.LightningModule):

@@ -6,7 +6,7 @@ import hydra
 from omegaconf import DictConfig
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 import numpy as np
 import random
 import torch
@@ -67,6 +67,7 @@ def semantics(cfg: DictConfig) -> None:
 
     # load pretrained backbone if desired
     backbone = None
+    pretrain_checkpoint = None
     if cfg.pretrain_checkpoint:
         pretrain_checkpoint = str(
             Path.cwd() / "pretrain_checkpoints" / cfg.pretrain_checkpoint
@@ -74,12 +75,15 @@ def semantics(cfg: DictConfig) -> None:
         backbone = PointGroupBackboneWrapper.load_from_checkpoint(
             cfg=cfg,
             checkpoint_path=pretrain_checkpoint,
-        )
+        ).model
+        log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
+
+    lr_monitor = LearningRateMonitor(logging_interval="step")
 
     if "pretrain" in cfg.tasks:
 
         log.info("Creating backbone model")
-        backbone = PointGroupBackboneWrapper(cfg)
+        backbonewraper = PointGroupBackboneWrapper(cfg)
 
         log.info("Building trainer")
         checkpoint_callback = get_pretrain_checkpoint_callback()
@@ -89,26 +93,26 @@ def semantics(cfg: DictConfig) -> None:
             accelerator=cfg.accelerator,
             resume_from_checkpoint=pretrain_checkpoint,
             max_epochs=cfg.dataset.pretrain.max_epochs,
-            check_val_every_n_epoch=5,
-            callbacks=[checkpoint_callback],
+            check_val_every_n_epoch=int(5),
+            callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
         )
 
         log.info("starting pre-training")
         trainer.fit(
-            backbone,
+            backbonewraper,
             data_loader.pretrain_dataloader(),
             data_loader.pretrain_dataloader(),
         )
         log.info("finished pretraining")
 
+        backbone = backbonewraper.model
+
     # Train model
     if "train" in cfg.tasks:
 
         log.info("Creating model")
-        model = PointGroupWrapper(
-            cfg, data_interface=data_interface, backbone=backbone.model
-        )
+        model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
 
         log.info("Building trainer")
         checkpoint_callback = get_checkpoint_callback()
@@ -119,7 +123,7 @@ def semantics(cfg: DictConfig) -> None:
             resume_from_checkpoint=checkpoint_path,
             max_epochs=cfg.max_epochs,
             check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
-            callbacks=[checkpoint_callback],
+            callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
         )
 
