@@ -108,24 +108,24 @@ def semantics(cfg: DictConfig) -> None:
 
         backbone = backbonewraper.model
 
+    log.info("Building trainer")
+    checkpoint_callback = get_checkpoint_callback()
+    trainer = pl.Trainer(
+        gpus=cfg.gpus,
+        accelerator=cfg.accelerator,
+        resume_from_checkpoint=checkpoint_path,
+        max_epochs=cfg.max_epochs,
+        check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
+        callbacks=[checkpoint_callback, lr_monitor],
+        limit_train_batches=cfg.limit_train_batches,
+        # profiler="simple",
+    )
+
+    log.info("Creating model")
+    model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
+
     # Train model
     if "train" in cfg.tasks:
-
-        log.info("Creating model")
-        model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
-
-        log.info("Building trainer")
-        checkpoint_callback = get_checkpoint_callback()
-
-        trainer = pl.Trainer(
-            gpus=cfg.gpus,
-            accelerator=cfg.accelerator,
-            resume_from_checkpoint=checkpoint_path,
-            max_epochs=cfg.max_epochs,
-            check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
-            callbacks=[checkpoint_callback, lr_monitor],
-            limit_train_batches=cfg.limit_train_batches,
-        )
 
         log.info("starting training")
         trainer.fit(model, data_loader.train_dataloader(), data_loader.val_dataloader())

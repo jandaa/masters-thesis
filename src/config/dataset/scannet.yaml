@@ -2,7 +2,7 @@ name: scannetv2
 
 train_split_file: scannetv2-train.txt
 val_split_file: scannetv2-val.txt
-test_split_file: scannetv2-test.txt
+test_split_file: scannetv2-val.txt
 
 classes: 20
 ignore_label: -100
