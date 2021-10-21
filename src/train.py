@@ -54,6 +54,7 @@ def semantics(cfg: DictConfig) -> None:
 
     # Set random seeds for reproductability
     # set_random_seeds(cfg)
+    pl.seed_everything(42, workers=True)
 
     # Load a checkpoint if given
     checkpoint_path = None
@@ -96,6 +97,7 @@ def semantics(cfg: DictConfig) -> None:
             check_val_every_n_epoch=int(5),
             callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
+            deterministic=True
         )
 
         log.info("starting pre-training")
@@ -118,6 +120,7 @@ def semantics(cfg: DictConfig) -> None:
         check_val_every_n_epoch=int(cfg.check_val_every_n_epoch),
         callbacks=[checkpoint_callback, lr_monitor],
         limit_train_batches=cfg.limit_train_batches,
+        deterministic=True,
         # profiler="simple",
     )
 
