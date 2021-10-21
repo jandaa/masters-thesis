@@ -524,6 +524,13 @@ class PointGroup(nn.Module):
             m.weight.data.fill_(1.0)
             m.bias.data.fill_(0.0)
 
+    @staticmethod
+    def init_weights(m):
+        """This is for debugging purposes"""
+        classname = m.__class__.__name__
+        if classname.find("SubMConv3d") != -1:
+            m.weight.data.fill_(1.0)
+
     def fix_modules(self, modules):
         for module_name in modules:
             mod = self.module_map[module_name]
