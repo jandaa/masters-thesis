@@ -1,0 +1,1 @@
+ssh -N -f -L localhost:6006:$1:$2 ajanda@beluga.computecanada.ca
