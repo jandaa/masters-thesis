@@ -4,25 +4,16 @@
 #SBATCH --time=0-01:00:00     # DD-HH:MM:SS
 
 module load python/3.8
-module load sparsehash
-module load boost/1.72.0
-module load cuda/11.1
-
-module load StdEnv/2020  
-module load cudacore/.11.1.1
-module load cudnn/8.2.0
 
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-pip3 install torch==1.9.1 --no-index
-pip3 install  dist/*.tar.gz --no-index
-pip3 install  dist/*.whl --no-index
+pip3 install --no-index tensorboard
 
-# install each requirement individually incase some are unavailable
-cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
-cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
+# # install each requirement individually incase some are unavailable
+# cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
+# cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
 
-tensorboard --logdir=outputs
+tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false
 
 # to connect to tensorboard
 # ssh -N -L localhost:6006:$1:$2 ajanda@beluga.computecanada.ca
