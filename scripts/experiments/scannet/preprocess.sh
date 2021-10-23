@@ -1,5 +1,5 @@
-export SCANNET_DIR=/media/starslab/datasets/scannet
-export OUTPUT_DIR=/media/starslab/datasets/scannet_full_preprocessed
+# export SCANNET_DIR=/media/starslab/datasets/scannet
+# export OUTPUT_DIR=/media/starslab/datasets/scannet_full_preprocessed
 export HYDRA_FULL_ERROR=1
 
 preprocess() {
@@ -8,6 +8,7 @@ preprocess() {
         dataset_dir=$SCANNET_DIR \
         output_dir=$OUTPUT_DIR \
         dataset=scannet \
+        dataset.pretrain.voxel_size=0.02 \
         sens_file=$filename \
         force_reload=True
 }
@@ -15,4 +16,4 @@ preprocess() {
 export -f preprocess
 
 # preprocess
-parallel -j 8 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`
+parallel -j 20 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`
