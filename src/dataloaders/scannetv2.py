@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 class ScannetDataPoint(DataPoint):
 
     scene_path: Path
+    output_path: Path
     force_reload: bool
     preprocess_callback: Callable
 
@@ -33,11 +34,12 @@ class ScannetDataPoint(DataPoint):
 
         # Files and names
         self.scene_name = self.scene_path.name
-        self.processed_scene = self.scene_path / (self.scene_path.name + ".pth")
-        self.measurements_file = self.scene_path / (
+        self.output_path /= self.scene_path.name
+        self.processed_scene = self.output_path / (self.scene_path.name + ".pth")
+        self.measurements_file = self.output_path / (
             self.scene_path.name + "_" + measurements_dir_name + ".pkl"
         )
-        self.scene_details_file = self.scene_path / (
+        self.scene_details_file = self.output_path / (
             self.scene_path.name + "_details.json"
         )
 
@@ -63,7 +65,7 @@ class ScannetDataPoint(DataPoint):
         return self.measurements_file.exists()
 
     def preprocess(self, force_reload=False):
-        return self.preprocess_callback(self, force_reload)
+        return self.preprocess_callback(self, force_reload, output_folder=self.output_path)
 
     def load(self, force_reload=False) -> SceneWithLabels:
         # Load processed scene if already preprocessed
@@ -93,7 +95,7 @@ class ScannetDataPoint(DataPoint):
         if not self.does_scene_contain_measurements():
             return self.preprocess(force_reload=True)
 
-        return SceneMeasurements.load_scene(self.scene_path)
+        return SceneMeasurements.load_scene(self.output_path)
 
 
 @dataclass
@@ -257,7 +259,14 @@ class ScannetDataInterface(DataInterface):
             )
         return all_files_exist
 
-    def preprocess(self, datapoint: ScannetDataPoint, force_reload: bool) -> None:
+    def preprocess(
+        self, 
+        datapoint: ScannetDataPoint, 
+        force_reload: bool, 
+        output_folder: 
+        Path = None
+    ) -> None:
+    
         if datapoint.is_scene_preprocessed(force_reload):
             return
 
@@ -307,7 +316,7 @@ class ScannetDataInterface(DataInterface):
 
         # Save measurements
         log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
-        measurements.save_to_file(datapoint.scene_path)
+        measurements.save_to_file(datapoint.output_path)
 
         # Clean up all extracted raw data
         for item in datapoint.scene_path.iterdir():
