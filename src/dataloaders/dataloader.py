@@ -21,7 +21,11 @@ from packages.pointgroup_ops.functions import pointgroup_ops
 
 from util.types import PointGroupBatch, DataInterface, PretrainInput, SceneWithLabels
 
-from util.utils import apply_data_operation_in_parallel, get_random_colour
+from util.utils import (
+    apply_data_operation_in_parallel,
+    get_random_colour,
+    visualize_pointcloud,
+)
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +63,9 @@ class DataModule(pl.LightningDataModule):
         self.val_data = data_interface.val_data
         self.test_data = data_interface.test_data
 
+        # Grab label to index map
+        self.label_to_index_map = data_interface.label_to_index_map
+
         if self.are_scenes_preloaded:
             self.train_data = apply_data_operation_in_parallel(
                 self.preload_scenes_with_crop,
@@ -84,6 +91,33 @@ class DataModule(pl.LightningDataModule):
         log.info(f"Training samples: {len(self.train_data)}")
         log.info(f"Validation samples: {len(self.val_data)}")
         log.info(f"Testing samples: {len(self.test_data)}")
+
+        # self.extract_objects()
+
+    def extract_objects(self):
+        for scene in self.train_data:
+            if not self.are_scenes_preloaded:
+                scene = scene.load()
+
+            keep_ids = [
+                self.label_to_index_map[label]
+                for label in ["chair", "desk", "toilet", "table"]
+            ]
+
+            instances = []
+            unique_instances = np.unique(scene.instance_labels)
+            for instance_id in unique_instances:
+                instance_coordinates = np.where(scene.instance_labels == instance_id)[0]
+
+                if scene.semantic_labels[instance_coordinates[0]] in keep_ids:
+                    instance_points = scene.points[instance_coordinates]
+                    instance_colours = scene.features[instance_coordinates]
+
+                    visualize_pointcloud(instance_points, instance_colours)
+
+                    instances.append((instance_points, instance_colours))
+
+            waithere = 1
 
     def pretrain_dataloader(self):
         return DataLoader(
