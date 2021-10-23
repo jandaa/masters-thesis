@@ -1,5 +1,6 @@
 # Must be provided at command line
 dataset_dir: ??? 
+output_dir: ???
 sens_file: ???
 
 # Options
