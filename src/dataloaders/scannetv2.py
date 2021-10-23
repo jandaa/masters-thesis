@@ -32,9 +32,13 @@ class ScannetDataPoint(DataPoint):
 
     def __post_init__(self):
 
-        # Files and names
+        # Make directories
         self.scene_name = self.scene_path.name
         self.output_path /= self.scene_path.name
+        if not self.output_path.exists():
+            self.output_path.mkdir()
+
+        # set filenames
         self.processed_scene = self.output_path / (self.scene_path.name + ".pth")
         self.measurements_file = self.output_path / (
             self.scene_path.name + "_" + measurements_dir_name + ".pkl"
@@ -65,7 +69,9 @@ class ScannetDataPoint(DataPoint):
         return self.measurements_file.exists()
 
     def preprocess(self, force_reload=False):
-        return self.preprocess_callback(self, force_reload, output_folder=self.output_path)
+        return self.preprocess_callback(
+            self, force_reload, output_folder=self.output_path
+        )
 
     def load(self, force_reload=False) -> SceneWithLabels:
         # Load processed scene if already preprocessed
@@ -105,6 +111,7 @@ class ScannetDataInterface(DataInterface):
     """
 
     scans_dir: Path
+    output_path: Path
     train_split: list
     val_split: list
     test_split: list
@@ -172,6 +179,11 @@ class ScannetDataInterface(DataInterface):
             index: label_name for label_name, index in self.label_to_index_map.items()
         }
 
+        # Make scans directory if it doesnt exist already
+        self.output_path /= "scans"
+        if not self.output_path.exists():
+            self.output_path.mkdir()
+
     @property
     def pretrain_data(self) -> list:
         return self.load_pretrain(self.train_split)
@@ -228,6 +240,7 @@ class ScannetDataInterface(DataInterface):
     def get_datapoint(self, scene: str, force_reload=False):
         return ScannetDataPoint(
             scene_path=self.scans_dir / scene,
+            output_path=self.output_path,
             force_reload=force_reload,
             preprocess_callback=self.preprocess,
         )
@@ -260,13 +273,12 @@ class ScannetDataInterface(DataInterface):
         return all_files_exist
 
     def preprocess(
-        self, 
-        datapoint: ScannetDataPoint, 
-        force_reload: bool, 
-        output_folder: 
-        Path = None
+        self,
+        datapoint: ScannetDataPoint,
+        force_reload: bool,
+        output_folder: Path = None,
     ) -> None:
-    
+
         if datapoint.is_scene_preprocessed(force_reload):
             return
 
@@ -310,6 +322,7 @@ class ScannetDataInterface(DataInterface):
         # Preprocess measurements
         measurements = SceneMeasurements(
             datapoint.scene_path,
+            datapoint.output_path,
             frame_skip=self.dataset_cfg.pretrain.frame_skip,
             voxel_size=self.dataset_cfg.pretrain.voxel_size,
         )

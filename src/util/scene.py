@@ -47,7 +47,7 @@ def get_point_cloud(depth, intrinsics):
 class SceneMeasurement:
     """Stores sensor measurements for a single frame"""
 
-    def __init__(self, directory: Path, info: dict, frame_id: str):
+    def __init__(self, directory: Path, output_dir: Path, info: dict, frame_id: str):
         """
         Load all measurements of a single frame from a scene catpure
 
@@ -132,7 +132,7 @@ class SceneMeasurement:
         self.point_colors = np.asarray(pcd.colors)
 
         # save all processed data to file
-        self.save_to_file(directory)
+        self.save_to_file(output_dir)
 
     @property
     def color_image_for_point_cloud(self):
@@ -195,11 +195,13 @@ class SceneMeasurement:
 class SceneMeasurements:
     """Stores all sensor measurements for a single scene."""
 
-    def __init__(self, directory: Path, frame_skip=25, voxel_size=0.05):
+    def __init__(
+        self, directory: Path, output_dir: Path, frame_skip=25, voxel_size=0.05
+    ):
         self.set_directories(directory)
 
         # create frame measurements directory
-        frame_dir = self.directory / "frames"
+        frame_dir = output_dir / "frames"
         if not frame_dir.exists():
             frame_dir.mkdir()
 
@@ -213,7 +215,7 @@ class SceneMeasurements:
         self.instance_id_to_colour = {i: self.get_random_colour() for i in range(100)}
 
         measurements = [
-            SceneMeasurement(directory, self.info, f"{frame:06d}")
+            SceneMeasurement(directory, output_dir, self.info, f"{frame:06d}")
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
         self.num_measurements = len(measurements)
@@ -430,81 +432,3 @@ class SceneMeasurements:
         scene = pickle.load(pickled_file.open("rb"))
         scene.set_directories(directory)
         return scene
-
-
-# if __name__ == "__main__":
-#     scans_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/scans"
-#     output_dir = Path.cwd() / "/media/starslab/datasets/aribic/scannet/outputs"
-
-#     extracted_scenes = [scan for scan in output_dir.iterdir() if scan.is_dir()]
-#     for scene in extracted_scenes:
-#         measurements = SceneMeasurements(scene)
-#         measurements.visualize_everything_as_video(2)
-
-
-# Extracting code
-# if not output_dir.exists():
-#     output_dir.mkdir()
-
-# file_extensions = [
-#     ".sens",
-#     "_2d-label.zip",
-#     "_2d-instance.zip",
-#     "_2d-label-filt.zip",
-#     "_2d-instance-filt.zip",
-# ]
-
-
-# def is_download_complete(scene):
-#     for ext in file_extensions:
-#         filename = scene / (scene.name + ext)
-#         if not filename.exists():
-#             return False
-
-#     return True
-
-
-# current_scenes = [scan for scan in scans_dir.iterdir() if scan.is_dir()]
-# scenes_to_extract = [scene for scene in current_scenes if is_download_complete(scene)]
-
-# import zipfile
-
-# zipfiles_to_extract = [
-#     "_2d-instance.zip",
-#     "_2d-instance-filt.zip",
-#     "_2d-label.zip",
-#     "_2d-label-filt.zip",
-# ]
-
-# # Load scene measurements
-# extracted_scenes = [scan for scan in output_dir.iterdir() if scan.is_dir()]
-# for scene in extracted_scenes:
-
-#     for ext in zipfiles_to_extract:
-#         file_to_extract = scans_dir / scene.name
-#         file_to_extract /= scene.name + ext
-#         with zipfile.ZipFile(file_to_extract) as zp:
-#             zp.extractall(output_dir / scene.name)
-
-#     measurements = SceneMeasurements(scene)
-#     measurements.save_to_file()
-
-#     loaded_measurements = SceneMeasurements.load_scene(scene)
-
-# for scene in scenes_to_extract:
-
-#     scene_output = output_dir / scene.name
-#     if not scene_output.exists():
-#         scene_output.mkdir()
-
-#     p = Popen(
-#         [
-#             "./sens",
-#             scene / (scene.name + ".sens"),
-#             scene_output,
-#         ],
-#         stdin=PIPE,
-#     )
-#     while True:
-#         if not p.poll() is None:
-#             break
