@@ -16,4 +16,3 @@ cd $base_dir
 dataset_dir=$SLURM_TMPDIR/scannet_preprocessed
 tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false & \
 source $1
-   

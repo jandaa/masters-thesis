@@ -1,5 +1,5 @@
-# export SCANNET_DIR=/media/starslab/datasets/scannet
-# export OUTPUT_DIR=/media/starslab/datasets/scannet_full_preprocessed
+export SCANNET_DIR=/home/ajanda/scratch/datasets/scannet
+export OUTPUT_DIR=/home/ajanda/scratch/datasets/scannet_preprocessed_2mm
 export HYDRA_FULL_ERROR=1
 
 preprocess() {

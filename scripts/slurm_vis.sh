@@ -9,10 +9,6 @@ virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 pip3 install --no-index tensorboard
 
-# # install each requirement individually incase some are unavailable
-# cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
-# cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
-
 tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false
 
 # to connect to tensorboard

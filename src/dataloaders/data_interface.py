@@ -22,7 +22,7 @@ class DataInterfaceFactory:
         if cfg.output_dir:
             self.output_dir = Path(cfg.output_dir)
             if not self.output_dir.exists():
-                self.output_dir.mkdir()
+                self.output_dir.mkdir(exist_ok=True)
 
     def get_interface(self) -> DataInterface:
         if self.dataset_cfg.name == "scannetv2":
