@@ -557,7 +557,11 @@ class DataModule(pl.LightningDataModule):
             keys = list(correspondances.keys())
             if len(keys) > 4092:
                 keys = random.choices(keys, k=min(4092, len(keys)))
-                correspondances = {k: correspondances[k] for k in keys}
+                correspondances = {
+                    k: random.choices(correspondances[k] k=min(4092, len(correspondances[k])) 
+                    for k in keys
+                }      
+
             batch_correspondances.append(correspondances)
 
             for frame in [frame1, frame2]:
