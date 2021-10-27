@@ -196,7 +196,7 @@ class SceneMeasurements:
     """Stores all sensor measurements for a single scene."""
 
     def __init__(
-        self, directory: Path, output_dir: Path, frame_skip=25, voxel_size=0.05
+        self, directory: Path, output_dir: Path, frame_skip=25, voxel_size=0.02
     ):
         self.set_directories(directory)
 
