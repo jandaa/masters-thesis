@@ -130,6 +130,14 @@ def evaluate(matches, verbose=True):
     # Return mean IOU
     mean_iou = 0
     for i in range(len(VALID_CLASS_IDS)):
-        mean_iou += get_iou(label_id, confusion)
-    
+        label_id = VALID_CLASS_IDS[i]
+        iou_output = get_iou(label_id, confusion)
+        if type(iou_output) == tuple:
+            mean_iou += iou_output[0]
+    mean_iou /= len(VALID_CLASS_IDS)
+
+    if verbose:
+        log.info("----------------------------")
+        log.info(f"mIOU           {mean_iou:.3f}")
+
     return mean_iou / len(VALID_CLASS_IDS)
