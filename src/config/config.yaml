@@ -1,7 +1,7 @@
 # general parameters
 experiment_name: test_1
 dataset_dir: ??? # Must be provided at command line
-output_dir: /media/starslab/datasets/scannet_full_preprocessed
+output_dir: 
 manual_seed: 123
 
 # What tasks to run, Options
