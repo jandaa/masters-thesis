@@ -572,8 +572,11 @@ class DataModule(pl.LightningDataModule):
                 xyz_middle = frame.points - frame.points.mean(0)
                 xyz_middle = self.augment_data(xyz_middle, rot=True)
 
+                ### scale
+                xyz = xyz_middle * self.scale
+
                 ### offset
-                xyz = xyz_middle - xyz_middle.min(0)
+                xyz -= xyz.min(0)
 
                 # Append
                 batch_features.append(torch.from_numpy(frame.point_colors))
