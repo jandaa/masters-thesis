@@ -757,6 +757,25 @@ class PointGroupWrapper(pl.LightningModule):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss.total_loss, sync_dist=True)
 
+        # Log the val mIOU
+        semantic_pred = output.semantic_pred.detach().cpu().numpy()
+        semantic_gt = batch.labels.detach().cpu().numpy()
+        semantic_matches = {
+            "gt": semantic_gt,
+            "pred": semantic_pred
+        }
+        
+        return semantic_matches
+
+    def validation_epoch_end(self, outputs):
+        semantic_matches = {}
+        for i, output in enumerate(outputs):
+            scene_name = f"scene{i}"
+            semantic_matches[scene_name] = output
+
+        mean_iou = eval_semantic.evaluate(semantic_matches, verbose=True)
+        self.log("val_semantic_mIOU", mean_iou, sync_dist=True)
+
     def test_step(self, batch: PointGroupBatch, batch_idx: int):
         preds = self.model(
             batch,
@@ -884,7 +903,6 @@ class PointGroupWrapper(pl.LightningModule):
         return unique[counts == max_count][0]
 
     def test_epoch_end(self, outputs) -> None:
-        pass
 
         # Semantic eval
         semantic_matches = {}

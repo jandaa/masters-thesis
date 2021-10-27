@@ -96,11 +96,13 @@ def write_result_file(confusion, ious):
         log.info(output_string)
 
 
-def evaluate(matches):
+def evaluate(matches, verbose=True):
     max_id = UNKNOWN_ID
     confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.ulonglong)
 
-    log.info(f"evaluating {len(matches.keys()) } scans...")
+    if verbose:
+        log.info(f"evaluating {len(matches.keys()) } scans...")
+
     for scene_name, compare in matches.items():
         evaluate_scan(compare["pred"], compare["gt"], confusion)
 
@@ -110,18 +112,24 @@ def evaluate(matches):
         label_id = VALID_CLASS_IDS[i]
         class_ious[label_name] = get_iou(label_id, confusion)
 
-    log.info("classes          IoU")
-    log.info("----------------------------")
-    for i in range(len(VALID_CLASS_IDS)):
-        label_name = CLASS_LABELS[i]
-        if type(class_ious[label_name]) == tuple:
-            log.info(
-                "{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(
-                    label_name,
-                    class_ious[label_name][0],
-                    class_ious[label_name][1],
-                    class_ious[label_name][2],
+    if verbose:
+        log.info("classes          IoU")
+        log.info("----------------------------")
+        for i in range(len(VALID_CLASS_IDS)):
+            label_name = CLASS_LABELS[i]
+            if type(class_ious[label_name]) == tuple:
+                log.info(
+                    "{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(
+                        label_name,
+                        class_ious[label_name][0],
+                        class_ious[label_name][1],
+                        class_ious[label_name][2],
+                    )
                 )
-            )
 
-    # write_result_file(confusion, class_ious)
+    # Return mean IOU
+    mean_iou = 0
+    for i in range(len(VALID_CLASS_IDS)):
+        mean_iou += get_iou(label_id, confusion)
+    
+    return mean_iou / len(VALID_CLASS_IDS)
