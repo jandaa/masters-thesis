@@ -214,7 +214,15 @@ class ScannetDataInterface(DataInterface):
                 for datapoint in datapoints
                 if self.do_all_files_exist_in_scene(datapoint.scene_path)
             ]
-        return datapoints
+        return [
+            datapoint
+            for datapoint in datapoints
+            if (
+                self.do_all_files_exist_in_scene(datapoint.scene_path)
+                or datapoint.is_scene_preprocessed(self.force_reload)
+            )
+        ]
+        # return datapoints
 
     def load_pretrain(self, scenes: list):
         datapoints = self.get_datapoints(scenes, force_reload=self.force_reload)

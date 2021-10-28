@@ -15,8 +15,8 @@ mode: 4 # 4=mean
 
 pretrain:
   frame_skip: 25
-  voxel_size: 0.05
-  batch_size: 32
+  voxel_size: 0.02
+  batch_size: 16
   max_epochs: 120
   learning_rate: 0.0001
 
