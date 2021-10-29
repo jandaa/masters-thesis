@@ -760,11 +760,8 @@ class PointGroupWrapper(pl.LightningModule):
         # Log the val mIOU
         semantic_pred = output.semantic_pred.detach().cpu().numpy()
         semantic_gt = batch.labels.detach().cpu().numpy()
-        semantic_matches = {
-            "gt": semantic_gt,
-            "pred": semantic_pred
-        }
-        
+        semantic_matches = {"gt": semantic_gt, "pred": semantic_pred}
+
         return semantic_matches
 
     def validation_epoch_end(self, outputs):

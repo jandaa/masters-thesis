@@ -1,5 +1,5 @@
-export SCANNET_DIR=/home/ajanda/scratch/datasets/scannet
-export OUTPUT_DIR=/home/ajanda/scratch/datasets/scannet_preprocessed_2mm
+export SCANNET_DIR=/media/starslab/datasets/scannet
+export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2mm
 export HYDRA_FULL_ERROR=1
 
 preprocess() {
@@ -16,4 +16,4 @@ preprocess() {
 export -f preprocess
 
 # preprocess
-parallel -j 20 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`
+parallel -j 16 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`
