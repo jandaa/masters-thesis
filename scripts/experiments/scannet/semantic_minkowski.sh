@@ -6,5 +6,6 @@ python src/train.py \
     tasks=["train","eval"] \
     preload_data=False \
     gpus=1 \
-    max_epochs=120 \
-    check_val_every_n_epoch=10
+    max_epochs=240 \
+    check_val_every_n_epoch=20 \
+    precision=16

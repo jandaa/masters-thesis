@@ -5,7 +5,7 @@
 #SBATCH --time=0-06:00:00     # DD-HH:MM:SS
 
 # Setup default environment
-source scripts/slurm_base.sh
+source scripts/slurm/base.sh
 
 # Untar data
 dataset=~/scratch/datasets/scannet_preprocessed.tar
