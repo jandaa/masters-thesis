@@ -15,9 +15,10 @@ tasks:
 gpus: 1
 accelerator: "ddp"
 max_epochs: 384
-check_val_every_n_epoch: 20
+check_val_every_n_epoch: 10
 preload_data: False
 force_reload: False
+precision: 32
 
 # Fraction of training set to use during training
 limit_train_batches: 1.0

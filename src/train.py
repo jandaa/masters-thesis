@@ -15,6 +15,7 @@ from util import utils
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
 from model.pointgroup import PointGroupWrapper, PointGroupBackboneWrapper
+from model.minkowski.main import MinkovskiWrapper
 
 
 log = logging.getLogger("train")
@@ -42,18 +43,10 @@ def get_checkpoint_callback():
     )
 
 
-def set_random_seeds(cfg):
-    random.seed(cfg.manual_seed)
-    np.random.seed(cfg.manual_seed)
-    torch.manual_seed(cfg.manual_seed)
-    torch.cuda.manual_seed_all(cfg.manual_seed)
-
-
 @hydra.main(config_path="config", config_name="config")
 def semantics(cfg: DictConfig) -> None:
 
     # Set random seeds for reproductability
-    # set_random_seeds(cfg)
     pl.seed_everything(42, workers=True)
 
     # Load a checkpoint if given
@@ -97,7 +90,7 @@ def semantics(cfg: DictConfig) -> None:
             check_val_every_n_epoch=int(5),
             callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
-            deterministic=True
+            deterministic=True,
         )
 
         log.info("starting pre-training")
@@ -121,11 +114,17 @@ def semantics(cfg: DictConfig) -> None:
         callbacks=[checkpoint_callback, lr_monitor],
         limit_train_batches=cfg.limit_train_batches,
         deterministic=True,
+        precision=cfg.precision
         # profiler="simple",
     )
 
     log.info("Creating model")
-    model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
+    if cfg.model.name == "pointgroup":
+        model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
+    elif cfg.model.name == "minkowski":
+        model = MinkovskiWrapper(cfg)
+    else:
+        raise RuntimeError(f"model {cfg.model.name} is not supported")
 
     # Train model
     if "train" in cfg.tasks:

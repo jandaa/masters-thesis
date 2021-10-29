@@ -1,3 +1,5 @@
+name: pointgroup
+
 structure:
   model_name: pointgroup
   m: 16 # 16 or 32

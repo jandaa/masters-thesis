@@ -1,0 +1,35 @@
+name: minkowski
+
+structure:
+  m: 16 # 16 or 32
+
+net:
+  model: Res16UNet34C
+  model_n_out: 32 #Feature dimension
+  conv1_kernel_size: 3
+  normalize_feature: True
+  dist_type: L2
+
+optimizer:
+  type: SGD # Adam or SGD
+  lr: 1e-1
+  momentum: 0.9
+  weight_decay: 1e-4
+  bn_momentum: 0.05
+
+scheduler:
+  type: ExpLR
+  exp_gamma: 0.99
+
+train:
+  epochs: 384
+  train_workers: 8 # data loader workers
+  multiplier: 0.5
+
+test:
+  split: val
+  test_workers: 4
+
+  eval: True
+  save_point_cloud: True
+  max_pointcloud_size: 2000000

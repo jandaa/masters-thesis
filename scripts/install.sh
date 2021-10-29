@@ -1,3 +1,12 @@
+# Install dependencies
+sudo apt-get install \
+    libsparsehash-dev \
+    libboost-all-dev \
+    build-essential \
+    python3-dev \
+    libopenblas-dev
+
+# Create virtual environment
 python -m venv .venv
 source .venv/bin/activate
 
@@ -8,10 +17,10 @@ pip3 install torch==1.9.1+cu111 -f https://download.pytorch.org/whl/torch_stable
 pip3 install -r setup/requirements.dev
 pip3 install -r setup/requirements.prod
 
-base_dir=$PWD
+# Install Minkowski Engine for sparse backbone
+pip3 install MinkowskiEngine --install-option="--blas=openblas" -v --no-deps
 
-# Install dependencies
-sudo apt-get install libsparsehash-dev libboost-all-dev
+base_dir=$PWD
 
 cd $base_dir/src/packages/spconv
 python setup.py bdist_wheel

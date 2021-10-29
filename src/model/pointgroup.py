@@ -1006,11 +1006,11 @@ class PointGroupWrapper(pl.LightningModule):
         #     total_loss=loss,
         # )
 
-    def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
-        torch.cuda.empty_cache()
+    # def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+    #     torch.cuda.empty_cache()
 
-    def on_test_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
-        torch.cuda.empty_cache()
+    # def on_test_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+    #     torch.cuda.empty_cache()
 
     def configure_optimizers(self):
         if self.optimizer_cfg.type == "Adam":

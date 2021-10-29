@@ -83,6 +83,24 @@ class DataInterface(ABC):
 
 
 @dataclass
+class MinkowskiInput:
+    """Input type of Minkovski Network."""
+
+    points: torch.Tensor
+    features: torch.Tensor
+    labels: torch.Tensor
+
+
+@dataclass
+class MinkowskiPretrainInput(MinkowskiInput):
+    """Input type of pretraining objective."""
+
+    correspondances: dict = field(default_factory=dict)
+    batch_size: int = 0
+    offsets: torch.Tensor = torch.tensor([])
+
+
+@dataclass
 class PointGroupInput:
     """Input type of Point Group forward function."""
 
