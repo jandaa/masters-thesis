@@ -29,18 +29,18 @@ import functools
 
 import torch
 import torch.nn as nn
-from torch.optim import SGD
 import pytorch_lightning as pl
+import open3d as o3d
+import numpy as np
 
 import MinkowskiEngine as ME
-
-# from MinkowskiEngine.modules.resnet_block import BasicBlock, Bottleneck
 
 from model.minkowski.resnet import ResNetBase
 from model.minkowski.res16unet import Res16UNet34C
 from model.minkowski.resnet_block import BasicBlock, Bottleneck
 
 from util.types import MinkowskiInput
+import util.eval_semantic as eval_semantic
 
 log = logging.getLogger(__name__)
 
@@ -98,6 +98,11 @@ class MinkovskiWrapper(pl.LightningModule):
             ignore_index=cfg.dataset.ignore_label
         )
 
+        self.semantic_colours = [
+            np.random.choice(range(256), size=3) / 255.0
+            for i in range(cfg.dataset.classes + 1)
+        ]
+
     def training_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
         output = self.model(model_input)
@@ -115,12 +120,92 @@ class MinkovskiWrapper(pl.LightningModule):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
+        # Log the val mIOU
+        semantic_pred = output.F.max(1)[1].detach().cpu().numpy()
+        semantic_gt = batch.labels.detach().cpu().numpy()
+        semantic_matches = {"gt": semantic_gt, "pred": semantic_pred}
+
+        return semantic_matches
+
+    def validation_epoch_end(self, outputs):
+        semantic_matches = {}
+        for i, output in enumerate(outputs):
+            scene_name = f"scene{i}"
+            semantic_matches[scene_name] = output
+
+        mean_iou = eval_semantic.evaluate(semantic_matches, verbose=True)
+        self.log("val_semantic_mIOU", mean_iou, sync_dist=True)
+
     def loss_fn(self, batch, output):
         """Just return the semantic loss"""
         semantic_scores = output.F
         semantic_labels = batch.labels.long()
         loss = self.semantic_criterion(semantic_scores, semantic_labels)
         return loss
+
+    def test_step(self, batch: MinkowskiInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        preds = self.model(model_input)
+
+        matches = {}
+        matches["test_scene_name"] = batch.test_filename
+
+        # Semantic eval & ground truth
+        semantic_pred = preds.F.max(1)[1].detach().cpu().numpy()
+        semantic_gt = batch.labels.detach().cpu().numpy()
+
+        matches["semantic"] = {"gt": semantic_gt, "pred": semantic_pred}
+
+        # Save to file
+        if self.test_cfg.save_point_cloud:
+
+            point_cloud_folder = Path.cwd() / "predictions"
+            if not point_cloud_folder.exists():
+                point_cloud_folder.mkdir()
+            point_cloud_folder /= batch.test_filename
+            if not point_cloud_folder.exists():
+                point_cloud_folder.mkdir()
+
+            # Set 3D points
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(batch.points.cpu().numpy()[:, 1:4])
+
+            # Save original colour inputs
+            pcd.colors = o3d.utility.Vector3dVector(
+                batch.features.detach().cpu().numpy()
+            )
+            o3d.io.write_point_cloud(str(point_cloud_folder / "input.pcd"), pcd)
+
+            # Save semantic predictions
+            self.color_point_cloud_semantic(pcd, semantic_pred)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_pred.pcd"), pcd)
+
+            self.color_point_cloud_semantic(pcd, semantic_gt)
+            o3d.io.write_point_cloud(str(point_cloud_folder / "semantic_gt.pcd"), pcd)
+
+        return matches
+
+    def test_epoch_end(self, outputs) -> None:
+
+        # Semantic eval
+        semantic_matches = {}
+        for output in outputs:
+            scene_name = output["test_scene_name"]
+            semantic_matches[scene_name] = {}
+            semantic_matches[scene_name]["gt"] = output["semantic"]["gt"]
+            semantic_matches[scene_name]["pred"] = output["semantic"]["pred"]
+
+        eval_semantic.evaluate(semantic_matches)
+
+    def color_point_cloud_semantic(self, pcd, predictions):
+        semantic_colours = (
+            np.ones((len(pcd.points), 3)).astype(np.float) * self.semantic_colours[-1]
+        )
+        for class_ind in range(self.dataset_cfg.classes):
+            semantic_colours[predictions == class_ind] = self.semantic_colours[
+                class_ind
+            ]
+        pcd.colors = o3d.utility.Vector3dVector(semantic_colours)
 
     def configure_optimizers(self):
 

@@ -90,6 +90,8 @@ class MinkowskiInput:
     features: torch.Tensor
     labels: torch.Tensor
 
+    test_filename: str
+
 
 @dataclass
 class MinkowskiPretrainInput(MinkowskiInput):

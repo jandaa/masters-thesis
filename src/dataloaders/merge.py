@@ -30,20 +30,34 @@ def minkowski_merge(self, id, scenes, crop=False, is_test=False):
                 if not scene:
                     continue
 
-        # Perform data augmentation
-        xyz_middle = self.augment_data(scene.points, True, True, True)
+        if is_test:
 
-        ### scale
-        xyz = xyz_middle
+            # Make sure the scene is not way too big
+            scene = self.crop_single(scene, max_npoint=self.max_pointcloud_size)
 
-        ### elastic
-        xyz = self.elastic_distortion(xyz, 6, 40)
-        xyz = self.elastic_distortion(xyz, 20, 160)
+            xyz_middle = self.augment_data(scene.points, False, True, True)
 
-        ### offset
-        xyz -= xyz.min(0)
+            xyz = xyz_middle
 
-        features = torch.from_numpy(scene.features) + torch.randn(3) * 0.1
+            xyz -= xyz.min(0)
+
+            features = torch.from_numpy(scene.features)
+
+        else:
+            # Perform data augmentation
+            xyz_middle = self.augment_data(scene.points, True, True, True)
+
+            ### scale
+            xyz = xyz_middle
+
+            ### elastic
+            xyz = self.elastic_distortion(xyz, 6, 40)
+            xyz = self.elastic_distortion(xyz, 20, 160)
+
+            ### offset
+            xyz -= xyz.min(0)
+
+            features = torch.from_numpy(scene.features) + torch.randn(3) * 0.1
 
         discrete_coords, unique_feats, unique_labels = ME.utils.sparse_quantize(
             xyz,
@@ -60,7 +74,17 @@ def minkowski_merge(self, id, scenes, crop=False, is_test=False):
     feats_batch = torch.from_numpy(np.concatenate(features_list, 0)).float()
     labels_batch = torch.from_numpy(np.concatenate(labels_list, 0)).int()
 
-    return MinkowskiInput(points=bcoords, features=feats_batch, labels=labels_batch)
+    if is_test:
+        test_filename = scenes[id[0]].scene_name
+    else:
+        test_filename = None
+
+    return MinkowskiInput(
+        points=bcoords,
+        features=feats_batch,
+        labels=labels_batch,
+        test_filename=test_filename,
+    )
 
 
 def minkowski_pretrain_merge(self, id):
