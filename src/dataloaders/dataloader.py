@@ -213,44 +213,6 @@ class DataModule(pl.LightningDataModule):
 
         return new_datapoints
 
-    def elastic_distortion(self, x, granularity, magnitude):
-        blurs = [
-            np.ones(shape).astype("float32") / 3
-            for shape in [(3, 1, 1), (1, 3, 1), (1, 1, 3)]
-        ]
-
-        # Select random noise for each voxel of bounding box
-        bounding_box = np.abs(x).max(0).astype(np.int32) // granularity + 3
-        noise = [
-            np.random.randn(*list(bounding_box)).astype("float32") for _ in range(3)
-        ]
-
-        # Apply bluring filters on the noise
-        for _ in range(2):
-            for blur in blurs:
-                noise = [
-                    scipy.ndimage.filters.convolve(n, blur, mode="constant", cval=0)
-                    for n in noise
-                ]
-
-        # Interpolate between the axes
-        ax = [
-            np.linspace(
-                -(side_length - 1) * granularity,
-                (side_length - 1) * granularity,
-                side_length,
-            )
-            for side_length in bounding_box
-        ]
-        interp = [
-            scipy.interpolate.RegularGridInterpolator(
-                ax, n, bounds_error=0, fill_value=0
-            )
-            for n in noise
-        ]
-
-        return x + np.hstack([i(x)[:, None] for i in interp]) * magnitude
-
     def get_instance_centers(self, xyz, instance_labels):
         """
         :param xyz: (n, 3)
@@ -269,24 +231,6 @@ class DataModule(pl.LightningDataModule):
             instance_pointnum.append(instance_indices[0].size)
 
         return number_of_instances, instance_pointnum, instance_centers
-
-    def augment_data(self, xyz, jitter=False, flip=False, rot=False):
-        m = np.eye(3)
-        if jitter:
-            m += np.random.randn(3, 3) * 0.1
-        if flip:
-            m[0][0] *= np.random.randint(0, 2) * 2 - 1  # flip x randomly
-        if rot:
-            theta = np.random.rand() * 2 * math.pi
-            m = np.matmul(
-                m,
-                [
-                    [math.cos(theta), math.sin(theta), 0],
-                    [-math.sin(theta), math.cos(theta), 0],
-                    [0, 0, 1],
-                ],
-            )  # rotation
-        return np.matmul(xyz, m)
 
     def crop_multiple(self, scene: SceneWithLabels):
 
