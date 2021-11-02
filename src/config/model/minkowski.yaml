@@ -5,7 +5,7 @@ structure:
 
 net:
   model: Res16UNet34C
-  model_n_out: 32 #Feature dimension
+  model_n_out: 32 # Feature dimension
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
@@ -13,6 +13,8 @@ net:
 optimizer:
   type: SGD # Adam or SGD
   lr: 1e-1
+  # type: Adam # Adam or SGD
+  # lr: 1e-3
   momentum: 0.9
   weight_decay: 1e-4
   bn_momentum: 0.05
@@ -25,6 +27,7 @@ train:
   epochs: 384
   train_workers: 8 # data loader workers
   multiplier: 0.5
+  prepare_epochs: 10000
 
 test:
   split: val
