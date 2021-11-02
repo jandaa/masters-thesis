@@ -63,15 +63,14 @@ class MinkovskiSemantic(nn.Module):
         self.dataset_cfg = cfg.dataset
         self.structure = cfg.model.structure
 
-        m = self.structure.m
-
-        self.backbone = Res16UNet34C(3, m, cfg.model, D=3)
-        self.linear = ME.MinkowskiLinear(m, self.dataset_cfg.classes, bias=False)
+        self.backbone = Res16UNet34C(3, cfg.dataset.classes, cfg.model, D=3)
+        # self.linear = ME.MinkowskiLinear(m, self.dataset_cfg.classes, bias=False)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
         output = self.backbone(input)
-        return self.linear(output)
+        # return self.linear(output)
+        return output
 
 
 class MinkovskiWrapper(pl.LightningModule):
