@@ -120,9 +120,11 @@ def semantics(cfg: DictConfig) -> None:
 
     log.info("Creating model")
     if cfg.model.name == "pointgroup":
-        model = PointGroupWrapper(cfg, data_interface=data_interface, backbone=backbone)
+        model_type = PointGroupWrapper
+        model = model_type(cfg, data_interface=data_interface, backbone=backbone)
     elif cfg.model.name == "minkowski":
-        model = MinkovskiWrapper(cfg)
+        model_type = MinkovskiWrapper
+        model = model_type(cfg)
     else:
         raise RuntimeError(f"model {cfg.model.name} is not supported")
 
@@ -148,12 +150,20 @@ def semantics(cfg: DictConfig) -> None:
             if loaded_checkpoint["epoch"] >= cfg.model.train.prepare_epochs:
                 do_instance_segmentation = True
 
-            model = PointGroupWrapper.load_from_checkpoint(
-                cfg=cfg,
-                data_interface=data_interface,
-                checkpoint_path=checkpoint_path,
-                do_instance_segmentation=do_instance_segmentation,
-            )
+            if cfg.model.name == "pointgroup":
+                model = PointGroupWrapper.load_from_checkpoint(
+                    cfg=cfg,
+                    data_interface=data_interface,
+                    checkpoint_path=checkpoint_path,
+                    do_instance_segmentation=do_instance_segmentation,
+                )
+            elif cfg.model.name == "minkowski":
+                model = MinkovskiWrapper.load_from_checkpoint(
+                    cfg=cfg,
+                    checkpoint_path=checkpoint_path,
+                )
+            else:
+                raise RuntimeError(f"model {cfg.model.name} is not supported")
 
         log.info("Running on test set")
         trainer.test(model, data_loader.test_dataloader())
