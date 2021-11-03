@@ -35,12 +35,14 @@ class DataInterfaceFactory:
 
     def _get_interface_scannet(self) -> DataInterface:
 
+        tsv_file = self.dataset_dir / "scannetv2-labels.combined.tsv"
         train_split_file = self.dataset_dir / self.dataset_cfg.train_split_file
         val_split_file = self.dataset_dir / self.dataset_cfg.val_split_file
         test_split_file = self.dataset_dir / self.dataset_cfg.test_split_file
 
         # Copy over files to output directory
         if self.dataset_dir != self.output_dir:
+            shutil.copy(tsv_file, self.output_dir / "scannetv2-labels.combined.tsv")
             shutil.copy(
                 train_split_file, self.output_dir / self.dataset_cfg.train_split_file
             )

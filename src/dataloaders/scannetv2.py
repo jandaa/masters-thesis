@@ -202,13 +202,13 @@ class ScannetDataInterface(DataInterface):
         ]
 
     def get_datapoints(self, scenes: list):
-        return [
-            ScannetDataPoint(
-                scene_path=self.scans_dir / scene,
-                preprocessed_path=self.preprocessed_path,
-            )
-            for scene in scenes
-        ]
+        return [self.get_datapoint(scene) for scene in scenes]
+
+    def get_datapoint(self, scene):
+        return ScannetDataPoint(
+            scene_path=self.scans_dir / scene,
+            preprocessed_path=self.preprocessed_path,
+        )
 
     def do_all_files_exist_in_scene(self, scene):
         all_files_exist = True

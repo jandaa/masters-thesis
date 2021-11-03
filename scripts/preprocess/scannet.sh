@@ -1,5 +1,5 @@
 export SCANNET_DIR=/media/starslab/datasets/scannet
-export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2mm
+export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_test
 export HYDRA_FULL_ERROR=1
 
 preprocess() {
@@ -16,5 +16,4 @@ preprocess() {
 export -f preprocess
 
 # preprocess
-# TODO: change the file type its looking for
-parallel -j 16 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.ply`
+parallel -j 16 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/ -mindepth 1 -maxdepth 1 -type d`
