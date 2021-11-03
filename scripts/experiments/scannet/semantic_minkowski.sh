@@ -7,5 +7,5 @@ python src/train.py \
     preload_data=False \
     gpus=1 \
     max_epochs=240 \
+    dataset.scale=50 \
     check_val_every_n_epoch=20 \
-    precision=16

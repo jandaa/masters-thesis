@@ -5,7 +5,7 @@ structure:
 
 net:
   model: Res16UNet34C
-  model_n_out: 32 #Feature dimension
+  model_n_out: 32 # Feature dimension
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
@@ -25,6 +25,7 @@ train:
   epochs: 384
   train_workers: 8 # data loader workers
   multiplier: 0.5
+  prepare_epochs: 10000
 
 test:
   split: val
