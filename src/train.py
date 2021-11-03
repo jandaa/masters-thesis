@@ -11,11 +11,10 @@ import numpy as np
 import random
 import torch
 
+from model_factory import ModelFactory
 from util import utils
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
-from model.pointgroup import PointGroupWrapper, PointGroupBackboneWrapper
-from model.minkowski.main import MinkovskiWrapper
 
 
 log = logging.getLogger("train")
@@ -119,14 +118,8 @@ def semantics(cfg: DictConfig) -> None:
     )
 
     log.info("Creating model")
-    if cfg.model.name == "pointgroup":
-        model_type = PointGroupWrapper
-        model = model_type(cfg, data_interface=data_interface, backbone=backbone)
-    elif cfg.model.name == "minkowski":
-        model_type = MinkovskiWrapper
-        model = model_type(cfg)
-    else:
-        raise RuntimeError(f"model {cfg.model.name} is not supported")
+    model_factory = ModelFactory(cfg, data_interface, backbone=backbone)
+    model = model_factory.get_model()
 
     # Train model
     if "train" in cfg.tasks:
@@ -143,27 +136,7 @@ def semantics(cfg: DictConfig) -> None:
         log.info(f"Running evaluation on model {cfg.checkpoint}")
 
         if checkpoint_path:
-
-            # Set the epoch to that loaded in the module
-            loaded_checkpoint = torch.load(checkpoint_path)
-            do_instance_segmentation = False
-            if loaded_checkpoint["epoch"] >= cfg.model.train.prepare_epochs:
-                do_instance_segmentation = True
-
-            if cfg.model.name == "pointgroup":
-                model = PointGroupWrapper.load_from_checkpoint(
-                    cfg=cfg,
-                    data_interface=data_interface,
-                    checkpoint_path=checkpoint_path,
-                    do_instance_segmentation=do_instance_segmentation,
-                )
-            elif cfg.model.name == "minkowski":
-                model = MinkovskiWrapper.load_from_checkpoint(
-                    cfg=cfg,
-                    checkpoint_path=checkpoint_path,
-                )
-            else:
-                raise RuntimeError(f"model {cfg.model.name} is not supported")
+            model = model_factory.load_from_checkpoint(checkpoint_path)
 
         log.info("Running on test set")
         trainer.test(model, data_loader.test_dataloader())
