@@ -16,4 +16,5 @@ preprocess() {
 export -f preprocess
 
 # preprocess
-parallel -j 16 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.sens`
+# TODO: change the file type its looking for
+parallel -j 16 --linebuffer time preprocess ::: `find $SCANNET_DIR/scans/scene*/*.ply`
