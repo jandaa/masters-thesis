@@ -48,8 +48,17 @@ fi
 cd $base_dir/src/packages/spconv/dist
 pip3 install *.whl
 
-cd $base_dir/src/packages/pointgroup_ops
-python setup.py develop
+# Install pointgroup ops
+pointgroup_ops_dir=$base_dir/src/packages/pointgroup_ops
+is_wheel=$(find $pointgroup_ops_dir -name "*.whl" | wc -l)
+if [ $is_wheel -eq 0 ]
+then
+    cd $pointgroup_ops_dir
+    python setup.py bdist_wheel
+fi
+
+cd $pointgroup_ops_dir/dist
+pip3 install *.whl
 
 cd $base_dir/src/packages/SensReader
 make
