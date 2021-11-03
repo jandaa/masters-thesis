@@ -57,12 +57,11 @@ class DataInterfaceFactory:
 
         return ScannetDataInterface(
             scans_dir=self.dataset_dir / "scans",
-            output_path=self.output_dir,
+            preprocessed_path=self.output_dir,
             semantic_categories=self.dataset_cfg.categories,
             ignore_label=self.dataset_cfg.ignore_label,
             instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
             dataset_cfg=self.dataset_cfg,
-            force_reload=self.force_reload,
             train_split=train_split,
             val_split=val_split,
             test_split=test_split,

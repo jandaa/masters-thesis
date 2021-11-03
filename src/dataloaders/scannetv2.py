@@ -26,57 +26,44 @@ log = logging.getLogger(__name__)
 class ScannetDataPoint(DataPoint):
 
     scene_path: Path
-    output_path: Path
-    force_reload: bool
-    preprocess_callback: Callable
+    preprocessed_path: Path
 
     def __post_init__(self):
 
         # Make directories
         self.scene_name = self.scene_path.name
-        self.output_path /= self.scene_path.name
-        if not self.output_path.exists():
-            self.output_path.mkdir()
+        self.preprocessed_path /= self.scene_path.name
+        if not self.preprocessed_path.exists():
+            self.preprocessed_path.mkdir()
 
         # set filenames
-        self.processed_scene = self.output_path / (self.scene_path.name + ".pth")
-        self.measurements_file = self.output_path / (
+        self.processed_scene = self.preprocessed_path / (self.scene_path.name + ".pth")
+        self.measurements_file = self.preprocessed_path / (
             self.scene_path.name + "_" + measurements_dir_name + ".pkl"
         )
-        self.scene_details_file = self.output_path / (
+        self.scene_details_file = self.preprocessed_path / (
             self.scene_path.name + "_details.json"
         )
 
     @property
     def num_points(self) -> int:
-        if not self.is_scene_preprocessed(force_reload=False):
-            self.preprocess()
+        if not self.is_scene_preprocessed():
+            raise RuntimeError(f"Scene {self.scene_name} not preprocessed")
 
         with self.scene_details_file.open() as fp:
             details = json.loads(fp.read())
 
         return details["num_points"]
 
-    def is_scene_preprocessed(self, force_reload):
-        return (
-            self.processed_scene.exists()
-            and self.scene_details_file.exists()
-            and not force_reload
-            and not self.force_reload
-        )
+    def is_scene_preprocessed(self):
+        return self.processed_scene.exists() and self.scene_details_file.exists()
 
-    def does_scene_contain_measurements(self):
+    def are_scene_frames_preprocessed(self):
         return self.measurements_file.exists()
 
-    def preprocess(self, force_reload=False):
-        return self.preprocess_callback(
-            self, force_reload, output_folder=self.output_path
-        )
-
-    def load(self, force_reload=False) -> SceneWithLabels:
-        # Load processed scene if already preprocessed
-        if not self.is_scene_preprocessed(force_reload):
-            return self.preprocess(force_reload=force_reload)
+    def load(self) -> SceneWithLabels:
+        if not self.is_scene_preprocessed():
+            raise RuntimeError(f"Scene {self.scene_name} not preprocessed")
 
         try:
             (points, features, semantic_labels, instance_labels) = torch.load(
@@ -84,8 +71,11 @@ class ScannetDataPoint(DataPoint):
             )
 
         except:
-            log.info(f"Error loading {self.scene_name}. Trying to force reload.")
-            return self.load(force_reload=True)
+            error_message = (
+                f"Error loading {self.scene_name}. Please preprocess scene again."
+            )
+            log.error(error_message)
+            raise RuntimeError(error_message)
 
         scene = SceneWithLabels(
             name=self.scene_name,
@@ -97,11 +87,11 @@ class ScannetDataPoint(DataPoint):
 
         return scene
 
-    def load_measurements(self, force_reload=False) -> SceneMeasurements:
-        if not self.does_scene_contain_measurements():
-            return self.preprocess(force_reload=True)
+    def load_measurements(self) -> SceneMeasurements:
+        if not self.are_scene_frames_preprocessed():
+            raise RuntimeError(f"Frames for scene {self.scene_name} not preprocessed")
 
-        return SceneMeasurements.load_scene(self.output_path)
+        return SceneMeasurements.load_scene(self.preprocessed_path)
 
 
 @dataclass
@@ -111,7 +101,7 @@ class ScannetDataInterface(DataInterface):
     """
 
     scans_dir: Path
-    output_path: Path
+    preprocessed_path: Path
     train_split: list
     val_split: list
     test_split: list
@@ -120,9 +110,6 @@ class ScannetDataInterface(DataInterface):
 
     ignore_label: int
     instance_ignore_classes: list
-
-    # Defaults
-    force_reload: bool = False
 
     def __post_init__(self):
 
@@ -180,19 +167,13 @@ class ScannetDataInterface(DataInterface):
         }
 
         # Make scans directory if it doesnt exist already
-        self.output_path /= "scans"
-        if not self.output_path.exists():
-            self.output_path.mkdir()
+        self.preprocessed_path /= "scans"
+        if not self.preprocessed_path.exists():
+            self.preprocessed_path.mkdir()
 
     @property
     def pretrain_data(self) -> list:
         return self.load_pretrain(self.train_split)
-
-    @property
-    def all_unique_data(self) -> list:
-        all_unique_scenes = self.train_split + self.val_split + self.test_split
-        all_unique_scenes = set(all_unique_scenes)
-        return self.load(all_unique_scenes)
 
     @property
     def train_data(self) -> list:
@@ -207,51 +188,27 @@ class ScannetDataInterface(DataInterface):
         return self.load(self.test_split)
 
     def load(self, scenes: list):
-        datapoints = self.get_datapoints(scenes, force_reload=self.force_reload)
-        if self.force_reload:
-            return [
-                datapoint
-                for datapoint in datapoints
-                if self.do_all_files_exist_in_scene(datapoint.scene_path)
-            ]
+        datapoints = self.get_datapoints(scenes)
         return [
-            datapoint
-            for datapoint in datapoints
-            if (
-                self.do_all_files_exist_in_scene(datapoint.scene_path)
-                or datapoint.is_scene_preprocessed(self.force_reload)
-            )
+            datapoint for datapoint in datapoints if datapoint.is_scene_preprocessed()
         ]
-        # return datapoints
 
     def load_pretrain(self, scenes: list):
-        datapoints = self.get_datapoints(scenes, force_reload=self.force_reload)
+        datapoints = self.get_datapoints(scenes)
         return [
             datapoint
             for datapoint in datapoints
-            if (
-                self.force_reload
-                and self.do_sensor_files_exist_in_scene(datapoint.scene_path)
-            )
-            or (
-                datapoint.does_scene_contain_measurements()
-                or self.do_sensor_files_exist_in_scene(datapoint.scene_path)
-            )
+            if datapoint.are_scene_frames_preprocessed()
         ]
 
-    def get_datapoints(self, scenes: list, force_reload=False):
-        force_reload = force_reload or self.force_reload
+    def get_datapoints(self, scenes: list):
         return [
-            self.get_datapoint(scene, force_reload=force_reload) for scene in scenes
+            ScannetDataPoint(
+                scene_path=self.scans_dir / scene,
+                preprocessed_path=self.preprocessed_path,
+            )
+            for scene in scenes
         ]
-
-    def get_datapoint(self, scene: str, force_reload=False):
-        return ScannetDataPoint(
-            scene_path=self.scans_dir / scene,
-            output_path=self.output_path,
-            force_reload=force_reload,
-            preprocess_callback=self.preprocess,
-        )
 
     def do_all_files_exist_in_scene(self, scene):
         all_files_exist = True
@@ -280,15 +237,7 @@ class ScannetDataInterface(DataInterface):
             )
         return all_files_exist
 
-    def preprocess(
-        self,
-        datapoint: ScannetDataPoint,
-        force_reload: bool,
-        output_folder: Path = None,
-    ) -> None:
-
-        if datapoint.is_scene_preprocessed(force_reload):
-            return
+    def preprocess(self, datapoint: ScannetDataPoint) -> None:
 
         if not self.do_all_files_exist_in_scene(datapoint.scene_path):
             raise RuntimeError(
@@ -330,14 +279,14 @@ class ScannetDataInterface(DataInterface):
         # Preprocess measurements
         measurements = SceneMeasurements(
             datapoint.scene_path,
-            datapoint.output_path,
+            datapoint.preprocessed_path,
             frame_skip=self.dataset_cfg.pretrain.frame_skip,
             voxel_size=self.dataset_cfg.pretrain.voxel_size,
         )
 
         # Save measurements
         log.info(f"Saving sensor measurements for scene: {datapoint.scene_name}")
-        measurements.save_to_file(datapoint.output_path)
+        measurements.save_to_file(datapoint.preprocessed_path)
 
         # Clean up all extracted raw data
         for item in datapoint.scene_path.iterdir():

@@ -154,7 +154,7 @@ class S3DISDataInterface(DataInterface):
             S3DISDataPoint(
                 room=room,
                 force_reload=force_reload,
-                preprocess_callback=self.preprocess
+                preprocess_callback=self.preprocess,
             )
             for room in self.get_rooms(split)
         ]

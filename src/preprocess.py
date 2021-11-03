@@ -21,7 +21,7 @@ def preprocess(cfg: DictConfig) -> None:
     datapoint = data_interface.get_datapoint(scene_name)
 
     log.info(f"Preprocessing scene: {scene_name}")
-    datapoint.preprocess(force_reload=cfg.force_reload)
+    datapoint.preprocess()
 
     log.info(f"Finished preprocessing scene: {scene_name}")
 

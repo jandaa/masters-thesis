@@ -12,6 +12,8 @@ from util.utils import get_random_colour
 from dataloaders.transforms import augment_data, elastic_distortion
 import dataloaders.transforms as transforms
 
+from dataloaders.crop import crop, crop_single, crop_multiple
+
 from spconv.utils import VoxelGeneratorV2
 
 
@@ -32,6 +34,16 @@ augmentation_transforms = transforms.Compose(
     ]
 )
 
+pointgroup_transforms = transforms.Compose(
+    [
+        transforms.RandomHorizontalFlip("z", False),
+        transforms.ChromaticTranslation(color_trans_ratio),
+        transforms.ChromaticJitter(color_jitter_std),
+        transforms.RandomRotate(),
+        transforms.ElasticDistortion(elastic_distortion_params),
+    ]
+)
+
 
 def minkowski_merge(self, id, scenes, crop=False, is_test=False):
 
@@ -46,12 +58,12 @@ def minkowski_merge(self, id, scenes, crop=False, is_test=False):
             scene = scene.load()
 
             if crop:
-                scene = self.crop_single(scene, max_npoint=self.max_npoint)
+                scene = crop_single(scene, self.max_npoint, self.ignore_label)
                 if not scene:
                     continue
 
         # Make sure the scene is not way too big
-        scene = self.crop_single(scene, max_npoint=self.max_pointcloud_size)
+        scene = crop_single(scene, self.max_pointcloud_size, self.ignore_label)
 
         xyz = np.ascontiguousarray(scene.points)
         features = torch.from_numpy(scene.features)
@@ -199,19 +211,18 @@ def pointgroup_merge(self, id, scenes, crop=False, is_test=False, test_split="va
             scene = scene.load()
 
             if crop:
-                scene = self.crop_single(scene, max_npoint=self.max_npoint)
+                scene = crop_single(scene, self.max_npoint, self.ignore_label)
                 if not scene:
                     continue
 
         if is_test:
 
             # Make sure the scene is not way too big
-            scene = self.crop_single(scene, max_npoint=self.max_pointcloud_size)
+            scene = crop_single(scene, self.max_pointcloud_size, self.ignore_label)
 
             xyz_middle = augment_data(scene.points, False, True, True)
 
-            # xyz = xyz_middle * self.scale
-            xyz = xyz_middle
+            xyz = xyz_middle * self.scale
 
             xyz -= xyz.min(0)
 
@@ -221,25 +232,44 @@ def pointgroup_merge(self, id, scenes, crop=False, is_test=False, test_split="va
             instance_labels = scene.instance_labels
 
         else:
-            ### jitter / flip x / rotation
-            xyz_middle = augment_data(scene.points, True, True, True)
+
+            # apply data augmentations
+            labels = np.array([scene.semantic_labels, scene.instance_labels]).T
+            xyz_middle, features, labels = pointgroup_transforms(
+                scene.points, scene.features, labels
+            )
 
             ### scale
-            # xyz = xyz_middle * self.scale
-            xyz = xyz_middle
-
-            ### elastic
-            xyz = elastic_distortion(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
-            xyz = elastic_distortion(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+            xyz = xyz_middle * self.scale
 
             ### offset
             xyz -= xyz.min(0)
 
-            rgb = scene.features
-            semantic_labels = scene.semantic_labels
-            instance_labels = scene.instance_labels
+            batch_features.append(torch.from_numpy(features))
 
-            batch_features.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
+            semantic_labels = labels[:, 0]
+            instance_labels = labels[:, 1]
+
+        # else:
+
+        #     ### jitter / flip x / rotation
+        #     xyz_middle = augment_data(scene.points, True, True, True)
+
+        #     ### scale
+        #     xyz = xyz_middle * self.scale
+
+        #     ### elastic
+        #     xyz = elastic_distortion(xyz, 6 * self.scale // 50, 40 * self.scale / 50)
+        #     xyz = elastic_distortion(xyz, 20 * self.scale // 50, 160 * self.scale / 50)
+
+        #     ### offset
+        #     xyz -= xyz.min(0)
+
+        #     rgb = scene.features
+        #     # semantic_labels = scene.semantic_labels
+        #     # instance_labels = scene.instance_labels
+
+        #     batch_features.append(torch.from_numpy(rgb) + torch.randn(3) * 0.1)
 
         if are_labels_available:
             ### get instance information
@@ -276,15 +306,15 @@ def pointgroup_merge(self, id, scenes, crop=False, is_test=False, test_split="va
 
         batch_points.append(torch.from_numpy(xyz_middle))
 
-        # TODO: Continue from here!!
-        max_num_points_per_voxel = 5
-        voxel_generator = VoxelGeneratorV2(
-            [0.05, 0.05, 0.05],
-            [0.0, 0.0, 0.0, 20.0, 20.0, 10.0],
-            max_num_points_per_voxel,
-        )
-        test = np.array([[20, 0, 0], [3.0, 2.0, 1.0], [1.0, 2.0, 3.0], [2, 3, 1]])
-        res = voxel_generator.generate(xyz)
+        # # TODO: Continue from here!!
+        # max_num_points_per_voxel = 5
+        # voxel_generator = VoxelGeneratorV2(
+        #     [0.05, 0.05, 0.05],
+        #     [0.0, 0.0, 0.0, 20.0, 20.0, 10.0],
+        #     max_num_points_per_voxel,
+        # )
+        # test = np.array([[20, 0, 0], [3.0, 2.0, 1.0], [1.0, 2.0, 3.0], [2, 3, 1]])
+        # res = voxel_generator.generate(xyz)
 
     ### merge all the scenes in the batch
     batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int (B+1)
