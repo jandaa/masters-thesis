@@ -8,7 +8,7 @@ classes: 20
 ignore_label: -100
 
 input_channel: 3
-scale: 20 # voxel_size = 1 / scale, scale 50(2cm)
+scale: 50 # voxel_size = 1 / scale, scale 50(2cm)
 batch_size: 4
 max_npoint: 500000
 mode: 4 # 4=mean
