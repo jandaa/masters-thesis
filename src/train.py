@@ -1,18 +1,15 @@
 import logging
 from pathlib import Path
-from dateutil.parser import parse
 
 import hydra
 from omegaconf import DictConfig
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
-import numpy as np
-import random
-import torch
 
-from model_factory import ModelFactory
 from util import utils
+from model.model_factory import ModelFactory
+from model.pointgroup import PointGroupBackboneWrapper
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
 
