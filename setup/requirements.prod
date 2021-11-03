@@ -1,6 +1,7 @@
 wheel
 hydra-core
 numpy
+ninja
 pytorch-lightning==1.4.2
 opencv-python
 plyfile
