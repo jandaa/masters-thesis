@@ -12,7 +12,7 @@ def preprocess(cfg: DictConfig) -> None:
 
     # Extract scene name
     scene_path = Path(cfg.sens_file)
-    scene_name = scene_path.stem
+    scene_name = scene_path.name
 
     # Make datapoint out of scene
     log.info("Loading data point")
@@ -21,7 +21,7 @@ def preprocess(cfg: DictConfig) -> None:
     datapoint = data_interface.get_datapoint(scene_name)
 
     log.info(f"Preprocessing scene: {scene_name}")
-    datapoint.preprocess()
+    data_interface.preprocess(datapoint)
 
     log.info(f"Finished preprocessing scene: {scene_name}")
 
