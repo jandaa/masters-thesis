@@ -30,10 +30,13 @@ class SegmentationDataset(Dataset):
     """Base segmentation dataset"""
 
     def __init__(self, scenes, cfg, is_test=False):
-        Dataset.__init__(self)
+        super(SegmentationDataset, self).__init__()
 
         self.cfg = cfg
         self.num_workers = cfg.model.train.train_workers
+        self.ignore_label = cfg.dataset.ignore_label
+        self.is_test = is_test
+        self.scale = cfg.dataset.scale
 
         self.max_npoint = cfg.dataset.max_npoint
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
@@ -61,13 +64,13 @@ class SegmentationDataset(Dataset):
         return new_datapoints
 
 
-class MinkowskiDataset(Dataset):
+class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False, augmentations=augmentations):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
         self.augmentations = augmentations
 
     @classmethod
-    def collate(batch):
+    def collate(self, batch):
         coords_list = [datapoint.points for datapoint in batch]
         features_list = [datapoint.features for datapoint in batch]
         labels_list = [datapoint.labels for datapoint in batch]
@@ -84,17 +87,14 @@ class MinkowskiDataset(Dataset):
         )
 
     def __len__(self):
-        return len(super(self))
+        return super(MinkowskiDataset, self).__len__()
 
     def __getitem__(self, id):
 
-        scene = self.scenes[id]
-        test_filename = scene.test_filename
-        if not self.are_scenes_preloaded:
-            scene = scene.load()
+        scene = self.scenes[id].load()
 
-            if not self.is_test:
-                scene = crop_single(scene, self.max_npoint, self.ignore_label)
+        if not self.is_test:
+            scene = crop_single(scene, self.max_npoint, self.ignore_label)
 
         # Limit absolute max size of point cloud
         scene = crop_single(scene, self.max_pointcloud_size, self.ignore_label)
@@ -115,7 +115,7 @@ class MinkowskiDataset(Dataset):
 
         return MinkowskiInput(
             points=coords,
-            features=feats.float(),
-            labels=labels.int(),
-            test_filename=test_filename,
+            features=feats,
+            labels=labels,
+            test_filename=scene.name,
         )
