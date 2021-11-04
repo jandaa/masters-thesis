@@ -337,90 +337,90 @@ class PointGroup(nn.Module):
         semantic_scores = self.linear(output_feats)  # (N, nClass), float
         semantic_preds = semantic_scores.max(1)[1]  # (N), long
 
-        return PointGroupOutput(
-            semantic_scores=semantic_scores,
-            point_offsets=None,
-            proposal_scores=None,
-            proposal_indices=None,
-            proposal_offsets=None,
-        )
-
-        # #### offset
-        # pt_offsets_feats = self.offset(output_feats)
-        # pt_offsets = self.offset_linear(pt_offsets_feats)  # (N, 3), float32
-
-        # scores = None
-        # proposals_idx = None
-        # proposals_offset = None
-        # if return_instances:
-
-        #     #### get proposal clusters
-
-        #     # Get indices of points that are predicted to be objects
-        #     object_idxs = torch.nonzero(semantic_preds > 1).view(-1)
-
-        #     # Points are grouped together into one vector regardless of scene
-        #     # so need to keep track of which scene it game from
-        #     # with batch offsets being what you need to add to the index to get correct batch
-        #     batch_idxs_ = input.batch_indices[object_idxs]
-        #     batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
-        #     coords_ = input.points[object_idxs]
-        #     pt_offsets_ = pt_offsets[object_idxs]
-
-        #     semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
-
-        #     proposals_idx_shift, proposals_offset_shift = self.get_proposal_offsets(
-        #         coords_ + pt_offsets_,
-        #         semantic_preds_cpu,
-        #         batch_idxs_,
-        #         batch_offsets_,
-        #         object_idxs,
-        #         self.cluster.shift_meanActive,
-        #     )
-
-        #     proposals_idx, proposals_offset = self.get_proposal_offsets(
-        #         coords_,
-        #         semantic_preds_cpu,
-        #         batch_idxs_,
-        #         batch_offsets_,
-        #         object_idxs,
-        #         self.cluster.meanActive,
-        #     )
-
-        #     # Concatonate clustering from both P(coordinates) & Q(shifted coordinates)
-        #     proposals_idx_shift[:, 0] += proposals_offset.size(0) - 1
-        #     proposals_offset_shift += proposals_offset[-1]
-        #     proposals_idx = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
-        #     proposals_offset = torch.cat((proposals_offset, proposals_offset_shift[1:]))
-
-        #     #### proposals voxelization again
-        #     input_feats, inp_map = clusters_voxelization(
-        #         proposals_idx,
-        #         proposals_offset,
-        #         output_feats,
-        #         input.points,
-        #         self.training_params.score_fullscale,
-        #         self.training_params.score_scale,
-        #         self.training_params.score_mode,
-        #         device,
-        #     )
-
-        #     #### score
-        #     score = self.score_unet(input_feats)
-        #     score = self.score_outputlayer(score)
-        #     score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
-        #     score_feats = pointgroup_ops.roipool(
-        #         score_feats, proposals_offset.to(device)
-        #     )  # (nProposal, C)
-        #     scores = self.score_linear(score_feats)  # (nProposal, 1)
-
         # return PointGroupOutput(
         #     semantic_scores=semantic_scores,
-        #     point_offsets=pt_offsets,
-        #     proposal_scores=scores,
-        #     proposal_indices=proposals_idx,
-        #     proposal_offsets=proposals_offset,
+        #     point_offsets=None,
+        #     proposal_scores=None,
+        #     proposal_indices=None,
+        #     proposal_offsets=None,
         # )
+
+        #### offset
+        pt_offsets_feats = self.offset(output_feats)
+        pt_offsets = self.offset_linear(pt_offsets_feats)  # (N, 3), float32
+
+        scores = None
+        proposals_idx = None
+        proposals_offset = None
+        if return_instances:
+
+            #### get proposal clusters
+
+            # Get indices of points that are predicted to be objects
+            object_idxs = torch.nonzero(semantic_preds > 1).view(-1)
+
+            # Points are grouped together into one vector regardless of scene
+            # so need to keep track of which scene it game from
+            # with batch offsets being what you need to add to the index to get correct batch
+            batch_idxs_ = input.batch_indices[object_idxs]
+            batch_offsets_ = utils.get_batch_offsets(batch_idxs_, input.batch_size)
+            coords_ = input.points[object_idxs]
+            pt_offsets_ = pt_offsets[object_idxs]
+
+            semantic_preds_cpu = semantic_preds[object_idxs].int().cpu()
+
+            proposals_idx_shift, proposals_offset_shift = self.get_proposal_offsets(
+                coords_ + pt_offsets_,
+                semantic_preds_cpu,
+                batch_idxs_,
+                batch_offsets_,
+                object_idxs,
+                self.cluster.shift_meanActive,
+            )
+
+            proposals_idx, proposals_offset = self.get_proposal_offsets(
+                coords_,
+                semantic_preds_cpu,
+                batch_idxs_,
+                batch_offsets_,
+                object_idxs,
+                self.cluster.meanActive,
+            )
+
+            # Concatonate clustering from both P(coordinates) & Q(shifted coordinates)
+            proposals_idx_shift[:, 0] += proposals_offset.size(0) - 1
+            proposals_offset_shift += proposals_offset[-1]
+            proposals_idx = torch.cat((proposals_idx, proposals_idx_shift), dim=0)
+            proposals_offset = torch.cat((proposals_offset, proposals_offset_shift[1:]))
+
+            #### proposals voxelization again
+            input_feats, inp_map = clusters_voxelization(
+                proposals_idx,
+                proposals_offset,
+                output_feats,
+                input.points,
+                self.training_params.score_fullscale,
+                self.training_params.score_scale,
+                self.training_params.score_mode,
+                device,
+            )
+
+            #### score
+            score = self.score_unet(input_feats)
+            score = self.score_outputlayer(score)
+            score_feats = score.features[inp_map.long()]  # (sumNPoint, C)
+            score_feats = pointgroup_ops.roipool(
+                score_feats, proposals_offset.to(device)
+            )  # (nProposal, C)
+            scores = self.score_linear(score_feats)  # (nProposal, 1)
+
+        return PointGroupOutput(
+            semantic_scores=semantic_scores,
+            point_offsets=pt_offsets,
+            proposal_scores=scores,
+            proposal_indices=proposals_idx,
+            proposal_offsets=proposals_offset,
+        )
 
     def get_proposal_offsets(
         self,
@@ -585,34 +585,6 @@ class PointGroupBackboneWrapper(pl.LightningModule):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
-    def loss_fn_naive(self, batch: PretrainInput, output):
-        tau = 0.07
-
-        loss = 0
-        for i, matches in enumerate(batch.correspondances):
-            points1_start = batch.offsets[2 * i]
-            points2_start = batch.offsets[2 * i + 1]
-
-            for (i, j) in matches.items():
-                fi = output[points1_start + i].cpu().detach().numpy()
-                fj = output[points2_start + j].cpu().detach().numpy()
-
-                # compute nominator
-                nom = np.exp(np.dot(fi, fj / tau))
-
-                # compute denominator
-                denom = 0
-                for (_, k) in matches.items():
-                    if k != i:
-                        fk = output[points2_start + k].cpu().detach().numpy()
-                        denom += np.exp(np.dot(fi, fk / tau))
-
-                if np.isinf(denom):
-                    continue
-                loss -= np.log(nom / denom) / len(matches)
-
-        return loss / len(batch.correspondances)
-
     def loss_fn(self, batch: PretrainInput, output):
         tau = 0.07
 
@@ -710,32 +682,11 @@ class PointGroupWrapper(pl.LightningModule):
         """
         Return whether should be using instance segmentation based on the learning curriculum
         """
-        # return (
-        #     self.current_epoch > self.train_cfg.prepare_epochs
-        #     or self.do_instance_segmentation
-        # )
-        return False
-
-    # TODO: Use a learning rate scheduler
-    def step_learning_rate(
-        self, optimizer, base_lr, epoch, step_epoch, multiplier=0.1, clip=1e-6
-    ):
-        lr = max(base_lr * (multiplier ** (epoch // step_epoch)), clip)
-        for param_group in optimizer.param_groups:
-            param_group["lr"] = lr
-
-        log = logging.getLogger(__name__)
-        log.info(f"Learning rate for epoch: {lr}")
-
-    def on_train_epoch_start(self):
-        # Set learning rate for epoch
-        self.step_learning_rate(
-            self.trainer.optimizers[0],
-            self.optimizer_cfg.lr,
-            self.current_epoch,
-            self.train_cfg.epochs,
-            multiplier=self.train_cfg.multiplier,
+        return (
+            self.current_epoch > self.train_cfg.prepare_epochs
+            or self.do_instance_segmentation
         )
+        # return False
 
     def training_step(self, batch: PointGroupBatch, batch_idx: int):
         output = self.model(batch, batch.device, return_instances=self.return_instances)
@@ -934,83 +885,83 @@ class PointGroupWrapper(pl.LightningModule):
 
         semantic_loss = self.semantic_criterion(semantic_scores, semantic_labels)
 
-        return LossType(
-            semantic_loss=semantic_loss,
-            offset_norm_loss=0,
-            offset_dir_loss=0,
-            score_loss=0,
-            number_of_instances=0,
-            number_of_points=semantic_scores.shape[0],
-            number_of_valid_labels=0,
-            total_loss=semantic_loss,
-        )
-
-        # """offset loss"""
-        # gt_offsets = batch.instance_centers - batch.points  # (N, 3)
-        # pt_diff = output.point_offsets - gt_offsets  # (N, 3)
-        # pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
-        # valid = (batch.instance_labels != self.dataset_cfg.ignore_label).float()
-        # offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
-
-        # gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)  # (N), float
-        # gt_offsets_ = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
-        # pt_offsets_norm = torch.norm(output.point_offsets, p=2, dim=1)
-        # pt_offsets_ = output.point_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
-        # direction_diff = -(gt_offsets_ * pt_offsets_).sum(-1)  # (N)
-        # offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
-
-        # """score loss"""
-        # score_loss = 0
-        # number_of_instances = 0
-        # if self.return_instances:
-
-        #     scores = output.proposal_scores
-        #     proposals_idx = output.proposal_indices
-        #     proposals_offset = output.proposal_offsets
-        #     instance_pointnum = batch.instance_pointnum
-
-        #     ious = pointgroup_ops.get_iou(
-        #         proposals_idx[:, 1].to(self.device),
-        #         proposals_offset.to(self.device),
-        #         batch.instance_labels,
-        #         instance_pointnum,
-        #     )  # (nProposal, nInstance), float
-        #     gt_ious, _ = ious.max(1)  # (nProposal) float, long
-        #     gt_scores = get_segmented_scores(
-        #         gt_ious, self.train_cfg.fg_thresh, self.train_cfg.bg_thresh
-        #     )
-
-        #     score_loss = self.score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
-        #     score_loss = score_loss.mean()
-
-        #     number_of_instances = gt_ious.shape[0]
-
-        # """total loss"""
-        # loss = (
-        #     self.train_cfg.loss_weight[0] * semantic_loss
-        #     + self.train_cfg.loss_weight[1] * offset_norm_loss
-        #     + self.train_cfg.loss_weight[2] * offset_dir_loss
-        # )
-
-        # if self.return_instances:
-        #     loss += self.train_cfg.loss_weight[3] * score_loss
-
         # return LossType(
         #     semantic_loss=semantic_loss,
-        #     offset_norm_loss=offset_norm_loss,
-        #     offset_dir_loss=offset_dir_loss,
-        #     score_loss=score_loss,
-        #     number_of_instances=number_of_instances,
+        #     offset_norm_loss=0,
+        #     offset_dir_loss=0,
+        #     score_loss=0,
+        #     number_of_instances=0,
         #     number_of_points=semantic_scores.shape[0],
-        #     number_of_valid_labels=int(valid.sum()),
-        #     total_loss=loss,
+        #     number_of_valid_labels=0,
+        #     total_loss=semantic_loss,
         # )
 
-    # def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
-    #     torch.cuda.empty_cache()
+        """offset loss"""
+        gt_offsets = batch.instance_centers - batch.points  # (N, 3)
+        pt_diff = output.point_offsets - gt_offsets  # (N, 3)
+        pt_dist = torch.sum(torch.abs(pt_diff), dim=-1)  # (N)
+        valid = (batch.instance_labels != self.dataset_cfg.ignore_label).float()
+        offset_norm_loss = torch.sum(pt_dist * valid) / (torch.sum(valid) + 1e-6)
 
-    # def on_test_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
-    #     torch.cuda.empty_cache()
+        gt_offsets_norm = torch.norm(gt_offsets, p=2, dim=1)  # (N), float
+        gt_offsets_ = gt_offsets / (gt_offsets_norm.unsqueeze(-1) + 1e-8)
+        pt_offsets_norm = torch.norm(output.point_offsets, p=2, dim=1)
+        pt_offsets_ = output.point_offsets / (pt_offsets_norm.unsqueeze(-1) + 1e-8)
+        direction_diff = -(gt_offsets_ * pt_offsets_).sum(-1)  # (N)
+        offset_dir_loss = torch.sum(direction_diff * valid) / (torch.sum(valid) + 1e-6)
+
+        """score loss"""
+        score_loss = 0
+        number_of_instances = 0
+        if self.return_instances:
+
+            scores = output.proposal_scores
+            proposals_idx = output.proposal_indices
+            proposals_offset = output.proposal_offsets
+            instance_pointnum = batch.instance_pointnum
+
+            ious = pointgroup_ops.get_iou(
+                proposals_idx[:, 1].to(self.device),
+                proposals_offset.to(self.device),
+                batch.instance_labels,
+                instance_pointnum,
+            )  # (nProposal, nInstance), float
+            gt_ious, _ = ious.max(1)  # (nProposal) float, long
+            gt_scores = get_segmented_scores(
+                gt_ious, self.train_cfg.fg_thresh, self.train_cfg.bg_thresh
+            )
+
+            score_loss = self.score_criterion(torch.sigmoid(scores.view(-1)), gt_scores)
+            score_loss = score_loss.mean()
+
+            number_of_instances = gt_ious.shape[0]
+
+        """total loss"""
+        loss = (
+            self.train_cfg.loss_weight[0] * semantic_loss
+            + self.train_cfg.loss_weight[1] * offset_norm_loss
+            + self.train_cfg.loss_weight[2] * offset_dir_loss
+        )
+
+        if self.return_instances:
+            loss += self.train_cfg.loss_weight[3] * score_loss
+
+        return LossType(
+            semantic_loss=semantic_loss,
+            offset_norm_loss=offset_norm_loss,
+            offset_dir_loss=offset_dir_loss,
+            score_loss=score_loss,
+            number_of_instances=number_of_instances,
+            number_of_points=semantic_scores.shape[0],
+            number_of_valid_labels=int(valid.sum()),
+            total_loss=loss,
+        )
+
+    def on_train_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+        torch.cuda.empty_cache()
+
+    def on_test_batch_start(self, batch, batch_idx, dataloader_idx) -> None:
+        torch.cuda.empty_cache()
 
     def configure_optimizers(self):
         if self.optimizer_cfg.type == "Adam":
