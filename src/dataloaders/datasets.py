@@ -11,21 +11,6 @@ from dataloaders.crop import crop_single
 from util.types import MinkowskiInput, PointGroupBatch
 from packages.pointgroup_ops.functions import pointgroup_ops
 
-color_jitter_std = 0.05
-color_trans_ratio = 0.1
-elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
-augmentations = transforms.Compose(
-    [
-        transforms.RandomDropout(0.2),
-        transforms.RandomHorizontalFlip("z", False),
-        transforms.ChromaticTranslation(color_trans_ratio),
-        transforms.ChromaticJitter(color_jitter_std),
-        transforms.RandomScale(),
-        transforms.RandomRotate(),
-        transforms.ElasticDistortion(elastic_distortion_params),
-    ]
-)
-
 
 class SegmentationDataset(Dataset):
     """Base segmentation dataset"""
@@ -67,9 +52,29 @@ class SegmentationDataset(Dataset):
 
 
 class MinkowskiDataset(SegmentationDataset):
-    def __init__(self, scenes, cfg, is_test=False, augmentations=augmentations):
+    def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
-        self.augmentations = augmentations
+
+        color_jitter_std = 0.05
+        color_trans_ratio = 0.1
+        elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
+        self.augmentations = transforms.Compose(
+            [
+                transforms.Crop(self.max_npoint, self.ignore_label),
+                transforms.RandomDropout(0.2),
+                transforms.RandomDropout(0.2),
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomScale(),
+                transforms.RandomRotate(),
+                transforms.ElasticDistortion(elastic_distortion_params),
+            ]
+        )
+
+        self.test_augmentations = transforms.Compose(
+            transforms.Crop(self.max_pointcloud_size, self.ignore_label),
+        )
 
     def collate(self, batch):
         coords_list = [datapoint.points for datapoint in batch]
@@ -94,22 +99,20 @@ class MinkowskiDataset(SegmentationDataset):
 
         # Limit absolute max size of point cloud
         scene = self.scenes[id].load()
-        scene = crop_single(scene, self.max_pointcloud_size, self.ignore_label)
-
-        if not self.is_test:
-            scene = crop_single(scene, self.max_npoint, self.ignore_label)
 
         xyz = np.ascontiguousarray(scene.points)
         features = torch.from_numpy(scene.features)
-        labels = scene.semantic_labels
+        labels = np.array([scene.semantic_labels, scene.instance_labels]).T
 
-        if self.augmentations:
+        if self.is_test:
+            xyz, features, labels = self.test_augmentations(xyz, features, labels)
+        else:
             xyz, features, labels = self.augmentations(xyz, features, labels)
 
         coords, feats, labels = ME.utils.sparse_quantize(
             xyz,
             features=features,
-            labels=labels,
+            labels=labels[:, 0],
             quantization_size=(1 / self.scale),
         )
 

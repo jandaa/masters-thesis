@@ -10,6 +10,7 @@ import numpy as np
 import scipy
 import scipy.ndimage
 import scipy.interpolate
+from scipy.spatial import KDTree
 
 
 def augment_data(xyz, jitter=False, flip=False, rot=False):
@@ -253,6 +254,68 @@ class ElasticDistortion:
                     coords, feats, labels = self.elastic_distortion(
                         coords, feats, labels, granularity, magnitude
                     )
+        return coords, feats, labels
+
+
+class Crop(object):
+    def __init__(self, max_npoint, ignore_label):
+        """
+        crop point cloud if beyond max size
+        """
+        self.max_npoint = max_npoint
+        self.ignore_label = ignore_label
+
+    def __call__(self, coords, feats, labels):
+        """
+        Crop by picking a random point and selecting all
+        neighbouring points up to a max number of points
+        """
+
+        # Check if already below size
+        if coords.shape[0] < self.max_npoint:
+            return coords, feats, labels
+
+        # Build KDTree
+        kd_tree = KDTree(coords)
+
+        instance_labels = labels[:, 1]
+
+        valid_instance_idx = instance_labels != self.ignore_label
+        unique_instance_labels = np.unique(instance_labels[valid_instance_idx])
+
+        if unique_instance_labels.size == 0:
+            return False
+
+        # Randomly select a query point
+        query_instance = np.random.choice(unique_instance_labels)
+        query_points = coords[instance_labels == query_instance]
+        query_point_ind = random.randint(0, query_points.shape[0] - 1)
+        query_point = query_points[query_point_ind]
+
+        # select subset of neighbouring points from the random center point
+        [_, idx] = kd_tree.query(query_point, k=self.max_npoint)
+
+        # Make sure there is at least one instance in the scene
+        current_instances = np.unique(instance_labels[idx])
+        if current_instances.size == 1 and current_instances[0] == self.ignore_label:
+            raise RuntimeError("No instances in scene")
+
+        coords = coords[idx]
+        feats = feats[idx]
+        semantic_labels = labels[idx, 0]
+        instance_labels = labels[idx, 1]
+
+        # Remap instance numbers
+        instance_ids = np.unique(instance_labels)
+        new_index = 0
+        for old_index in instance_ids:
+            if old_index != self.ignore_label:
+                instance_indices = np.where(instance_labels == old_index)
+                instance_labels[instance_indices] = new_index
+                new_index += 1
+
+        labels = np.array([semantic_labels, instance_labels]).T
+
         return coords, feats, labels
 
 
