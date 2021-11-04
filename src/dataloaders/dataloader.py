@@ -9,14 +9,19 @@ import pytorch_lightning as pl
 import numpy as np
 
 from util.types import DataInterface
-from dataloaders.datasets import MinkowskiDataset
+from dataloaders.datasets import SegmentationDataset
 
 
 log = logging.getLogger(__name__)
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, data_interface: DataInterface, cfg: DictConfig):
+    def __init__(
+        self,
+        data_interface: DataInterface,
+        cfg: DictConfig,
+        dataset_type: SegmentationDataset,
+    ):
         super().__init__()
 
         # Dataloader specific parameters
@@ -42,13 +47,14 @@ class DataModule(pl.LightningDataModule):
         log.info(f"Validation samples: {len(self.val_data)}")
         log.info(f"Testing samples: {len(self.test_data)}")
 
-        self.dataset_type = MinkowskiDataset
+        self.dataset_type = dataset_type
 
     def train_dataloader(self):
+        dataset = self.dataset_type(self.train_data, self.cfg, is_test=False)
         return DataLoader(
-            MinkowskiDataset(self.train_data, self.cfg, is_test=False),
+            dataset,
             batch_size=self.batch_size,
-            collate_fn=self.dataset_type.collate,
+            collate_fn=dataset.collate,
             num_workers=self.num_workers,
             shuffle=True,
             sampler=None,
@@ -57,10 +63,11 @@ class DataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self):
+        dataset = self.dataset_type(self.val_data, self.cfg, is_test=False)
         return DataLoader(
-            MinkowskiDataset(self.val_data, self.cfg, is_test=False),
+            dataset,
             batch_size=self.batch_size,
-            collate_fn=self.dataset_type.collate,
+            collate_fn=dataset.collate,
             num_workers=self.num_workers,
             shuffle=False,
             drop_last=False,
@@ -68,10 +75,11 @@ class DataModule(pl.LightningDataModule):
         )
 
     def test_dataloader(self):
+        dataset = self.dataset_type(self.test_data, self.cfg, is_test=True)
         return DataLoader(
-            MinkowskiDataset(self.test_data, self.cfg, is_test=False),
+            dataset,
             batch_size=1,
-            collate_fn=self.dataset_type.collate,
+            collate_fn=dataset.collate,
             num_workers=self.num_workers,
             shuffle=False,
             drop_last=False,

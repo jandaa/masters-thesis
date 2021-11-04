@@ -53,7 +53,9 @@ def semantics(cfg: DictConfig) -> None:
     log.info("Loading data module")
     data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
-    data_loader = DataModule(data_interface, cfg)
+    model_factory = ModelFactory(cfg, data_interface)
+    dataset_type = model_factory.get_dataset_type()
+    data_loader = DataModule(data_interface, cfg, dataset_type=dataset_type)
 
     # load pretrained backbone if desired
     backbone = None

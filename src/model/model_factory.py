@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 import torch
 from model.pointgroup import PointGroupWrapper
 from model.minkowski.main import MinkovskiWrapper
+from dataloaders.datasets import MinkowskiDataset, SpconvDataset
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -58,5 +59,13 @@ class ModelFactory:
                 checkpoint_path=checkpoint_path,
             )
 
+        else:
+            raise RuntimeError(self.error_msg)
+
+    def get_dataset_type(self):
+        if self.model_name == pointgroup_name:
+            return SpconvDataset
+        elif self.model_name == minkowski_name:
+            return MinkowskiDataset
         else:
             raise RuntimeError(self.error_msg)
