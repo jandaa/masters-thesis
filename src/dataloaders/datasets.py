@@ -8,7 +8,8 @@ import MinkowskiEngine as ME
 import dataloaders.transforms as transforms
 from dataloaders.crop import crop_single
 
-from util.types import MinkowskiInput, PointGroupBatch
+from model.minkowski.types import MinkowskiInput
+from model.pointgroup.types import PointGroupBatch
 from packages.pointgroup_ops.functions import pointgroup_ops
 
 

@@ -31,7 +31,8 @@ import MinkowskiEngine as ME
 from model.modules import SegmentationModule
 from model.minkowski.res16unet import Res16UNet34C
 
-from util.types import DataInterface, MinkowskiInput, MinkowskiOutput
+from util.types import DataInterface
+from model.minkowski.types import MinkowskiInput, MinkowskiOutput
 
 log = logging.getLogger(__name__)
 

@@ -8,7 +8,8 @@ from torch.optim.lr_scheduler import ExponentialLR
 import pytorch_lightning as pl
 
 from model.modules import SegmentationModule
-from util.types import DataInterface, PointGroupBatch, LossType, PretrainInput
+from util.types import DataInterface
+from model.pointgroup.types import PointGroupBatch, LossType, PretrainInput
 from model.pointgroup.modules import PointGroup, PointGroupBackbone
 from model.pointgroup.util import NCESoftmaxLoss, get_segmented_scores
 

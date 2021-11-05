@@ -14,7 +14,7 @@ from spconv.modules import SparseModule
 from model.pointgroup.util import clusters_voxelization, non_max_suppression
 from packages.pointgroup_ops.functions import pointgroup_ops
 import util.utils as utils
-from util.types import (
+from model.pointgroup.types import (
     PointGroupInput,
     PointGroupOutput,
 )
