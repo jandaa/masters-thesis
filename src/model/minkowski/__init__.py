@@ -28,7 +28,7 @@ import functools
 import torch.nn as nn
 import MinkowskiEngine as ME
 
-from model.base import SegmentationModule
+from model.modules import SegmentationModule
 from model.minkowski.res16unet import Res16UNet34C
 
 from util.types import DataInterface, MinkowskiInput, MinkowskiOutput

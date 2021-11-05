@@ -78,7 +78,7 @@ class SegmentationModule(pl.LightningModule):
             raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
 
         # Get scheduler if any
-        if not self.scheduler_cfg:
+        if not self.scheduler_cfg.type:
             log.info("No learning rate schedular specified")
             return optimizer
         if self.scheduler_cfg.type == "ExpLR":
@@ -135,7 +135,7 @@ class SegmentationModule(pl.LightningModule):
             avgs = eval.compute_averages(ap_scores, self.instance_categories)
             eval.print_results(avgs, self.instance_categories)
 
-    def get_matches_test(self, batch, preds):
+    def get_matches_test(self, batch, preds, pred_info=None):
         """Generate test-time prediction to gt matches"""
 
         matches = {}
@@ -149,7 +149,8 @@ class SegmentationModule(pl.LightningModule):
 
         # instance eval
         if self.return_instances:
-            pred_info = self.model.get_clusters(batch, preds)
+            if not pred_info:
+                raise RuntimeError("Missing pred_info")
 
             gt2pred, pred2gt = eval.assign_instances_for_scan(
                 batch.test_filename,

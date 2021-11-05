@@ -133,7 +133,7 @@ class SpconvDataset(SegmentationDataset):
     def collate(self, batch):
 
         # Whether semantics and instance labels are available
-        are_labels_available = not self.is_test
+        are_labels_available = True
 
         batch_coordinates = []
         batch_points = []
@@ -249,6 +249,7 @@ class SpconvDataset(SegmentationDataset):
             voxel_to_point_map,
         ) = pointgroup_ops.voxelization_idx(coordinates, len(batch), self.mode)
 
+        instance_centers = None
         if are_labels_available:
             semantic_labels = torch.cat(batch_semantic_labels, 0).long()  # long (N)
             instance_labels = torch.cat(batch_instance_labels, 0).long()  # long (N)
@@ -261,7 +262,7 @@ class SpconvDataset(SegmentationDataset):
             )  # int (total_nInst)
 
         if self.is_test:
-            test_filename = batch[0].scene_name
+            test_filename = batch[0].name
         else:
             test_filename = None
 
