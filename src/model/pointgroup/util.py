@@ -6,17 +6,6 @@ import spconv
 from packages.pointgroup_ops.functions import pointgroup_ops
 
 
-class NCESoftmaxLoss(nn.Module):
-    def __init__(self):
-        super(NCESoftmaxLoss, self).__init__()
-        self.criterion = nn.CrossEntropyLoss()
-
-    def forward(self, x, label):
-        x = x.squeeze()
-        loss = self.criterion(x, label)
-        return loss
-
-
 def clusters_voxelization(
     clusters_idx, clusters_offset, feats, coords, fullscale, scale, mode, output_device
 ):

@@ -32,6 +32,15 @@ class PointGroupInput:
 
 
 @dataclass
+class PretrainInput(PointGroupInput):
+    """Input type of pretraining objective."""
+
+    correspondances: dict = field(default_factory=dict)
+    batch_size: int = 0
+    offsets: torch.Tensor = torch.tensor([])
+
+
+@dataclass
 class PointGroupOutput(SemanticOutput):
     """Output type of Point Group forward function."""
 
@@ -70,15 +79,6 @@ class PointGroupBatch(PointGroupInput):
     def __len__(self):
         """Return the size of the batch."""
         return self.batch_size
-
-
-@dataclass
-class PretrainInput(PointGroupInput):
-    """Input type of pretraining objective."""
-
-    correspondances: dict = field(default_factory=dict)
-    batch_size: int = 0
-    offsets: torch.Tensor = torch.tensor([])
 
 
 @dataclass

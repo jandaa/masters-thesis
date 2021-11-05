@@ -7,11 +7,13 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
+from torch.optim.lr_scheduler import ExponentialLR
 import pytorch_lightning as pl
 import numpy as np
 import open3d as o3d
 
 import util.utils as utils
+from util.utils import NCESoftmaxLoss
 from util.types import DataInterface
 import util.eval as eval
 import util.eval_semantic as eval_semantic
@@ -86,9 +88,7 @@ class SegmentationModule(pl.LightningModule):
             log.info("No learning rate schedular specified")
             return optimizer
         if self.scheduler_cfg.type == "ExpLR":
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, self.scheduler_cfg.exp_gamma
-            )
+            scheduler = ExponentialLR(optimizer, self.scheduler_cfg.exp_gamma)
         else:
             log.error(f"Invalid scheduler type: {self.scheduler_cfg.type}")
             raise ValueError(f"Invalid scheduler type: {self.scheduler_cfg.type}")
@@ -260,3 +260,71 @@ class SegmentationModule(pl.LightningModule):
 
         max_count = max(counts)
         return unique[counts == max_count][0]
+
+
+class BackboneModule(pl.LightningModule):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super().__init__()
+
+        self.optimizer_cfg = cfg.model.optimizer
+
+        # Dataset configuration
+        self.dataset_dir = cfg.dataset_dir
+        self.dataset_cfg = cfg.dataset
+
+        # Model configuration
+        self.train_cfg = cfg.model.train
+        self.test_cfg = cfg.model.test
+
+        self.criterion = NCESoftmaxLoss()
+
+    def configure_optimizers(self):
+        if self.optimizer_cfg.type == "Adam":
+            optimizer = torch.optim.Adam(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.dataset_cfg.pretrain.learning_rate,
+            )
+        elif self.optimizer_cfg.type == "SGD":
+            optimizer = torch.optim.SGD(
+                filter(lambda p: p.requires_grad, self.parameters()),
+                lr=self.dataset_cfg.pretrain.learning_rate,
+                momentum=self.optimizer_cfg.momentum,
+                weight_decay=self.optimizer_cfg.weight_decay,
+            )
+        else:
+            # TODO: Put error logging at high level try catch block
+            log.error(f"Invalid optimizer type: {self.optimizer_type}")
+            raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
+
+        scheduler = ExponentialLR(optimizer, 0.99)
+        return [optimizer], [scheduler]
+
+    def loss_fn(self, batch, output):
+        tau = 0.07
+
+        loss = 0
+        for i, matches in enumerate(batch.correspondances):
+            points1_start = batch.offsets[2 * i]
+            points2_start = batch.offsets[2 * i + 1]
+
+            point_indices_1 = [points1_start + points1 for points1 in matches.keys()]
+            point_indices_2 = [
+                points2_start + matches[points1] for points1 in matches.keys()
+            ]
+            q = output[point_indices_1]
+            k = output[point_indices_2]
+
+            # Labels
+            npos = len(matches.keys())
+            labels = torch.arange(npos).cuda().long()
+
+            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+            out = torch.div(logits, tau)
+            out = out.squeeze().contiguous()
+
+            loss += self.criterion(out, labels)
+
+        return loss / len(batch.correspondances)

@@ -33,19 +33,9 @@ from model.minkowski.res16unet import Res16UNet34C
 
 from util.types import DataInterface
 from model.minkowski.types import MinkowskiInput, MinkowskiOutput
+from util.utils import NCESoftmaxLoss
 
 log = logging.getLogger(__name__)
-
-
-class NCESoftmaxLoss(nn.Module):
-    def __init__(self):
-        super(NCESoftmaxLoss, self).__init__()
-        self.criterion = nn.CrossEntropyLoss()
-
-    def forward(self, x, label):
-        x = x.squeeze()
-        loss = self.criterion(x, label)
-        return loss
 
 
 class MinkovskiSemantic(nn.Module):

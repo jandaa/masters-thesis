@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from util import utils
 from model import ModelFactory
-from model.pointgroup import PointGroupBackboneModule
+from model.pointgroup import SpconvBackboneModule
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
 
@@ -64,7 +64,7 @@ def semantics(cfg: DictConfig) -> None:
         pretrain_checkpoint = str(
             Path.cwd() / "pretrain_checkpoints" / cfg.pretrain_checkpoint
         )
-        backbone = PointGroupBackboneModule.load_from_checkpoint(
+        backbone = SpconvBackboneModule.load_from_checkpoint(
             cfg=cfg,
             checkpoint_path=pretrain_checkpoint,
         ).model
@@ -75,7 +75,7 @@ def semantics(cfg: DictConfig) -> None:
     if "pretrain" in cfg.tasks:
 
         log.info("Creating backbone model")
-        backbonewraper = PointGroupBackboneModule(cfg)
+        backbonewraper = SpconvBackboneModule(cfg)
 
         log.info("Building trainer")
         checkpoint_callback = get_pretrain_checkpoint_callback()

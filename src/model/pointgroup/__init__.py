@@ -4,18 +4,41 @@ from omegaconf import DictConfig
 
 import torch
 import torch.nn as nn
-from torch.optim.lr_scheduler import ExponentialLR
-import pytorch_lightning as pl
 
-from model.modules import SegmentationModule
+from model.modules import SegmentationModule, BackboneModule
 from util.types import DataInterface
 from model.pointgroup.types import PointGroupBatch, LossType, PretrainInput
-from model.pointgroup.modules import PointGroup, PointGroupBackbone
-from model.pointgroup.util import NCESoftmaxLoss, get_segmented_scores
+from model.pointgroup.modules import PointGroup, SpconvBackbone
+from model.pointgroup.util import get_segmented_scores
 
 from packages.pointgroup_ops.functions import pointgroup_ops
 
 log = logging.getLogger(__name__)
+
+
+class SpconvBackboneModule(BackboneModule):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(SpconvBackboneModule, self).__init__(cfg)
+        self.model = SpconvBackbone(cfg)
+        self.use_coords = cfg.model.structure.use_coords
+
+    def training_step(self, batch: PretrainInput, batch_idx: int):
+        output = self.model(batch)
+        loss = self.loss_fn(batch, output)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: PretrainInput, batch_idx: int):
+        output = self.model(batch)
+        loss = self.loss_fn(batch, output)
+        self.log("val_loss", loss, sync_dist=True)
 
 
 class PointgroupModule(SegmentationModule):
@@ -23,7 +46,7 @@ class PointgroupModule(SegmentationModule):
         self,
         cfg: DictConfig,
         data_interface: DataInterface,
-        backbone: PointGroupBackbone = None,
+        backbone: SpconvBackbone = None,
         do_instance_segmentation: bool = False,
     ):
         super(PointgroupModule, self).__init__(cfg, data_interface)
@@ -165,88 +188,3 @@ class PointgroupModule(SegmentationModule):
             number_of_valid_labels=int(valid.sum()),
             total_loss=loss,
         )
-
-
-class PointGroupBackboneModule(pl.LightningModule):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
-        super().__init__()
-
-        self.model = PointGroupBackbone(cfg)
-        self.optimizer_cfg = cfg.model.optimizer
-
-        # Dataset configuration
-        self.dataset_dir = cfg.dataset_dir
-        self.dataset_cfg = cfg.dataset
-
-        # Model configuration
-        self.train_cfg = cfg.model.train
-        self.use_coords = cfg.model.structure.use_coords
-        self.test_cfg = cfg.model.test
-
-        self.criterion = NCESoftmaxLoss()
-
-    def training_step(self, batch: PretrainInput, batch_idx: int):
-        output = self.model(batch)
-        loss = self.loss_fn(batch, output)
-
-        # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
-        log("train_loss", loss)
-
-        return loss
-
-    def validation_step(self, batch: PretrainInput, batch_idx: int):
-        output = self.model(batch)
-        loss = self.loss_fn(batch, output)
-        self.log("val_loss", loss, sync_dist=True)
-
-    def loss_fn(self, batch: PretrainInput, output):
-        tau = 0.07
-
-        loss = 0
-        for i, matches in enumerate(batch.correspondances):
-            points1_start = batch.offsets[2 * i]
-            points2_start = batch.offsets[2 * i + 1]
-
-            point_indices_1 = [points1_start + points1 for points1 in matches.keys()]
-            point_indices_2 = [
-                points2_start + matches[points1] for points1 in matches.keys()
-            ]
-            q = output[point_indices_1]
-            k = output[point_indices_2]
-
-            # Labels
-            npos = len(matches.keys())
-            labels = torch.arange(npos).cuda().long()
-
-            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
-            out = torch.div(logits, tau)
-            out = out.squeeze().contiguous()
-
-            loss += self.criterion(out, labels)
-
-        return loss / len(batch.correspondances)
-
-    def configure_optimizers(self):
-        if self.optimizer_cfg.type == "Adam":
-            optimizer = torch.optim.Adam(
-                filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.dataset_cfg.pretrain.learning_rate,
-            )
-        elif self.optimizer_cfg.type == "SGD":
-            optimizer = torch.optim.SGD(
-                filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.dataset_cfg.pretrain.learning_rate,
-                momentum=self.optimizer_cfg.momentum,
-                weight_decay=self.optimizer_cfg.weight_decay,
-            )
-        else:
-            # TODO: Put error logging at high level try catch block
-            log.error(f"Invalid optimizer type: {self.optimizer_type}")
-            raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
-
-        scheduler = ExponentialLR(optimizer, 0.99)
-        return [optimizer], [scheduler]

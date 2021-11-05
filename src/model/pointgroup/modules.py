@@ -1,19 +1,18 @@
 import logging
 from omegaconf import DictConfig
-from collections import OrderedDict
 import functools
-
-import numpy as np
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 import spconv
-from spconv.modules import SparseModule
 
+import util.utils as utils
+from model.modules import BackboneModule
+from model.pointgroup.blocks import ResidualBlock, VGGBlock, UBlock
 from model.pointgroup.util import clusters_voxelization, non_max_suppression
 from packages.pointgroup_ops.functions import pointgroup_ops
-import util.utils as utils
 from model.pointgroup.types import (
     PointGroupInput,
     PointGroupOutput,
@@ -22,159 +21,12 @@ from model.pointgroup.types import (
 log = logging.getLogger(__name__)
 
 
-class ResidualBlock(SparseModule):
-    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
-        super().__init__()
-
-        if in_channels == out_channels:
-            self.i_branch = spconv.SparseSequential(nn.Identity())
-        else:
-            self.i_branch = spconv.SparseSequential(
-                spconv.SubMConv3d(in_channels, out_channels, kernel_size=1, bias=False)
-            )
-
-        self.conv_branch = spconv.SparseSequential(
-            norm_fn(in_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(
-                in_channels,
-                out_channels,
-                kernel_size=3,
-                padding=1,
-                bias=False,
-                indice_key=indice_key,
-            ),
-            norm_fn(out_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(
-                out_channels,
-                out_channels,
-                kernel_size=3,
-                padding=1,
-                bias=False,
-                indice_key=indice_key,
-            ),
-        )
-
-    def forward(self, input):
-        identity = spconv.SparseConvTensor(
-            input.features, input.indices, input.spatial_shape, input.batch_size
-        )
-
-        output = self.conv_branch(input)
-        output.features += self.i_branch(identity).features
-
-        return output
-
-
-class VGGBlock(SparseModule):
-    def __init__(self, in_channels, out_channels, norm_fn, indice_key=None):
-        super().__init__()
-
-        self.conv_layers = spconv.SparseSequential(
-            norm_fn(in_channels),
-            nn.ReLU(),
-            spconv.SubMConv3d(
-                in_channels,
-                out_channels,
-                kernel_size=3,
-                padding=1,
-                bias=False,
-                indice_key=indice_key,
-            ),
-        )
-
-    def forward(self, input):
-        return self.conv_layers(input)
-
-
-class UBlock(nn.Module):
-    def __init__(self, nPlanes, norm_fn, block_reps, block, indice_key_id=1):
-
-        super().__init__()
-
-        self.nPlanes = nPlanes
-
-        blocks = {
-            "block{}".format(i): block(
-                nPlanes[0],
-                nPlanes[0],
-                norm_fn,
-                indice_key="subm{}".format(indice_key_id),
-            )
-            for i in range(block_reps)
-        }
-        blocks = OrderedDict(blocks)
-        self.blocks = spconv.SparseSequential(blocks)
-
-        if len(nPlanes) > 1:
-            self.conv = spconv.SparseSequential(
-                norm_fn(nPlanes[0]),
-                nn.ReLU(),
-                spconv.SparseConv3d(
-                    nPlanes[0],
-                    nPlanes[1],
-                    kernel_size=2,
-                    stride=2,
-                    bias=False,
-                    indice_key="spconv{}".format(indice_key_id),
-                ),
-            )
-
-            self.u = UBlock(
-                nPlanes[1:], norm_fn, block_reps, block, indice_key_id=indice_key_id + 1
-            )
-
-            self.deconv = spconv.SparseSequential(
-                norm_fn(nPlanes[1]),
-                nn.ReLU(),
-                spconv.SparseInverseConv3d(
-                    nPlanes[1],
-                    nPlanes[0],
-                    kernel_size=2,
-                    bias=False,
-                    indice_key="spconv{}".format(indice_key_id),
-                ),
-            )
-
-            blocks_tail = {}
-            for i in range(block_reps):
-                blocks_tail["block{}".format(i)] = block(
-                    nPlanes[0] * (2 - i),
-                    nPlanes[0],
-                    norm_fn,
-                    indice_key="subm{}".format(indice_key_id),
-                )
-            blocks_tail = OrderedDict(blocks_tail)
-            self.blocks_tail = spconv.SparseSequential(blocks_tail)
-
-    def forward(self, input):
-        output = self.blocks(input)
-        identity = spconv.SparseConvTensor(
-            output.features, output.indices, output.spatial_shape, output.batch_size
-        )
-
-        if len(self.nPlanes) > 1:
-            output_decoder = self.conv(output)
-            output_decoder = self.u(output_decoder)
-            output_decoder = self.deconv(output_decoder)
-
-            output.features = torch.cat(
-                (identity.features, output_decoder.features), dim=1
-            )
-
-            output = self.blocks_tail(output)
-
-        return output
-
-
-class PointGroupBackbone(nn.Module):
+class SpconvBackbone(nn.Module):
     def __init__(self, cfg: DictConfig):
-        super(PointGroupBackbone, self).__init__()
+        super(SpconvBackbone, self).__init__()
 
         # Dataset specific parameters
         input_c = cfg.dataset.input_channel
-        self.dataset_cfg = cfg.dataset
 
         # model parameters
         self.structure = cfg.model.structure
@@ -262,7 +114,7 @@ class PointGroupBackbone(nn.Module):
 
 
 class PointGroup(nn.Module):
-    def __init__(self, cfg: DictConfig, backbone: PointGroupBackbone = None):
+    def __init__(self, cfg: DictConfig, backbone=None):
         super(PointGroup, self).__init__()
 
         # Dataset specific parameters
@@ -282,7 +134,7 @@ class PointGroup(nn.Module):
         if backbone:
             self.backbone = backbone
         else:
-            self.backbone = PointGroupBackbone(cfg)
+            self.backbone = SpconvBackbone(cfg)
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
