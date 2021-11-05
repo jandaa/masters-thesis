@@ -125,11 +125,28 @@ class PointGroupInput:
 
 
 @dataclass
-class PointGroupOutput:
-    """Output type of Point Group forward function."""
+class SemanticOutput:
+    """General semantic outputs"""
 
     # scores across all classes for each point (# Points, # Classes)
     semantic_scores: torch.Tensor
+
+    @property
+    def semantic_pred(self):
+        if self.semantic_scores.numel():
+            return self.semantic_scores.max(1)[1]
+        else:
+            raise RuntimeError("No semantic scores are set")
+
+
+@dataclass
+class MinkowskiOutput(SemanticOutput):
+    """Minkowski output type."""
+
+
+@dataclass
+class PointGroupOutput(SemanticOutput):
+    """Output type of Point Group forward function."""
 
     # Point offsets of each cluster
     point_offsets: torch.Tensor
@@ -138,13 +155,6 @@ class PointGroupOutput:
     proposal_scores: torch.Tensor
     proposal_offsets: torch.Tensor
     proposal_indices: torch.Tensor
-
-    @property
-    def semantic_pred(self):
-        if self.semantic_scores.numel():
-            return self.semantic_scores.max(1)[1]
-        else:
-            raise RuntimeError("No semantic scores are set")
 
 
 @dataclass

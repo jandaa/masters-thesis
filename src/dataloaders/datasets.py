@@ -73,7 +73,9 @@ class MinkowskiDataset(SegmentationDataset):
         )
 
         self.test_augmentations = transforms.Compose(
-            transforms.Crop(self.max_pointcloud_size, self.ignore_label),
+            [
+                transforms.Crop(self.max_pointcloud_size, self.ignore_label),
+            ]
         )
 
     def collate(self, batch):
