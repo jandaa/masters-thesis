@@ -54,17 +54,16 @@ def semantics(cfg: DictConfig) -> None:
     data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
     model_factory = ModelFactory(cfg, data_interface)
-    dataset_type = model_factory.get_dataset_type()
-    data_loader = DataModule(data_interface, cfg, dataset_type=dataset_type)
 
     # load pretrained backbone if desired
     backbone = None
     pretrain_checkpoint = None
+    backbone_wrapper_type = model_factory.get_backbone_wrapper_type()
     if cfg.pretrain_checkpoint:
         pretrain_checkpoint = str(
             Path.cwd() / "pretrain_checkpoints" / cfg.pretrain_checkpoint
         )
-        backbone = SpconvBackboneModule.load_from_checkpoint(
+        backbone = backbone_wrapper_type.load_from_checkpoint(
             cfg=cfg,
             checkpoint_path=pretrain_checkpoint,
         ).model
@@ -74,8 +73,14 @@ def semantics(cfg: DictConfig) -> None:
 
     if "pretrain" in cfg.tasks:
 
+        log.info("Loading backbone dataloader")
+        dataset_type = model_factory.get_backbone_dataset_type()
+        pretrain_data_loader = DataModule(
+            data_interface, cfg, dataset_type=dataset_type
+        )
+
         log.info("Creating backbone model")
-        backbonewraper = SpconvBackboneModule(cfg)
+        backbonewraper = backbone_wrapper_type(cfg)
 
         log.info("Building trainer")
         checkpoint_callback = get_pretrain_checkpoint_callback()
@@ -88,18 +93,27 @@ def semantics(cfg: DictConfig) -> None:
             check_val_every_n_epoch=int(5),
             callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
+            accumulate_grad_batches=cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
         )
 
         log.info("starting pre-training")
         trainer.fit(
             backbonewraper,
-            data_loader.pretrain_dataloader(),
-            data_loader.pretrain_dataloader(),
+            pretrain_data_loader.pretrain_dataloader(),
+            pretrain_data_loader.pretrain_dataloader(),
         )
         log.info("finished pretraining")
 
         backbone = backbonewraper.model
+
+    log.info("Creating model")
+    model_factory = ModelFactory(cfg, data_interface, backbone=backbone)
+    model = model_factory.get_model()
+
+    log.info("Creating dataloader")
+    dataset_type = model_factory.get_dataset_type()
+    data_loader = DataModule(data_interface, cfg, dataset_type=dataset_type)
 
     log.info("Building trainer")
     checkpoint_callback = get_checkpoint_callback()
@@ -115,10 +129,6 @@ def semantics(cfg: DictConfig) -> None:
         precision=cfg.precision
         # profiler="simple",
     )
-
-    log.info("Creating model")
-    model_factory = ModelFactory(cfg, data_interface, backbone=backbone)
-    model = model_factory.get_model()
 
     # Train model
     if "train" in cfg.tasks:

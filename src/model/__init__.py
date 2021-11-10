@@ -2,9 +2,13 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
-from model.pointgroup import PointgroupModule
-from model.minkowski import MinkowskiModule
-from dataloaders.datasets import MinkowskiDataset, SpconvDataset
+from model.pointgroup import PointgroupModule, SpconvBackbone
+from model.minkowski import MinkowskiModule, MinkowskiBackboneModule
+from dataloaders.datasets import (
+    MinkowskiDataset,
+    SpconvDataset,
+    MinkowskiPretrainDataset,
+)
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -31,6 +35,14 @@ class ModelFactory:
             )
         elif self.model_name == minkowski_name:
             return MinkowskiModule(self.cfg, self.data_interface)
+        else:
+            raise RuntimeError(self.error_msg)
+
+    def get_backbone_wrapper_type(self):
+        if self.model_name == pointgroup_name:
+            return SpconvBackbone
+        elif self.model_name == minkowski_name:
+            return MinkowskiBackboneModule
         else:
             raise RuntimeError(self.error_msg)
 
@@ -65,5 +77,13 @@ class ModelFactory:
             return SpconvDataset
         elif self.model_name == minkowski_name:
             return MinkowskiDataset
+        else:
+            raise RuntimeError(self.error_msg)
+
+    def get_backbone_dataset_type(self):
+        if self.model_name == pointgroup_name:
+            raise RuntimeError(self.error_msg)
+        elif self.model_name == minkowski_name:
+            return MinkowskiPretrainDataset
         else:
             raise RuntimeError(self.error_msg)

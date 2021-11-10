@@ -25,35 +25,97 @@ import logging
 from omegaconf import DictConfig
 import functools
 
+import torch
 import torch.nn as nn
 import MinkowskiEngine as ME
 
-from model.modules import SegmentationModule
+from model.modules import SegmentationModule, BackboneModule
 from model.minkowski.res16unet import Res16UNet34C
 
 from util.types import DataInterface
-from model.minkowski.types import MinkowskiInput, MinkowskiOutput
+from model.minkowski.types import (
+    MinkowskiInput,
+    MinkowskiOutput,
+    MinkowskiPretrainInput,
+)
 from util.utils import NCESoftmaxLoss
 
 log = logging.getLogger(__name__)
 
 
 class MinkovskiSemantic(nn.Module):
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, backbone=None):
         nn.Module.__init__(self)
 
         self.dataset_cfg = cfg.dataset
-        self.structure = cfg.model.structure
+        # self.structure = cfg.model.structure
+        self.feature_dim = cfg.model.net.model_n_out
 
-        self.backbone = Res16UNet34C(3, cfg.dataset.classes, cfg.model, D=3)
-        # self.linear = ME.MinkowskiLinear(m, self.dataset_cfg.classes, bias=False)
+        if backbone:
+            self.backbone = backbone
+        else:
+            self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.linear = ME.MinkowskiLinear(
+            self.feature_dim, self.dataset_cfg.classes, bias=False
+        )
 
     def forward(self, input):
         """Extract features and predict semantic class."""
         output = self.backbone(input)
-        # return self.linear(output)
+        output = self.linear(output)
         return MinkowskiOutput(semantic_scores=output.F)
-        # return output
+
+
+class MinkowskiBackboneModule(BackboneModule):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(MinkowskiBackboneModule, self).__init__(cfg)
+
+        self.feature_dim = cfg.model.net.model_n_out
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input)
+        loss = self.loss_fn(batch, output)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output = self.model(model_input)
+        loss = self.loss_fn(batch, output)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def loss_fn(self, batch, output):
+        tau = 0.07
+
+        loss = 0
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [v for v, _ in matches]
+            voxel_indices_2 = [v for _, v in matches]
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            # Labels
+            npos = len(matches)
+            labels = torch.arange(npos).cuda().long()
+
+            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+            out = torch.div(logits, tau)
+            out = out.squeeze().contiguous()
+
+            loss += self.criterion(out, labels)
+
+        return loss / len(batch.correspondences)
 
 
 class MinkowskiModule(SegmentationModule):
