@@ -1,8 +1,5 @@
 name: minkowski
 
-structure:
-  m: 16 # 16 or 32
-
 net:
   model: Res16UNet34C
   model_n_out: 32 # Feature dimension
