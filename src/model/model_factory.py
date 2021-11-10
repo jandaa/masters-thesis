@@ -38,7 +38,7 @@ class ModelFactory:
 
     def load_from_checkpoint(self, checkpoint_path: Path):
 
-        if self.modle_name == pointgroup_name:
+        if self.model_name == pointgroup_name:
 
             # Set the epoch to that loaded in the module
             loaded_checkpoint = torch.load(checkpoint_path)
@@ -53,7 +53,7 @@ class ModelFactory:
                 do_instance_segmentation=do_instance_segmentation,
             )
 
-        elif self.modle_name == minkowski_name:
+        elif self.model_name == minkowski_name:
             return MinkovskiWrapper.load_from_checkpoint(
                 cfg=self.cfg,
                 checkpoint_path=checkpoint_path,
