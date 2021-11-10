@@ -2,8 +2,8 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
-from model.pointgroup import PointGroupWrapper
-from model.minkowski.main import MinkovskiWrapper
+from model.pointgroup import PointgroupModule
+from model.minkowski import MinkowskiModule
 from dataloaders.datasets import MinkowskiDataset, SpconvDataset
 from util.types import DataInterface
 
@@ -26,13 +26,11 @@ class ModelFactory:
 
     def get_model(self):
         if self.model_name == pointgroup_name:
-            model_type = PointGroupWrapper
-            return model_type(
+            return PointgroupModule(
                 self.cfg, data_interface=self.data_interface, backbone=self.backbone
             )
         elif self.model_name == minkowski_name:
-            model_type = MinkovskiWrapper
-            return model_type(self.cfg)
+            return MinkowskiModule(self.cfg, self.data_interface)
         else:
             raise RuntimeError(self.error_msg)
 
@@ -54,7 +52,7 @@ class ModelFactory:
             )
 
         elif self.model_name == minkowski_name:
-            return MinkovskiWrapper.load_from_checkpoint(
+            return MinkowskiModule.load_from_checkpoint(
                 cfg=self.cfg,
                 checkpoint_path=checkpoint_path,
             )

@@ -14,6 +14,9 @@ optimizer:
   momentum: 0.9
   weight_decay: 0.0001
 
+scheduler:
+  type:
+
 train:
   epochs: 384
   train_workers: 8 # data loader workers

@@ -6,8 +6,20 @@ import concurrent.futures
 from omegaconf import DictConfig, OmegaConf
 
 import torch
+import torch.nn as nn
 import open3d as o3d
 import numpy as np
+
+
+class NCESoftmaxLoss(nn.Module):
+    def __init__(self):
+        super(NCESoftmaxLoss, self).__init__()
+        self.criterion = nn.CrossEntropyLoss()
+
+    def forward(self, x, label):
+        x = x.squeeze()
+        loss = self.criterion(x, label)
+        return loss
 
 
 class Visualizer:

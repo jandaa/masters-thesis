@@ -6,7 +6,8 @@ import numpy as np
 import open3d as o3d
 import MinkowskiEngine as ME
 
-from util.types import PointGroupBatch, PretrainInput, MinkowskiInput
+from model.pointgroup.types import PointGroupBatch, PretrainInput
+from model.minkowski.types import MinkowskiInput
 from packages.pointgroup_ops.functions import pointgroup_ops
 from util.utils import get_random_colour
 from dataloaders.transforms import augment_data, elastic_distortion
