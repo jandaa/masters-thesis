@@ -32,10 +32,14 @@ class DataModule(pl.LightningDataModule):
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
         self.ignore_label = cfg.dataset.ignore_label
 
+        # Pretraining parameters
+        self.pretrain_batch_size = cfg.dataset.pretrain.batch_size
+
         # Number of workers
         self.num_workers = cfg.model.train.train_workers
 
         # Load data from interface
+        self.pretrain_data = data_interface.pretrain_data
         self.train_data = data_interface.train_data
         self.val_data = data_interface.val_data
         self.test_data = data_interface.test_data
@@ -43,11 +47,25 @@ class DataModule(pl.LightningDataModule):
         # Grab label to index map
         self.label_to_index_map = data_interface.label_to_index_map
 
+        log.info(f"Pretraining samples: {len(self.pretrain_data)}")
         log.info(f"Training samples: {len(self.train_data)}")
         log.info(f"Validation samples: {len(self.val_data)}")
         log.info(f"Testing samples: {len(self.test_data)}")
 
         self.dataset_type = dataset_type
+
+    def pretrain_dataloader(self):
+        dataset = self.dataset_type(self.pretrain_data, self.cfg)
+        return DataLoader(
+            dataset,
+            batch_size=self.pretrain_batch_size,
+            collate_fn=dataset.collate,
+            num_workers=self.num_workers,
+            shuffle=True,
+            sampler=None,
+            drop_last=True,
+            pin_memory=True,
+        )
 
     def train_dataloader(self):
         dataset = self.dataset_type(self.train_data, self.cfg, is_test=False)
