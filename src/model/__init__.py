@@ -44,7 +44,7 @@ class ModelFactory:
             if loaded_checkpoint["epoch"] >= self.cfg.model.train.prepare_epochs:
                 do_instance_segmentation = True
 
-            return PointGroupWrapper.load_from_checkpoint(
+            return PointgroupModule.load_from_checkpoint(
                 cfg=self.cfg,
                 data_interface=self.data_interface,
                 checkpoint_path=checkpoint_path,
