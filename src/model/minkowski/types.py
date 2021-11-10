@@ -15,14 +15,33 @@ class MinkowskiInput:
 
     test_filename: str
 
+    def to(self, device):
+        """Cast all tensor-type attributes to device"""
+        self.device = device
+        for fieldname, data in self.__dict__.items():
+            if type(data) == torch.Tensor:
+                setattr(self, fieldname, data.to(device))
+
+        return self
+
 
 @dataclass
-class MinkowskiPretrainInput(MinkowskiInput):
-    """Input type of pretraining objective."""
+class MinkowskiPretrainInput:
+    """Pretrain input type of Minkowki Networks."""
 
-    correspondances: dict = field(default_factory=dict)
-    batch_size: int = 0
-    offsets: torch.Tensor = torch.tensor([])
+    points: torch.Tensor
+    features: torch.Tensor
+    correspondences: list
+    batch_size: int
+
+    def to(self, device):
+        """Cast all tensor-type attributes to device"""
+        self.device = device
+        for fieldname, data in self.__dict__.items():
+            if type(data) == torch.Tensor:
+                setattr(self, fieldname, data.to(device))
+
+        return self
 
 
 @dataclass

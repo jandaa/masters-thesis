@@ -1,14 +1,16 @@
 import math
+import random
 
 import torch
 from torch.utils.data.dataset import Dataset
 import numpy as np
 import MinkowskiEngine as ME
+import open3d as o3d
 
 import dataloaders.transforms as transforms
 from dataloaders.crop import crop_single
 
-from model.minkowski.types import MinkowskiInput
+from model.minkowski.types import MinkowskiInput, MinkowskiPretrainInput
 from model.pointgroup.types import PointGroupBatch
 from packages.pointgroup_ops.functions import pointgroup_ops
 
@@ -52,6 +54,177 @@ class SegmentationDataset(Dataset):
         return new_datapoints
 
 
+class PretrainDataset(Dataset):
+    """Base dataset for pretraining tasks."""
+
+    def __init__(self, scenes, cfg, is_test=False):
+        super(PretrainDataset, self).__init__()
+
+        self.cfg = cfg
+        self.scenes = scenes
+        self.num_workers = cfg.model.train.train_workers
+        self.ignore_label = cfg.dataset.ignore_label
+        self.scale = cfg.dataset.scale
+
+    def __len__(self):
+        return len(self.scenes)
+
+
+class MinkowskiPretrainDataset(PretrainDataset):
+    def __init__(self, scenes, cfg):
+        super(MinkowskiPretrainDataset, self).__init__(scenes, cfg)
+
+        self.scale_range = (0.8, 1.2)
+        self.augmentations = transforms.Compose(
+            [
+                transforms.RandomRotate(),
+            ]
+        )
+
+    def __len__(self):
+        return super(MinkowskiPretrainDataset, self).__len__()
+
+    def collate(self, batch):
+        correspondences = [
+            datapoint["correspondences"] for datapoint in batch if datapoint
+        ]
+        coords_list = [
+            frame["discrete_coords"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+        features_list = [
+            frame["unique_feats"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+
+        coordinates_batch, features_batch = ME.utils.sparse_collate(
+            coords_list, features_list
+        )
+
+        pretrain_input = MinkowskiPretrainInput(
+            points=coordinates_batch,
+            features=features_batch.float(),
+            correspondences=correspondences,
+            batch_size=2 * len(batch),
+        )
+
+        return pretrain_input
+
+    def __getitem__(self, index):
+
+        scene = self.scenes[index].load_measurements()
+
+        if not scene.matching_frames_map:
+            return {}
+
+        # pick matching scenes at random
+        frame1 = random.choice(list(scene.matching_frames_map.keys()))
+        frame2 = random.choice(scene.matching_frames_map[frame1])
+
+        correspondences = scene.correspondance_map[frame1][frame2]
+
+        frame1 = scene.get_measurement(frame1)
+        frame2 = scene.get_measurement(frame2)
+
+        quantized_frames = []
+        random_scale = np.random.uniform(*self.scale_range)
+        for frame in [frame1, frame2]:
+
+            # Extract data
+            xyz = np.ascontiguousarray(frame.points)
+            features = torch.from_numpy(frame.point_colors)
+
+            # apply a random scalling
+            xyz *= random_scale
+
+            # Randomly rotate each frame
+            xyz = xyz - xyz.mean(0)
+            xyz, features, _ = self.augmentations(xyz, features, None)
+
+            # Voxelize input
+            (discrete_coords, mapping, inv_mapping,) = ME.utils.sparse_quantize(
+                coordinates=xyz,
+                quantization_size=(1 / self.scale),
+                return_index=True,
+                return_inverse=True,
+            )
+
+            unique_feats = features[mapping]
+
+            # Get the point to voxel mapping
+            mapping = {
+                point_ind: voxel_ind
+                for voxel_ind, point_ind in enumerate(mapping.numpy())
+            }
+
+            # Append to quantized frames
+            quantized_frames.append(
+                {
+                    "discrete_coords": discrete_coords,
+                    "unique_feats": unique_feats,
+                    "mapping": mapping,
+                }
+            )
+
+        # Remap the correspondances into voxel world
+        mapping1 = quantized_frames[0]["mapping"]
+        mapping2 = quantized_frames[1]["mapping"]
+        correspondences = [
+            (mapping1[k], mapping2[v])
+            for k, v in correspondences.items()
+            if k in mapping1.keys() and v in mapping2.keys()
+        ]
+
+        # select a max number of correspondances
+        max_correspondances = 4092
+        if len(correspondences) > max_correspondances:
+            correspondences = random.sample(correspondences, max_correspondances)
+
+        # visualize_correspondances(quantized_frames, correspondences)
+        return {
+            "correspondences": correspondences,
+            "quantized_frames": quantized_frames,
+        }
+
+
+from util.utils import get_random_colour
+
+
+def visualize_correspondances(quantized_frames, correspondances):
+    """Visualize the point correspondances between the matched scans in
+    the pretrain input"""
+
+    # for i, matches in enumerate(pretrain_input.correspondances):
+    points1 = quantized_frames[0]["discrete_coords"]
+    colors1 = quantized_frames[0]["unique_feats"]
+
+    points2 = quantized_frames[1]["discrete_coords"]
+    colors2 = quantized_frames[1]["unique_feats"]
+
+    pcd1 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(points1)
+    pcd1.colors = o3d.utility.Vector3dVector(colors1)
+
+    pcd2 = o3d.geometry.PointCloud()
+    pcd2.points = o3d.utility.Vector3dVector(points2)
+    pcd2.colors = o3d.utility.Vector3dVector(colors2)
+    pcd2 = pcd2.translate([100.0, 0, 0])
+
+    correspondences = random.choices(correspondances, k=100)
+    lineset = o3d.geometry.LineSet()
+    lineset = lineset.create_from_point_cloud_correspondences(
+        pcd1, pcd2, correspondences
+    )
+    colors = [get_random_colour() for i in range(len(correspondences))]
+    lineset.colors = o3d.utility.Vector3dVector(colors)
+
+    o3d.visualization.draw_geometries([pcd1, pcd2, lineset])
+
+
 class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
@@ -62,7 +235,6 @@ class MinkowskiDataset(SegmentationDataset):
         self.augmentations = transforms.Compose(
             [
                 transforms.Crop(self.max_npoint, self.ignore_label),
-                transforms.RandomDropout(0.2),
                 transforms.RandomDropout(0.2),
                 transforms.RandomHorizontalFlip("z", False),
                 transforms.ChromaticTranslation(color_trans_ratio),
