@@ -70,6 +70,18 @@ def semantics(cfg: DictConfig) -> None:
         ).model
         log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
 
+    if cfg.supervised_pretrain_checkpoint:
+        pretrain_checkpoint = str(
+            Path.cwd() / "pretrain_checkpoints" / cfg.supervised_pretrain_checkpoint
+        )
+
+        wrapper = model_factory.get_model()
+        backbone = wrapper.load_from_checkpoint(
+            cfg=cfg,
+            checkpoint_path=pretrain_checkpoint,
+        ).backbone
+        log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
+
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     if "pretrain" in cfg.tasks:
