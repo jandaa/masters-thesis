@@ -1,43 +1,17 @@
 # Modified from ScanNet evaluation script: https://github.com/ScanNet/ScanNet/blob/master/BenchmarkScripts/3d_evaluation/evaluate_semantic_label.py
 import logging
-import os, sys
 import numpy as np
-import math
 
 # import util.utils_3d as util_3d
 # import util.utils as util
 
 log = logging.getLogger(__name__)
 
-CLASS_LABELS = [
-    "wall",
-    "floor",
-    "cabinet",
-    "bed",
-    "chair",
-    "sofa",
-    "table",
-    "door",
-    "window",
-    "bookshelf",
-    "picture",
-    "counter",
-    "desk",
-    "curtain",
-    "refrigerator",
-    "shower curtain",
-    "toilet",
-    "sink",
-    "bathtub",
-    "otherfurniture",
-]
-VALID_CLASS_IDS = np.array(
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39]
-)
-UNKNOWN_ID = np.max(VALID_CLASS_IDS) + 1
 
+def evaluate_scan(pred_ids, gt_ids, confusion, id_to_label_map, ignore_id):
 
-def evaluate_scan(pred_ids, gt_ids, confusion):
+    VALID_CLASS_IDS = list(id_to_label_map.keys())
+
     # sanity checks
     if not pred_ids.shape == gt_ids.shape:
         raise RuntimeError("Ground truth and prediction sizes don't match")
@@ -46,11 +20,14 @@ def evaluate_scan(pred_ids, gt_ids, confusion):
         if gt_val not in VALID_CLASS_IDS:
             continue
         if pred_val not in VALID_CLASS_IDS:
-            pred_val = UNKNOWN_ID
+            pred_val = ignore_id
         confusion[gt_val][pred_val] += 1
 
 
-def get_iou(label_id, confusion):
+def get_iou(label_id, confusion, id_to_label_map):
+
+    VALID_CLASS_IDS = list(id_to_label_map.keys())
+
     if not label_id in VALID_CLASS_IDS:
         return float("nan")
     # #true positives
@@ -67,12 +44,15 @@ def get_iou(label_id, confusion):
     return (float(tp) / denom, tp, denom)
 
 
-def write_result_file(confusion, ious):
+def write_result_file(confusion, ious, id_to_label_map):
+
+    VALID_CLASS_IDS = list(id_to_label_map.keys())
+
     log.info("Semantic Segmentation results")
     log.info("iou scores")
     for i in range(len(VALID_CLASS_IDS)):
         label_id = VALID_CLASS_IDS[i]
-        label_name = CLASS_LABELS[i]
+        label_name = id_to_label_map[label_id]
         if type(ious[label_name]) == tuple:
             iou = ious[label_name][0]
             log.info("{0:<14s}({1:<2d}): {2:>5.3f}".format(label_name, label_id, iou))
@@ -86,7 +66,7 @@ def write_result_file(confusion, ious):
     log.info(output_string)
 
     for r in range(len(VALID_CLASS_IDS)):
-        log.info("{0:<14s}({1:<2d})".format(CLASS_LABELS[r], VALID_CLASS_IDS[r]))
+        log.info("{0:<14s}({1:<2d})".format(id_to_label_map[r], VALID_CLASS_IDS[r]))
 
         output_string = ""
         for c in range(len(VALID_CLASS_IDS)):
@@ -96,27 +76,33 @@ def write_result_file(confusion, ious):
         log.info(output_string)
 
 
-def evaluate(matches, verbose=True):
-    max_id = UNKNOWN_ID
+def evaluate(matches, id_to_label_map, ignore_id, verbose=True):
+
+    VALID_CLASS_IDS = list(id_to_label_map.keys())
+
+    max_id = np.max(VALID_CLASS_IDS)
     confusion = np.zeros((max_id + 1, max_id + 1), dtype=np.ulonglong)
 
     if verbose:
         log.info(f"evaluating {len(matches.keys()) } scans...")
 
     for scene_name, compare in matches.items():
-        evaluate_scan(compare["pred"], compare["gt"], confusion)
+        evaluate_scan(
+            compare["pred"], compare["gt"], confusion, id_to_label_map, ignore_id
+        )
 
     class_ious = {}
     for i in range(len(VALID_CLASS_IDS)):
-        label_name = CLASS_LABELS[i]
         label_id = VALID_CLASS_IDS[i]
-        class_ious[label_name] = get_iou(label_id, confusion)
+        label_name = id_to_label_map[label_id]
+        class_ious[label_name] = get_iou(label_id, confusion, id_to_label_map)
 
     if verbose:
         log.info("classes          IoU")
         log.info("----------------------------")
         for i in range(len(VALID_CLASS_IDS)):
-            label_name = CLASS_LABELS[i]
+            label_id = VALID_CLASS_IDS[i]
+            label_name = id_to_label_map[label_id]
             if type(class_ious[label_name]) == tuple:
                 log.info(
                     "{0:<14s}: {1:>5.3f}   ({2:>6d}/{3:<6d})".format(
@@ -131,7 +117,7 @@ def evaluate(matches, verbose=True):
     mean_iou = 0
     for i in range(len(VALID_CLASS_IDS)):
         label_id = VALID_CLASS_IDS[i]
-        iou_output = get_iou(label_id, confusion)
+        iou_output = get_iou(label_id, confusion, id_to_label_map)
         if type(iou_output) == tuple:
             mean_iou += iou_output[0]
     mean_iou /= len(VALID_CLASS_IDS)
@@ -140,4 +126,4 @@ def evaluate(matches, verbose=True):
         log.info("----------------------------")
         log.info(f"mIOU           {mean_iou:.3f}")
 
-    return mean_iou / len(VALID_CLASS_IDS)
+    return mean_iou
