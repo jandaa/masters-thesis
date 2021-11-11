@@ -63,6 +63,7 @@ def semantics(cfg: DictConfig) -> None:
         pretrain_checkpoint = str(
             Path.cwd() / "pretrain_checkpoints" / cfg.pretrain_checkpoint
         )
+
         backbone = backbone_wrapper_type.load_from_checkpoint(
             cfg=cfg,
             checkpoint_path=pretrain_checkpoint,
@@ -80,7 +81,14 @@ def semantics(cfg: DictConfig) -> None:
         )
 
         log.info("Creating backbone model")
-        backbonewraper = backbone_wrapper_type(cfg)
+        if pretrain_checkpoint:
+            log.info("Continuing pretraining from checkpoint.")
+            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
+                cfg=cfg,
+                checkpoint_path=pretrain_checkpoint,
+            )
+        else:
+            backbonewraper = backbone_wrapper_type(cfg)
 
         log.info("Building trainer")
         checkpoint_callback = get_pretrain_checkpoint_callback()
