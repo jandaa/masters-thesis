@@ -4,6 +4,7 @@ from pathlib import Path
 import hydra
 from omegaconf import DictConfig
 
+import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
@@ -70,18 +71,6 @@ def semantics(cfg: DictConfig) -> None:
         ).model
         log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
 
-    if cfg.supervised_pretrain_checkpoint:
-        pretrain_checkpoint = str(
-            Path.cwd() / "pretrain_checkpoints" / cfg.supervised_pretrain_checkpoint
-        )
-
-        wrapper = model_factory.get_model()
-        backbone = wrapper.load_from_checkpoint(
-            cfg=cfg,
-            checkpoint_path=pretrain_checkpoint,
-        ).backbone
-        log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
-
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
     if "pretrain" in cfg.tasks:
@@ -128,8 +117,26 @@ def semantics(cfg: DictConfig) -> None:
         backbone = backbonewraper.model
 
     log.info("Creating model")
-    model_factory = ModelFactory(cfg, data_interface, backbone=backbone)
-    model = model_factory.get_model()
+    if cfg.supervised_pretrain_checkpoint:
+        pretrain_checkpoint = str(
+            Path.cwd() / "pretrain_checkpoints" / cfg.supervised_pretrain_checkpoint
+        )
+
+        model = model_factory.get_model()
+
+        state_dict = torch.load(pretrain_checkpoint)["state_dict"]
+        for weight in state_dict.keys():
+            if "model.backbone" not in weight:
+                del state_dict[weight]
+
+        model.load_state_dict(state_dict, strict=False)
+
+        log.info(
+            f"Loaded supervised pretrained checkpoint: {cfg.supervised_pretrain_checkpoint}"
+        )
+    else:
+        model_factory = ModelFactory(cfg, data_interface, backbone=backbone)
+        model = model_factory.get_model()
 
     log.info("Creating dataloader")
     dataset_type = model_factory.get_dataset_type()
