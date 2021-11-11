@@ -42,6 +42,7 @@ class SegmentationModule(pl.LightningModule):
 
         self.semantic_categories = data_interface.semantic_categories
         self.instance_categories = data_interface.instance_categories
+        self.index_to_label_map = data_interface.index_to_label_map
         self.instance_index_to_label_map = {
             k: v
             for k, v in data_interface.index_to_label_map.items()
@@ -53,6 +54,7 @@ class SegmentationModule(pl.LightningModule):
             for i in range(cfg.dataset.classes + 1)
         ]
 
+        self.ignore_label_id = data_interface.ignore_label
         self.ignore_label_colour = utils.get_random_colour()
 
     @property
@@ -101,7 +103,12 @@ class SegmentationModule(pl.LightningModule):
             scene_name = f"scene{i}"
             semantic_matches[scene_name] = output
 
-        mean_iou = eval_semantic.evaluate(semantic_matches, verbose=True)
+        mean_iou = eval_semantic.evaluate(
+            semantic_matches,
+            self.index_to_label_map,
+            self.ignore_label_id,
+            verbose=True,
+        )
         self.log("val_semantic_mIOU", mean_iou, sync_dist=True)
 
     def get_matches_val(self, batch, output):
@@ -122,7 +129,11 @@ class SegmentationModule(pl.LightningModule):
             semantic_matches[scene_name]["gt"] = output["semantic"]["gt"]
             semantic_matches[scene_name]["pred"] = output["semantic"]["pred"]
 
-        eval_semantic.evaluate(semantic_matches)
+        eval_semantic.evaluate(
+            semantic_matches,
+            self.index_to_label_map,
+            self.ignore_label_id,
+        )
 
         # Instance eval
         if self.return_instances:
