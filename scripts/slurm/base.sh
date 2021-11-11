@@ -12,7 +12,7 @@ module load cudnn/8.2.0
 
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-pip3 install torch==1.9.1 --no-index
+pip3 install torch==1.7.1 --no-index
 pip3 install  dist/*.tar.gz --no-index
 pip3 install  dist/*.whl --no-index
 
