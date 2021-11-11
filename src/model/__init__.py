@@ -34,7 +34,9 @@ class ModelFactory:
                 self.cfg, data_interface=self.data_interface, backbone=self.backbone
             )
         elif self.model_name == minkowski_name:
-            return MinkowskiModule(self.cfg, self.data_interface)
+            return MinkowskiModule(
+                self.cfg, self.data_interface, backbone=self.backbone
+            )
         else:
             raise RuntimeError(self.error_msg)
 

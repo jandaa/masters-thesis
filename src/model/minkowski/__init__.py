@@ -48,7 +48,6 @@ class MinkovskiSemantic(nn.Module):
         nn.Module.__init__(self)
 
         self.dataset_cfg = cfg.dataset
-        # self.structure = cfg.model.structure
         self.feature_dim = cfg.model.net.model_n_out
 
         if backbone:
@@ -119,10 +118,10 @@ class MinkowskiBackboneModule(BackboneModule):
 
 
 class MinkowskiModule(SegmentationModule):
-    def __init__(self, cfg: DictConfig, data_interface: DataInterface):
+    def __init__(self, cfg: DictConfig, data_interface: DataInterface, backbone=None):
         super(MinkowskiModule, self).__init__(cfg, data_interface)
 
-        self.model = MinkovskiSemantic(cfg)
+        self.model = MinkovskiSemantic(cfg, backbone=backbone)
         self.criterion = NCESoftmaxLoss()
         self.semantic_criterion = nn.CrossEntropyLoss(
             ignore_index=cfg.dataset.ignore_label
