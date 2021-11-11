@@ -9,8 +9,7 @@ preprocess() {
         output_dir=$OUTPUT_DIR \
         dataset=scannet \
         dataset.pretrain.voxel_size=0.02 \
-        sens_file=$filename \
-        force_reload=True
+        sens_file=$filename
 }
 
 export -f preprocess
