@@ -12,4 +12,4 @@ pip3 install --no-index tensorboard
 tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false
 
 # to connect to tensorboard
-# ssh -N -L localhost:6006:$1:$2 ajanda@beluga.computecanada.ca
+# ssh -N -L localhost:6006:$1:6006 ajanda@beluga.computecanada.ca
