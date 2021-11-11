@@ -202,11 +202,11 @@ class ScannetDataInterface(DataInterface):
         ]
 
     def get_datapoints(self, scenes: list):
-        return [self.get_datapoint(scene) for scene in scenes]
+        return [self.get_datapoint(self.scans_dir / scene) for scene in scenes]
 
-    def get_datapoint(self, scene):
+    def get_datapoint(self, scene_path):
         return ScannetDataPoint(
-            scene_path=self.scans_dir / scene,
+            scene_path=scene_path,
             preprocessed_path=self.preprocessed_path,
         )
 

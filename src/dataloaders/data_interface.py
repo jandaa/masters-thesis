@@ -72,11 +72,11 @@ class DataInterfaceFactory:
     def _get_interface_s3dis(self) -> DataInterface:
         return S3DISDataInterface(
             dataset_dir=Path(self.dataset_dir),
+            preprocessed_path=Path(self.output_dir),
             semantic_categories=self.dataset_cfg.categories,
             ignore_label=self.dataset_cfg.ignore_label,
             instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
             train_split=self.dataset_cfg.train_split,
             val_split=self.dataset_cfg.val_split,
             test_split=self.dataset_cfg.test_split,
-            force_reload=self.force_reload,
         )

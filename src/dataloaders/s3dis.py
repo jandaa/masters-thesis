@@ -18,19 +18,25 @@ log = logging.getLogger(__name__)
 class S3DISDataPoint(DataPoint):
 
     room: Path
-    force_reload: bool
-    preprocess_callback: Callable
+    preprocessed_path: Path
 
     def __post_init__(self):
 
+        # Make directories
+        self.preprocessed_path /= self.room.parent.name
+        self.preprocessed_path /= self.room.name
+        self.preprocessed_path.mkdir(parents=True, exist_ok=True)
+
         # Files and names
         self.scene_name = f"{self.room.parent.name}_{self.room.name}"
-        self.processed_scene = self.room / (self.room.name + ".pth")
-        self.scene_details_file = self.room / (self.room.name + "_details.json")
+        self.processed_scene = self.preprocessed_path / (self.room.name + ".pth")
+        self.scene_details_file = self.preprocessed_path / (
+            self.room.name + "_details.json"
+        )
 
     @property
     def num_points(self) -> int:
-        if not self.is_scene_preprocessed(force_reload=False):
+        if not self.is_scene_preprocessed():
             self.preprocess()
 
         with self.scene_details_file.open() as fp:
@@ -38,31 +44,18 @@ class S3DISDataPoint(DataPoint):
 
         return details["num_points"]
 
-    def is_scene_preprocessed(self, force_reload):
-        return (
-            self.processed_scene.exists()
-            and self.scene_details_file.exists()
-            and not force_reload
-            and not self.force_reload
-        )
+    def is_scene_preprocessed(self):
+        return self.processed_scene.exists() and self.scene_details_file.exists()
 
-    def preprocess(self, force_reload=False):
-        return self.preprocess_callback(self, force_reload)
-
-    def load(self, force_reload=False) -> SceneWithLabels:
+    def load(self) -> SceneWithLabels:
 
         # Load processed scene if already preprocessed
-        if not self.is_scene_preprocessed(force_reload):
-            return self.preprocess(force_reload=force_reload)
+        if not self.is_scene_preprocessed():
+            raise RuntimeError(f"Scene {self.room}is not preprocessed")
 
-        try:
-            (points, features, semantic_labels, instance_labels) = torch.load(
-                str(self.processed_scene)
-            )
-
-        except:
-            log.info(f"Error loading {self.scene_name}. Trying to force reload.")
-            return self.load(force_reload=True)
+        (points, features, semantic_labels, instance_labels) = torch.load(
+            str(self.processed_scene)
+        )
 
         scene = SceneWithLabels(
             name=self.scene_name,
@@ -82,6 +75,7 @@ class S3DISDataInterface(DataInterface):
     """
 
     dataset_dir: Path
+    preprocessed_path: Path
 
     # Split is done using areas
     train_split: list
@@ -90,8 +84,6 @@ class S3DISDataInterface(DataInterface):
 
     ignore_label: int
     instance_ignore_classes: list
-
-    force_reload: bool = False
 
     def __post_init__(self):
 
@@ -120,14 +112,15 @@ class S3DISDataInterface(DataInterface):
         annotation = self.dataset_dir / "Area_5/office_19/Annotations/ceiling_1.txt"
         if annotation.exists():
             lines = annotation.open("r").readlines()
-            lines[323473] = (
-                lines[323473]
-                .encode("unicode-escape")
-                .decode()
-                .replace("\\x1", "")
-                .replace("\\n", "\n")
-            )
-            annotation.open("w").writelines(lines)
+            if "\\x1" in lines[323473]:
+                lines[323473] = (
+                    lines[323473]
+                    .encode("unicode-escape")
+                    .decode()
+                    .replace("\\x1", "")
+                    .replace("\\n", "\n")
+                )
+                annotation.open("w").writelines(lines)
 
     @property
     def train_data(self) -> list:
@@ -141,6 +134,10 @@ class S3DISDataInterface(DataInterface):
     def test_data(self) -> list:
         return self.load(self.test_split)
 
+    @property
+    def pretrain_data(self) -> list:
+        return []
+
     def get_rooms(self, areas) -> list:
         return [
             room
@@ -150,17 +147,13 @@ class S3DISDataInterface(DataInterface):
         ]
 
     def load(self, split, force_reload=False) -> list:
-        return [
-            S3DISDataPoint(
-                room=room,
-                force_reload=force_reload,
-                preprocess_callback=self.preprocess,
-            )
-            for room in self.get_rooms(split)
-        ]
+        return [self.get_datapoint(room) for room in self.get_rooms(split)]
 
-    def preprocess(self, datapoint: S3DISDataPoint, force_reload=False) -> None:
-        if datapoint.is_scene_preprocessed(force_reload):
+    def get_datapoint(self, scene_path):
+        return S3DISDataPoint(room=scene_path, preprocessed_path=self.preprocessed_path)
+
+    def preprocess(self, datapoint: S3DISDataPoint) -> None:
+        if datapoint.is_scene_preprocessed():
             return
 
         log.info(f"Loading scene: {datapoint.scene_name}")

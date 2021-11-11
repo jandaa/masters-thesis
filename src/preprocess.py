@@ -18,7 +18,7 @@ def preprocess(cfg: DictConfig) -> None:
     log.info("Loading data point")
     data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
-    datapoint = data_interface.get_datapoint(scene_name)
+    datapoint = data_interface.get_datapoint(scene_path)
 
     log.info(f"Preprocessing scene: {scene_name}")
     data_interface.preprocess(datapoint)
