@@ -74,9 +74,13 @@ class MinkowskiPretrainDataset(PretrainDataset):
     def __init__(self, scenes, cfg):
         super(MinkowskiPretrainDataset, self).__init__(scenes, cfg)
 
-        self.scale_range = (0.8, 1.2)
+        color_jitter_std = 0.05
+        color_trans_ratio = 0.1
+        self.scale_range = (0.9, 1.1)
         self.augmentations = transforms.Compose(
             [
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
                 transforms.RandomRotate(),
             ]
         )
