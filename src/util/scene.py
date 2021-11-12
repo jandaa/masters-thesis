@@ -222,7 +222,9 @@ class SceneMeasurements:
 
         # extract inter-measurement info
         indices_map = self.get_overlap_indices(measurements)
-        self.overlap_matrix = self.get_overlapping_measurements(indices_map)
+        self.overlap_matrix = self.get_overlapping_measurements(
+            measurements, indices_map
+        )
         self.correspondance_map = self.get_correspondance_map(
             indices_map, self.overlap_matrix
         )
@@ -238,7 +240,7 @@ class SceneMeasurements:
         frame_id = ind * self.info["frame_skip"]
         return SceneMeasurement.load(self.directory, frame_id)
 
-    def get_overlap_indices(self, measurements, search_mult=2.0):
+    def get_overlap_indices(self, measurements, search_mult=1.5):
         """Get the overlap of measurements based on their relative pose error."""
         indexes_map = {}
 
@@ -261,37 +263,38 @@ class SceneMeasurements:
                 dT = np.linalg.norm(pose_diff[0:3, 3])
                 dtheta = np.arccos((np.trace(pose_diff[0:3, 0:3]) - 1) / 2)
 
+                # If the camera fields of view are close enough
+                # compute their correspondances
                 if dT < 2.0 and dtheta < (3.14 / 1.5):
                     kd_tree1 = kd_trees[i]
                     kd_tree2 = kd_trees[j]
 
                     indexes_map[i][j] = kd_tree1.query_ball_tree(
-                        kd_tree2, search_mult * self.info["voxel_size"], p=1
+                        kd_tree2, search_mult * self.info["voxel_size"], p=2
                     )
 
         return indexes_map
 
-    def get_overlapping_measurements(self, indices_map):
+    def get_overlapping_measurements(self, measurements, indices_map):
         overlap_matrix = np.zeros((self.num_measurements, self.num_measurements))
 
         for i, indices_map_i in indices_map.items():
             for j, indices_i_j in indices_map_i.items():
 
                 num_matches = sum(1 for matches in indices_i_j if matches)
+                num_points = float(len(measurements[i].points))
 
-                if num_matches > 1000:
-                    overlap_matrix[i, j] = 1.0
-                    # overlap_matrix[j, i] = 1.0
+                overlap_matrix[i, j] = num_matches / num_points
 
         return overlap_matrix
 
-    def get_correspondance_map(self, indices_map, overlap_matrix, max=4092):
+    def get_correspondance_map(self, indices_map, overlap_matrix, min_overlap=0.3):
         """Returns the number of correspondacnes."""
         correspondances_map = {}
         for i, indices_map_i in indices_map.items():
             correspondances_map[i] = {}
             for j, indices_i_j in indices_map_i.items():
-                if overlap_matrix[i, j]:
+                if overlap_matrix[i, j] > min_overlap:
                     correspondances_map[i][j] = {
                         point: index[0]
                         for point, index in enumerate(indices_i_j)
