@@ -281,6 +281,7 @@ class BackboneModule(pl.LightningModule):
         super().__init__()
 
         self.optimizer_cfg = cfg.model.optimizer
+        self.scheduler_cfg = cfg.model.scheduler
 
         # Dataset configuration
         self.dataset_dir = cfg.dataset_dir
@@ -295,12 +296,12 @@ class BackboneModule(pl.LightningModule):
     def configure_optimizers(self):
         if self.optimizer_cfg.type == "Adam":
             optimizer = torch.optim.Adam(
-                filter(lambda p: p.requires_grad, self.parameters()),
+                self.parameters(),
                 lr=self.dataset_cfg.pretrain.learning_rate,
             )
         elif self.optimizer_cfg.type == "SGD":
             optimizer = torch.optim.SGD(
-                filter(lambda p: p.requires_grad, self.parameters()),
+                self.parameters(),
                 lr=self.dataset_cfg.pretrain.learning_rate,
                 momentum=self.optimizer_cfg.momentum,
                 weight_decay=self.optimizer_cfg.weight_decay,
@@ -310,7 +311,16 @@ class BackboneModule(pl.LightningModule):
             log.error(f"Invalid optimizer type: {self.optimizer_type}")
             raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
 
-        scheduler = ExponentialLR(optimizer, 0.99)
+        # Get scheduler if any is specified
+        if not self.scheduler_cfg.type:
+            log.info("No learning rate schedular specified")
+            return optimizer
+        elif self.scheduler_cfg.type == "ExpLR":
+            scheduler = ExponentialLR(optimizer, self.scheduler_cfg.exp_gamma)
+        else:
+            log.error(f"Invalid scheduler type: {self.scheduler_cfg.type}")
+            raise ValueError(f"Invalid scheduler type: {self.scheduler_cfg.type}")
+
         return [optimizer], [scheduler]
 
     def loss_fn(self, batch, output):
