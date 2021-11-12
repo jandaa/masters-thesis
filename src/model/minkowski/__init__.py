@@ -106,7 +106,7 @@ class MinkowskiBackboneModule(BackboneModule):
 
             # Labels
             npos = len(matches)
-            labels = torch.arange(npos).cuda().long()
+            labels = torch.arange(npos).to(batch.device).long()
 
             logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
             out = torch.div(logits, tau)
