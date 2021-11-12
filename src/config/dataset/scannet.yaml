@@ -14,6 +14,7 @@ max_npoint: 500000
 mode: 4 # 4=mean
 
 pretrain:
+  voxel_size: 0.05
   frame_skip: 25
   batch_size: 16
   max_epochs: 120
