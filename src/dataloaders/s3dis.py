@@ -138,6 +138,10 @@ class S3DISDataInterface(DataInterface):
     def pretrain_data(self) -> list:
         return []
 
+    @property
+    def pretrain_val_data(self) -> list:
+        return []
+
     def get_rooms(self, areas) -> list:
         return [
             room

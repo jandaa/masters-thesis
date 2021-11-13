@@ -79,8 +79,8 @@ class MinkowskiPretrainDataset(PretrainDataset):
         self.scale_range = (0.9, 1.1)
         self.augmentations = transforms.Compose(
             [
-                transforms.ChromaticTranslation(color_trans_ratio),
-                transforms.ChromaticJitter(color_jitter_std),
+                # transforms.ChromaticTranslation(color_trans_ratio),
+                # transforms.ChromaticJitter(color_jitter_std),
                 transforms.RandomRotate(),
             ]
         )
@@ -133,11 +133,6 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
         frame1 = scene.get_measurement(frame1)
         frame2 = scene.get_measurement(frame2)
-
-        # recursively try to select a sample correspondance
-        # with a minimum overlap ratio
-        if len(correspondences) / frame1.points.shape[0] < 0.3:
-            return self.__getitem__(index)
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)

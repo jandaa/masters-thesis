@@ -16,6 +16,8 @@ optimizer:
 
 scheduler:
   type:
+  interval:
+  frequency:
 
 train:
   epochs: 384

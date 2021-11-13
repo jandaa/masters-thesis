@@ -99,7 +99,7 @@ def semantics(cfg: DictConfig) -> None:
             accelerator=cfg.accelerator,
             resume_from_checkpoint=pretrain_checkpoint,
             max_epochs=cfg.dataset.pretrain.max_epochs,
-            check_val_every_n_epoch=int(5),
+            check_val_every_n_epoch=cfg.check_val_every_n_epoch,
             callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
             accumulate_grad_batches=cfg.dataset.pretrain.accumulate_grad_batches,
@@ -110,7 +110,7 @@ def semantics(cfg: DictConfig) -> None:
         trainer.fit(
             backbonewraper,
             pretrain_data_loader.pretrain_dataloader(),
-            pretrain_data_loader.pretrain_dataloader(),
+            pretrain_data_loader.pretrain_val_dataloader(),
         )
         log.info("finished pretraining")
 

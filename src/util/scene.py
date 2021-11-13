@@ -308,7 +308,7 @@ class SceneMeasurements:
         return {
             i: np.where(overlap_matrix[i] > threshold)[0]
             for i in range(overlap_matrix.shape[0])
-            if np.sum(overlap_matrix[i]) != 0
+            if np.where(overlap_matrix[i] > threshold)[0].size != 0
         }
 
     def get_random_colour(self):

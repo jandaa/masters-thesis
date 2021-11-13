@@ -297,12 +297,12 @@ class BackboneModule(pl.LightningModule):
         if self.optimizer_cfg.type == "Adam":
             optimizer = torch.optim.Adam(
                 self.parameters(),
-                lr=self.dataset_cfg.pretrain.learning_rate,
+                lr=self.optimizer_cfg.lr,
             )
         elif self.optimizer_cfg.type == "SGD":
             optimizer = torch.optim.SGD(
                 self.parameters(),
-                lr=self.dataset_cfg.pretrain.learning_rate,
+                lr=self.optimizer_cfg.lr,
                 momentum=self.optimizer_cfg.momentum,
                 weight_decay=self.optimizer_cfg.weight_decay,
             )
@@ -321,7 +321,14 @@ class BackboneModule(pl.LightningModule):
             log.error(f"Invalid scheduler type: {self.scheduler_cfg.type}")
             raise ValueError(f"Invalid scheduler type: {self.scheduler_cfg.type}")
 
-        return [optimizer], [scheduler]
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "interval": self.scheduler_cfg.interval,
+                "frequency": self.scheduler_cfg.frequency,
+            },
+        }
 
     def loss_fn(self, batch, output):
         tau = 0.07

@@ -40,6 +40,7 @@ class DataModule(pl.LightningDataModule):
 
         # Load data from interface
         self.pretrain_data = data_interface.pretrain_data
+        self.pretrain_val_data = data_interface.pretrain_val_data
         self.train_data = data_interface.train_data
         self.val_data = data_interface.val_data
         self.test_data = data_interface.test_data
@@ -64,6 +65,18 @@ class DataModule(pl.LightningDataModule):
             shuffle=True,
             sampler=None,
             drop_last=True,
+            pin_memory=True,
+        )
+
+    def pretrain_val_dataloader(self):
+        dataset = self.dataset_type(self.pretrain_val_data, self.cfg)
+        return DataLoader(
+            dataset,
+            batch_size=self.batch_size,
+            collate_fn=dataset.collate,
+            num_workers=self.num_workers,
+            shuffle=False,
+            drop_last=False,
             pin_memory=True,
         )
 

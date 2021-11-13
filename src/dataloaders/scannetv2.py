@@ -176,6 +176,10 @@ class ScannetDataInterface(DataInterface):
         return self.load_pretrain(self.train_split)
 
     @property
+    def pretrain_val_data(self) -> list:
+        return self.load_pretrain(self.val_split)
+
+    @property
     def train_data(self) -> list:
         return self.load(self.train_split)
 
