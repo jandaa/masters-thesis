@@ -85,8 +85,9 @@ class ChromaticTranslation(object):
 
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
-            tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
-            feats[:, :3] = np.clip(feats[:, :3] + tr, 0, 255)
+            tr = (np.random.rand(1, 3) - 0.5) * 2 * self.trans_range_ratio
+            # tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
+            feats[:, :3] = np.clip(feats[:, :3] + tr, -0.5, 0.5)
         return coords, feats, labels
 
 
@@ -123,8 +124,8 @@ class ChromaticJitter(object):
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
             noise = np.random.randn(feats.shape[0], 3)
-            noise *= self.std * 255
-            feats[:, :3] = np.clip(feats[:, :3] + noise, 0, 255)
+            noise *= self.std
+            feats[:, :3] = np.clip(feats[:, :3] + noise, -0.5, 0.5)
         return coords, feats, labels
 
 
