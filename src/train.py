@@ -10,7 +10,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from util import utils
 from model import ModelFactory
-from model.pointgroup import SpconvBackboneModule
 from dataloaders.dataloader import DataModule
 from dataloaders.data_interface import DataInterfaceFactory
 

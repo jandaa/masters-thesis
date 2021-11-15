@@ -1,14 +1,17 @@
 import copy
 import hydra
 from omegaconf import DictConfig
+from pathlib import Path
 
 import numpy as np
 import open3d as o3d
+import pytorch_lightning as pl
 
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 
 from dataloaders.data_interface import DataInterfaceFactory
+from model import ModelFactory
 
 from scipy.stats import wasserstein_distance
 
@@ -57,20 +60,83 @@ def embed_tsne(data):
 
 
 @hydra.main(config_path="config", config_name="config")
+def test_backbone(cfg: DictConfig):
+    """Test backbone features."""
+
+    pl.seed_everything(42, workers=True)
+
+    # load a data interface
+    data_interface_factory = DataInterfaceFactory(cfg)
+    data_interface = data_interface_factory.get_interface()
+
+    # Load a model
+    model_factory = ModelFactory(cfg, data_interface)
+    backbone_wrapper_type = model_factory.get_backbone_wrapper_type()
+    # pretrain_checkpoint = str(Path.cwd() / "pretrain_checkpoints" / cfg.checkpoint)
+    # backbone = backbone_wrapper_type.load_from_checkpoint(
+    #     cfg=cfg,
+    #     checkpoint_path=pretrain_checkpoint,
+    # )
+    import torch
+
+    model = model_factory.get_model()
+    pretrain_checkpoint = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
+    state_dict = torch.load(pretrain_checkpoint)["state_dict"]
+    for weight in state_dict.keys():
+        if "model.backbone" not in weight:
+            del state_dict[weight]
+
+    model.load_state_dict(state_dict, strict=False)
+    backbone = model.model.backbone
+
+    # backbone = backbone_wrapper_type(cfg)
+
+    dataset_type = model_factory.get_backbone_dataset_type()
+    dataset = dataset_type(data_interface.pretrain_val_data, cfg)
+    collate_fn = dataset.collate
+    scene = collate_fn([dataset[300]])
+
+    import MinkowskiEngine as ME
+
+    model_input = ME.SparseTensor(scene.features.float(), scene.points)
+
+    backbone = backbone.eval()
+    output = backbone(model_input)
+    features = output.F.detach().numpy()
+
+    points = scene.points[:, 1:4] * 0.02
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(scene.features)
+
+    vis_pcd = get_colored_point_cloud_feature(pcd, features, 0.04)
+    o3d.visualization.draw_geometries([vis_pcd])
+
+
+@hydra.main(config_path="config", config_name="config")
 def test_fpfh(cfg: DictConfig):
     """Test FPFH features."""
+
+    pl.seed_everything(42, workers=True)
 
     # load a data interface
     data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
 
     # Load in a scene
-    scene = data_interface.train_data[0]
-    scene = scene.load()
+    model_factory = ModelFactory(cfg, data_interface)
+    dataset_type = model_factory.get_backbone_dataset_type()
+    dataset = dataset_type(data_interface.pretrain_val_data, cfg)
+    collate_fn = dataset.collate
+    scene = collate_fn([dataset[300]])
+
+    points = scene.points[:, 1:4] * 0.02
+    features = scene.features
 
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(scene.points)
-    pcd.colors = o3d.utility.Vector3dVector(scene.features)
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(features)
 
     # compute the features
     voxel_size = 0.04
@@ -80,18 +146,19 @@ def test_fpfh(cfg: DictConfig):
     )
 
     search_param = o3d.geometry.KDTreeSearchParamHybrid(
-        radius=10 * voxel_size, max_nn=100
+        radius=30 * voxel_size, max_nn=200
     )
     fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
 
-    features = fpfh.data.T
-    dist = wasserstein_distance(features[0], features[100])
+    # features = fpfh.data.T
+    # dist = wasserstein_distance(features[0], features[100])
 
     vis_pcd = get_colored_point_cloud_feature(pcd, fpfh.data.T, voxel_size)
     o3d.visualization.draw_geometries([vis_pcd])
 
-    wasserstein_distance()
+    # wasserstein_distance()
 
 
 if __name__ == "__main__":
+    # test_backbone()
     test_fpfh()
