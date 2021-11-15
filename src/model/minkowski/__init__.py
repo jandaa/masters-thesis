@@ -75,6 +75,11 @@ class MinkowskiBackboneModule(BackboneModule):
         self.feature_dim = cfg.model.net.model_n_out
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
+    def forward(self, batch: MinkowskiInput):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input)
+        return output
+
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features.float(), batch.points)
         output = self.model(model_input)
@@ -149,6 +154,11 @@ class MinkowskiModule(SegmentationModule):
         self.log("val_loss", loss, sync_dist=True)
 
         return self.get_matches_val(batch, output)
+
+    def forward(self, batch: MinkowskiInput):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output = self.model(model_input)
+        return output
 
     def loss_fn(self, batch, output):
         """Just return the semantic loss"""
