@@ -79,9 +79,9 @@ class MinkowskiPretrainDataset(PretrainDataset):
         self.scale_range = (0.9, 1.1)
         self.augmentations = transforms.Compose(
             [
-                transforms.ChromaticTranslation(color_trans_ratio),
+                # transforms.ChromaticTranslation(color_trans_ratio),
                 transforms.ChromaticJitter(color_jitter_std),
-                transforms.RandomRotate(),
+                transforms.RandomRotateZ(),
             ]
         )
 
@@ -121,9 +121,6 @@ class MinkowskiPretrainDataset(PretrainDataset):
     def __getitem__(self, index):
 
         scene = self.scenes[index].load_measurements()
-
-        if not scene.matching_frames_map:
-            return {}
 
         # pick matching scenes at random
         frame1 = random.choice(list(scene.matching_frames_map.keys()))
@@ -182,11 +179,6 @@ class MinkowskiPretrainDataset(PretrainDataset):
             for k, v in correspondences.items()
             if k in mapping1.keys() and v in mapping2.keys()
         ]
-
-        # select a max number of correspondances
-        max_correspondances = 4092
-        if len(correspondences) > max_correspondances:
-            correspondences = random.sample(correspondences, max_correspondances)
 
         # visualize_correspondances(quantized_frames, correspondences)
         return {

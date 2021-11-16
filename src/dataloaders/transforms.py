@@ -11,6 +11,7 @@ import scipy
 import scipy.ndimage
 import scipy.interpolate
 from scipy.spatial import KDTree
+from scipy.linalg import expm, norm
 
 
 def augment_data(xyz, jitter=False, flip=False, rot=False):
@@ -178,6 +179,41 @@ class RandomRotate(object):
             [0, 0, 1],
         ]
         coords = np.matmul(coords, rot)
+        return coords, feats, labels
+
+
+class RandomRotateZ(object):
+    def __init__(self):
+        """
+        Randomly rotate the scene
+        """
+        self.ROTATION_AUGMENTATION_BOUND = (
+            (-np.pi / 64, np.pi / 64),
+            (-np.pi / 64, np.pi / 64),
+            (-np.pi, np.pi),
+        )
+
+    # Rotation matrix along axis with angle theta
+    def M(self, axis, theta):
+        return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
+
+    def __call__(self, coords, feats, labels):
+
+        rot_mats = []
+        for axis_ind, rot_bound in enumerate(self.ROTATION_AUGMENTATION_BOUND):
+            theta = 0
+            axis = np.zeros(3)
+            axis[axis_ind] = 1
+            if rot_bound is not None:
+                theta = np.random.uniform(*rot_bound)
+            rot_mats.append(self.M(axis, theta))
+
+        # Use random order
+        np.random.shuffle(rot_mats)
+        rot_mat = rot_mats[0] @ rot_mats[1] @ rot_mats[2]
+
+        coords = np.matmul(rot_mat, coords.T).T
+        coords = np.ascontiguousarray(coords)
         return coords, feats, labels
 
 

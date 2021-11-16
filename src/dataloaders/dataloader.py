@@ -1,12 +1,12 @@
 """
 (Modified from PointGroup dataloader)
 """
+import math
 import logging
-from omegaconf import DictConfig
+from omegaconf import DictConfig, listconfig
 
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-import numpy as np
 
 from util.types import DataInterface
 from dataloaders.datasets import SegmentationDataset
@@ -24,16 +24,26 @@ class DataModule(pl.LightningDataModule):
     ):
         super().__init__()
 
+        # Get number of gpus
+        if type(cfg.gpus) == listconfig.ListConfig:
+            num_gpus = len(cfg.gpus)
+        else:
+            num_gpus = cfg.gpus
+
+        # Get batch sizes
+        self.batch_size = math.floor(cfg.dataset.batch_size / num_gpus)
+        self.pretrain_batch_size = math.floor(
+            cfg.dataset.pretrain.batch_size / num_gpus
+        )
+        log.info(f"Using batch size of {self.batch_size}")
+        log.info(f"Using pretraining batch size of {self.pretrain_batch_size}")
+
         # Dataloader specific parameters
         self.cfg = cfg
-        self.batch_size = cfg.dataset.batch_size
         self.scale = cfg.dataset.scale  # voxel_size = 1 / scale, scale 50(2cm)
         self.max_npoint = cfg.dataset.max_npoint
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
         self.ignore_label = cfg.dataset.ignore_label
-
-        # Pretraining parameters
-        self.pretrain_batch_size = cfg.dataset.pretrain.batch_size
 
         # Number of workers
         self.num_workers = cfg.model.train.train_workers

@@ -329,30 +329,3 @@ class BackboneModule(pl.LightningModule):
                 "frequency": self.scheduler_cfg.frequency,
             },
         }
-
-    def loss_fn(self, batch, output):
-        tau = 0.07
-
-        loss = 0
-        for i, matches in enumerate(batch.correspondances):
-            points1_start = batch.offsets[2 * i]
-            points2_start = batch.offsets[2 * i + 1]
-
-            point_indices_1 = [points1_start + points1 for points1 in matches.keys()]
-            point_indices_2 = [
-                points2_start + matches[points1] for points1 in matches.keys()
-            ]
-            q = output[point_indices_1]
-            k = output[point_indices_2]
-
-            # Labels
-            npos = len(matches.keys())
-            labels = torch.arange(npos).cuda().long()
-
-            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
-            out = torch.div(logits, tau)
-            out = out.squeeze().contiguous()
-
-            loss += self.criterion(out, labels)
-
-        return loss / len(batch.correspondances)

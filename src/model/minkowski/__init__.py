@@ -28,6 +28,7 @@ import functools
 import torch
 import torch.nn as nn
 import MinkowskiEngine as ME
+import numpy as np
 
 from model.modules import SegmentationModule, BackboneModule
 from model.minkowski.res16unet import Res16UNet34C
@@ -98,9 +99,11 @@ class MinkowskiBackboneModule(BackboneModule):
         self.log("val_loss", loss, sync_dist=True)
 
     def loss_fn(self, batch, output):
-        tau = 0.07
+        tau = 0.4
+        max_pos = 4092
 
-        loss = 0
+        # Get all positive and negative pairs
+        qs, ks = [], []
         for i, matches in enumerate(batch.correspondences):
             voxel_indices_1 = [v for v, _ in matches]
             voxel_indices_2 = [v for _, v in matches]
@@ -109,17 +112,26 @@ class MinkowskiBackboneModule(BackboneModule):
             q = output_batch_1[voxel_indices_1]
             k = output_batch_2[voxel_indices_2]
 
-            # Labels
-            npos = len(matches)
-            labels = torch.arange(npos).to(batch.device).long()
+            qs.append(q)
+            ks.append(k)
 
-            logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
-            out = torch.div(logits, tau)
-            out = out.squeeze().contiguous()
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
 
-            loss += self.criterion(out, labels)
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
 
-        return loss / len(batch.correspondences)
+        # Labels
+        npos = q.shape[0]
+        labels = torch.arange(npos).to(batch.device).long()
+
+        logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+        out = torch.div(logits, tau)
+        out = out.squeeze().contiguous()
+
+        return self.criterion(out, labels)
 
 
 class MinkowskiModule(SegmentationModule):

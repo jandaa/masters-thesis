@@ -16,7 +16,7 @@ net:
 
 optimizer:
   type: SGD # Adam or SGD
-  lr: 1e-3
+  lr: 1e-1
   momentum: 0.9
   weight_decay: 1e-4
   bn_momentum: 0.05

@@ -278,12 +278,12 @@ class Res16UNetBase(ResNetBase):
         out = self.block8(out)
 
         contrastive = self.final(out)
-        # if self.normalize_feature:
-        #     contrastive = SparseTensor(
-        #         contrastive.F / torch.norm(contrastive.F, p=2, dim=1, keepdim=True),
-        #         coordinate_map_key=contrastive.coordinate_map_key,
-        #         coordinate_manager=contrastive.coordinate_manager,
-        #     )
+        if self.normalize_feature:
+            contrastive = SparseTensor(
+                contrastive.F / torch.norm(contrastive.F, p=2, dim=1, keepdim=True),
+                coordinate_map_key=contrastive.coordinate_map_key,
+                coordinate_manager=contrastive.coordinate_manager,
+            )
 
         return contrastive
 
