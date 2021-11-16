@@ -11,5 +11,8 @@ pip3 install --no-index tensorboard
 
 tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false
 
+# to start an interactive session
+# salloc --account=def-jskelly --gres=gpu:1 --cpus-per-task=6 --mem=32000M --time=1:00:00
+
 # to connect to tensorboard
 # ssh -N -L localhost:6006:$1:6006 ajanda@beluga.computecanada.ca
