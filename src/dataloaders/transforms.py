@@ -126,7 +126,7 @@ class ChromaticJitter(object):
         if random.random() < 0.95:
             noise = np.random.randn(feats.shape[0], 3)
             noise *= self.std
-            feats[:, :3] = np.clip(feats[:, :3] + noise, -0.5, 0.5)
+            feats[:, :3] = np.clip(feats[:, :3] + noise, -1, 1)
         return coords, feats, labels
 
 
