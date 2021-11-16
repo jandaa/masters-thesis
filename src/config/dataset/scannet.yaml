@@ -14,11 +14,11 @@ max_npoint: 500000
 mode: 4 # 4=mean
 
 pretrain:
-  voxel_size: 0.05
+  voxel_size: 0.02
   frame_skip: 25
   batch_size: 16
-  max_epochs: 120
-  learning_rate: 1e-3
+  # max_epochs: 120
+  max_steps: 20000
   accumulate_grad_batches: 1
 
 categories: [

@@ -97,7 +97,7 @@ def semantics(cfg: DictConfig) -> None:
             gpus=cfg.gpus,
             accelerator=cfg.accelerator,
             resume_from_checkpoint=pretrain_checkpoint,
-            max_epochs=cfg.dataset.pretrain.max_epochs,
+            max_steps=cfg.dataset.pretrain.max_steps,
             check_val_every_n_epoch=cfg.check_val_every_n_epoch,
             callbacks=[checkpoint_callback, lr_monitor],
             limit_train_batches=cfg.limit_train_batches,
