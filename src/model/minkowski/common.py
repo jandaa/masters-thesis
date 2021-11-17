@@ -57,17 +57,8 @@ conv_to_region_type = {
     ConvType.HYPERCROSS: ME.RegionType.HYPER_CROSS,
     ConvType.SPATIAL_HYPERCROSS: ME.RegionType.HYPER_CROSS,
     ConvType.SPATIO_TEMPORAL_HYPERCROSS: ME.RegionType.HYPER_CROSS,
-    # ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS: ME.RegionType.HYBRID,
+    ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS: ME.RegionType.HYPER_CUBE,
 }
-
-# int_to_region_type = {m.value: m for m in ME.RegionType}
-
-
-# def convert_region_type(region_type):
-#     """
-#     Convert the integer region_type to the corresponding RegionType enum object.
-#     """
-#     return int_to_region_type[region_type]
 
 
 def convert_conv_type(conv_type, kernel_size, D):
@@ -108,10 +99,10 @@ def convert_conv_type(conv_type, kernel_size, D):
     elif conv_type == ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS:
         # Define the CUBIC conv kernel for spatial dims and CROSS conv for temp dim
         axis_types = [
-            ME.RegionType.HYPERCUBE,
+            ME.RegionType.HYPER_CUBE,
         ] * 3
         if D == 4:
-            axis_types.append(ME.RegionType.HYPERCROSS)
+            axis_types.append(ME.RegionType.HYPER_CROSS)
     return region_type, axis_types, kernel_size
 
 
@@ -132,7 +123,7 @@ def conv(
         stride,
         dilation,
         region_type=region_type,
-        axis_types=axis_types,
+        # axis_types=axis_types,
         dimension=D,
     )
 

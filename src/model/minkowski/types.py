@@ -43,6 +43,9 @@ class MinkowskiPretrainInput:
 
         return self
 
+    def __len__(self):
+        return self.batch_size
+
 
 @dataclass
 class MinkowskiOutput(SemanticOutput):

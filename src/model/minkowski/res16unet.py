@@ -22,7 +22,7 @@ class Res16UNetBase(ResNetBase):
     OUT_PIXEL_DIST = 1
     NORM_TYPE = NormType.BATCH_NORM
     NON_BLOCK_CONV_TYPE = ConvType.SPATIAL_HYPERCUBE
-    CONV_TYPE = ConvType.HYPERCUBE
+    CONV_TYPE = ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS
 
     def __init__(self, in_channels, out_channels, config, D=3):
         super(Res16UNetBase, self).__init__(in_channels, out_channels, config, D)
