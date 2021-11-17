@@ -72,43 +72,53 @@ def test_backbone(cfg: DictConfig):
     # Load a model
     model_factory = ModelFactory(cfg, data_interface)
     backbone_wrapper_type = model_factory.get_backbone_wrapper_type()
-    # pretrain_checkpoint = str(Path.cwd() / "pretrain_checkpoints" / cfg.checkpoint)
+    pretrain_checkpoint = str(Path.cwd() / "pretrain_checkpoints" / cfg.checkpoint)
+    backbone = backbone_wrapper_type(cfg)
     # backbone = backbone_wrapper_type.load_from_checkpoint(
     #     cfg=cfg,
     #     checkpoint_path=pretrain_checkpoint,
     # )
     import torch
 
-    model = model_factory.get_model()
-    pretrain_checkpoint = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
-    state_dict = torch.load(pretrain_checkpoint)["state_dict"]
-    for weight in state_dict.keys():
-        if "model.backbone" not in weight:
-            del state_dict[weight]
+    # ckpt = torch.load(pretrain_checkpoint)
+    # backbone.model.load_state_dict(ckpt["state_dict"], strict=False)
 
-    model.load_state_dict(state_dict, strict=False)
-    backbone = model.model.backbone
+    # import torch
+
+    # model = model_factory.get_model()
+    # pretrain_checkpoint = str(Path.cwd() / "checkpoints" / cfg.checkpoint)
+    # state_dict = torch.load(pretrain_checkpoint)["state_dict"]
+    # for weight in state_dict.keys():
+    #     if "model.backbone" not in weight:
+    #         del state_dict[weight]
+
+    # model.load_state_dict(state_dict, strict=False)
+    # backbone = model.model.backbone
 
     # backbone = backbone_wrapper_type(cfg)
 
     dataset_type = model_factory.get_backbone_dataset_type()
     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
     collate_fn = dataset.collate
-    scene = collate_fn([dataset[300]])
+    scene = collate_fn([dataset[133]])
+    # 30 & 300
 
     import MinkowskiEngine as ME
 
-    model_input = ME.SparseTensor(scene.features.float(), scene.points)
+    first_frame = np.where(scene.points[:, 0] == 0)[0]
+    points = scene.points[first_frame, :]
+    colors = scene.features[first_frame, :]
+    model_input = ME.SparseTensor(colors, points)
 
     backbone = backbone.eval()
-    output = backbone(model_input)
+    output = backbone.model(model_input)
     features = output.F.detach().numpy()
 
-    points = scene.points[:, 1:4] * 0.02
+    points = points[:, 1:4] * 0.02
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
-    pcd.colors = o3d.utility.Vector3dVector(scene.features)
+    pcd.colors = o3d.utility.Vector3dVector(colors)
 
     vis_pcd = get_colored_point_cloud_feature(pcd, features, 0.04)
     o3d.visualization.draw_geometries([vis_pcd])
@@ -130,6 +140,10 @@ def test_fpfh(cfg: DictConfig):
     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
     collate_fn = dataset.collate
     scene = collate_fn([dataset[300]])
+
+    first_frame = np.where(scene.points[:, 0] == 0)[0]
+    points = scene.points[first_frame, :]
+    colors = scene.features[first_frame, :]
 
     points = scene.points[:, 1:4] * 0.02
     features = scene.features
@@ -160,5 +174,5 @@ def test_fpfh(cfg: DictConfig):
 
 
 if __name__ == "__main__":
-    # test_backbone()
-    test_fpfh()
+    test_backbone()
+    # test_fpfh()
