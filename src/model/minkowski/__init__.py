@@ -102,6 +102,8 @@ class MinkowskiBackboneModule(BackboneModule):
         tau = 0.4
         max_pos = 4092
 
+        # model_input = ME.SparseTensor(batch.features, batch.points)
+
         # Get all positive and negative pairs
         qs, ks = [], []
         for i, matches in enumerate(batch.correspondences):
@@ -111,6 +113,10 @@ class MinkowskiBackboneModule(BackboneModule):
             output_batch_2 = output.features_at(2 * i + 1)
             q = output_batch_1[voxel_indices_1]
             k = output_batch_2[voxel_indices_2]
+
+            # points1 = model_input.coordinates_at(2 * i).detach().cpu().numpy()
+
+            # visualize_correspondances(model_input, i, matches)
 
             qs.append(q)
             ks.append(k)
@@ -132,6 +138,42 @@ class MinkowskiBackboneModule(BackboneModule):
         out = out.squeeze().contiguous()
 
         return self.criterion(out, labels)
+
+
+import open3d as o3d
+import random
+from util.utils import get_random_colour
+
+
+def visualize_correspondances(model_input, i, correspondances):
+    """Visualize the point correspondances between the matched scans in
+    the pretrain input"""
+
+    # for i, matches in enumerate(pretrain_input.correspondances):
+    points1 = model_input.coordinates_at(2 * i).detach().cpu().numpy()
+    colors1 = model_input.features_at(2 * i).detach().cpu().numpy()
+
+    points2 = model_input.coordinates_at(2 * i + 1).detach().cpu().numpy()
+    colors2 = model_input.features_at(2 * i + 1).detach().cpu().numpy()
+
+    pcd1 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(points1)
+    pcd1.colors = o3d.utility.Vector3dVector(colors1)
+
+    pcd2 = o3d.geometry.PointCloud()
+    pcd2.points = o3d.utility.Vector3dVector(points2)
+    pcd2.colors = o3d.utility.Vector3dVector(colors2)
+    pcd2 = pcd2.translate([100.0, 0, 0])
+
+    correspondences = random.choices(correspondances, k=100)
+    lineset = o3d.geometry.LineSet()
+    lineset = lineset.create_from_point_cloud_correspondences(
+        pcd1, pcd2, correspondences
+    )
+    colors = [get_random_colour() for i in range(len(correspondences))]
+    lineset.colors = o3d.utility.Vector3dVector(colors)
+
+    o3d.visualization.draw_geometries([pcd1, pcd2, lineset])
 
 
 class MinkowskiModule(SegmentationModule):
