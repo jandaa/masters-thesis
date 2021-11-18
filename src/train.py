@@ -68,7 +68,16 @@ def semantics(cfg: DictConfig) -> None:
             cfg=cfg,
             checkpoint_path=pretrain_checkpoint,
         ).model
+
         log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
+
+        # log.info("Loading PointContrast pre-trained model")
+        # backbonewraper = backbone_wrapper_type(cfg)
+        # backbone = backbonewraper.model
+        # test = torch.load(pretrain_checkpoint)
+        # backbone.load_state_dict(test["state_dict"], strict=False)
+
+        # log.info(f"Loaded pretrained checkpoint: {cfg.pretrain_checkpoint}")
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
 
