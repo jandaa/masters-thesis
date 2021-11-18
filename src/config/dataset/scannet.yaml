@@ -8,16 +8,14 @@ classes: 20
 ignore_label: -100
 
 input_channel: 3
-scale: 50 # voxel_size = 1 / scale, scale 50(2cm)
+voxel_size: 0.02
 batch_size: 4
 max_npoint: 500000
 mode: 4 # 4=mean
 
 pretrain:
-  voxel_size: 0.02
   frame_skip: 25
   batch_size: 16
-  # max_epochs: 120
   max_steps: 20000
   accumulate_grad_batches: 1
 

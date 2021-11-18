@@ -280,8 +280,8 @@ class BackboneModule(pl.LightningModule):
     ):
         super().__init__()
 
-        self.optimizer_cfg = cfg.model.optimizer
-        self.scheduler_cfg = cfg.model.scheduler
+        self.optimizer_cfg = cfg.model.pretrain.optimizer
+        self.scheduler_cfg = cfg.model.pretrain.scheduler
 
         # Dataset configuration
         self.dataset_dir = cfg.dataset_dir

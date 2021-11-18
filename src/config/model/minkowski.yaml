@@ -6,26 +6,34 @@ net:
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
+  bn_momentum: 0.05
 
 optimizer:
   type: Adam # Adam or SGD
   lr: 1e-3
   momentum: 0.9
   weight_decay: 1e-4
-  bn_momentum: 0.05
-
-# optimizer:
-#   type: SGD # Adam or SGD
-#   lr: 1e-3
-#   momentum: 0.9
-#   weight_decay: 1e-4
-#   bn_momentum: 0.05
 
 scheduler:
-  type: ExpLR
-  exp_gamma: 0.99
-  interval: "step"
-  frequency: 1000
+  type: 
+  exp_gamma: 
+  interval:
+  frequency:
+
+pretrain:
+
+  optimizer:
+    type: SGD # Adam or SGD
+    lr: 1e-1
+    momentum: 0.9
+    weight_decay: 1e-4
+
+  scheduler:
+    type: ExpLR
+    exp_gamma: 0.99
+    interval: "step"
+    frequency: 1000
+    
 
 train:
   epochs: 384

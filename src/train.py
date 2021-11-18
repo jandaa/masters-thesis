@@ -112,6 +112,7 @@ def semantics(cfg: DictConfig) -> None:
             limit_train_batches=cfg.limit_train_batches,
             accumulate_grad_batches=cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
+            # fast_dev_run=True,
         )
 
         log.info("starting pre-training")

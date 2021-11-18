@@ -15,7 +15,8 @@ optimizer:
   weight_decay: 0.0001
 
 scheduler:
-  type:
+  type: 
+  exp_gamma: 
   interval:
   frequency:
 
