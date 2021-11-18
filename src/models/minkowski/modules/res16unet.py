@@ -1,12 +1,8 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
 import torch
 
-from model.minkowski.resnet import ResNetBase, get_norm
-from model.minkowski.common import ConvType, NormType, conv, conv_tr
-from model.minkowski.resnet_block import BasicBlock, Bottleneck
+from models.minkowski.modules.resnet import ResNetBase, get_norm
+from models.minkowski.modules.common import ConvType, NormType, conv, conv_tr
+from models.minkowski.modules.resnet_block import BasicBlock
 
 from MinkowskiEngine import MinkowskiReLU
 from MinkowskiEngine import SparseTensor

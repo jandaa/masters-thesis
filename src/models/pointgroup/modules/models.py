@@ -9,11 +9,10 @@ import numpy as np
 import spconv
 
 import util.utils as utils
-from model.modules import BackboneModule
-from model.pointgroup.blocks import ResidualBlock, VGGBlock, UBlock
-from model.pointgroup.util import clusters_voxelization, non_max_suppression
+from models.pointgroup.modules.blocks import ResidualBlock, VGGBlock, UBlock
+from models.pointgroup.util import clusters_voxelization, non_max_suppression
 from packages.pointgroup_ops.functions import pointgroup_ops
-from model.pointgroup.types import (
+from models.pointgroup.types import (
     PointGroupInput,
     PointGroupOutput,
 )
@@ -30,6 +29,7 @@ class SpconvBackbone(nn.Module):
 
         # model parameters
         self.structure = cfg.model.structure
+        self.dataset_cfg = cfg.dataset
 
         norm_fn = functools.partial(nn.BatchNorm1d, eps=1e-4, momentum=0.1)
 
@@ -179,14 +179,6 @@ class PointGroup(nn.Module):
         #### semantic segmentation
         semantic_scores = self.linear(output_feats)  # (N, nClass), float
         semantic_preds = semantic_scores.max(1)[1]  # (N), long
-
-        # return PointGroupOutput(
-        #     semantic_scores=semantic_scores,
-        #     point_offsets=None,
-        #     proposal_scores=None,
-        #     proposal_indices=None,
-        #     proposal_offsets=None,
-        # )
 
         #### offset
         pt_offsets_feats = self.offset(output_feats)

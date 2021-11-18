@@ -2,13 +2,10 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
-from model.pointgroup import PointgroupModule, SpconvBackbone
-from model.minkowski import MinkowskiModule, MinkowskiBackboneModule
-from dataloaders.datasets import (
-    MinkowskiDataset,
-    SpconvDataset,
-    MinkowskiPretrainDataset,
-)
+from models.pointgroup.trainer import PointgroupTrainer
+from models.pointgroup.dataset import SpconvDataset
+from models.minkowski.trainer import MinkowskiTrainer, MinkowskiBackboneTrainer
+from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -30,21 +27,19 @@ class ModelFactory:
 
     def get_model(self):
         if self.model_name == pointgroup_name:
-            return PointgroupModule(
+            return PointgroupTrainer(
                 self.cfg, data_interface=self.data_interface, backbone=self.backbone
             )
         elif self.model_name == minkowski_name:
-            return MinkowskiModule(
+            return MinkowskiTrainer(
                 self.cfg, self.data_interface, backbone=self.backbone
             )
         else:
             raise RuntimeError(self.error_msg)
 
     def get_backbone_wrapper_type(self):
-        if self.model_name == pointgroup_name:
-            return SpconvBackbone
-        elif self.model_name == minkowski_name:
-            return MinkowskiBackboneModule
+        if self.model_name == minkowski_name:
+            return MinkowskiBackboneTrainer
         else:
             raise RuntimeError(self.error_msg)
 
@@ -58,7 +53,7 @@ class ModelFactory:
             if loaded_checkpoint["epoch"] >= self.cfg.model.train.prepare_epochs:
                 do_instance_segmentation = True
 
-            return PointgroupModule.load_from_checkpoint(
+            return PointgroupTrainer.load_from_checkpoint(
                 cfg=self.cfg,
                 data_interface=self.data_interface,
                 checkpoint_path=checkpoint_path,
@@ -66,7 +61,7 @@ class ModelFactory:
             )
 
         elif self.model_name == minkowski_name:
-            return MinkowskiModule.load_from_checkpoint(
+            return MinkowskiTrainer.load_from_checkpoint(
                 cfg=self.cfg,
                 checkpoint_path=checkpoint_path,
             )

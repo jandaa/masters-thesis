@@ -37,7 +37,6 @@ class PretrainInput(PointGroupInput):
 
     correspondances: dict = field(default_factory=dict)
     batch_size: int = 0
-    offsets: torch.Tensor = torch.tensor([])
 
 
 @dataclass

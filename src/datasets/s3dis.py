@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable
 
 import torch
 import numpy as np

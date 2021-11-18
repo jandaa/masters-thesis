@@ -7,7 +7,6 @@ import shutil
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable
 import subprocess
 
 import torch
@@ -17,7 +16,7 @@ from hydra.utils import get_original_cwd
 from plyfile import PlyData
 
 from util.types import DataInterface, DataPoint, SceneWithLabels
-from util.scene import SceneMeasurements, measurements_dir_name
+from datasets.measurements import SceneMeasurements, measurements_dir_name
 
 log = logging.getLogger(__name__)
 

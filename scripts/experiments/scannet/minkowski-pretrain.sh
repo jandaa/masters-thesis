@@ -1,4 +1,4 @@
-python src/train.py \
+python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
     model=minkowski \

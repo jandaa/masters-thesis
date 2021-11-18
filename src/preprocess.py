@@ -2,7 +2,7 @@ import hydra
 import logging
 from pathlib import Path
 from omegaconf import DictConfig
-from dataloaders.data_interface import DataInterfaceFactory
+from datasets.interface import DataInterfaceFactory
 
 log = logging.getLogger("preprocess")
 

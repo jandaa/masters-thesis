@@ -9,9 +9,9 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
 
 from util import utils
-from model import ModelFactory
-from dataloaders.dataloader import DataModule
-from dataloaders.data_interface import DataInterfaceFactory
+from models.factory import ModelFactory
+from dataloaders.datamodule import DataModule
+from datasets.interface import DataInterfaceFactory
 
 
 log = logging.getLogger("train")
@@ -40,7 +40,7 @@ def get_checkpoint_callback():
 
 
 @hydra.main(config_path="config", config_name="config")
-def semantics(cfg: DictConfig) -> None:
+def main(cfg: DictConfig) -> None:
 
     # Set random seeds for reproductability
     pl.seed_everything(42, workers=True)
@@ -196,4 +196,4 @@ def semantics(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    semantics()
+    main()

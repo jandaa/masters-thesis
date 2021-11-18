@@ -23,7 +23,7 @@ To train a model, use one of the appropriate scripts located under the ``scripts
 Evaluating a trained model can be done from the command line, with a few command line arguments that specify the dataset directory, the run directory and the checkpoint to use. This could look like the following:
 
 ```shell
-python train.py \
+python main.py \
     tasks=['eval','visualize'] \
     dataset=scannet \
     dataset_dir=/path/to/dataset/ \

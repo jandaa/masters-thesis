@@ -5,23 +5,23 @@ from omegaconf import DictConfig
 import torch
 import torch.nn as nn
 
-from model.modules import SegmentationModule, BackboneModule
+from models.trainers import SegmentationTrainer, BackboneTrainer
 from util.types import DataInterface
-from model.pointgroup.types import PointGroupBatch, LossType, PretrainInput
-from model.pointgroup.modules import PointGroup, SpconvBackbone
-from model.pointgroup.util import get_segmented_scores
+from models.pointgroup.types import PointGroupBatch, LossType, PretrainInput
+from models.pointgroup.modules.models import PointGroup, SpconvBackbone
+from models.pointgroup.util import get_segmented_scores
 
 from packages.pointgroup_ops.functions import pointgroup_ops
 
 log = logging.getLogger(__name__)
 
 
-class SpconvBackboneModule(BackboneModule):
+class SpconvBackboneTrainer(BackboneTrainer):
     def __init__(
         self,
         cfg: DictConfig,
     ):
-        super(SpconvBackboneModule, self).__init__(cfg)
+        super(SpconvBackboneTrainer, self).__init__(cfg)
         self.model = SpconvBackbone(cfg)
         self.use_coords = cfg.model.structure.use_coords
 
@@ -41,7 +41,7 @@ class SpconvBackboneModule(BackboneModule):
         self.log("val_loss", loss, sync_dist=True)
 
 
-class PointgroupModule(SegmentationModule):
+class PointgroupTrainer(SegmentationTrainer):
     def __init__(
         self,
         cfg: DictConfig,
@@ -49,11 +49,10 @@ class PointgroupModule(SegmentationModule):
         backbone: SpconvBackbone = None,
         do_instance_segmentation: bool = False,
     ):
-        super(PointgroupModule, self).__init__(cfg, data_interface)
+        super(PointgroupTrainer, self).__init__(cfg, data_interface)
 
         self.model = PointGroup(cfg, backbone=backbone)
         self.do_instance_segmentation = do_instance_segmentation
-        # self.do_instance_segmentation = True
 
         self.semantic_criterion = nn.CrossEntropyLoss(
             ignore_index=cfg.dataset.ignore_label
@@ -116,17 +115,6 @@ class PointgroupModule(SegmentationModule):
         semantic_labels = batch.labels
 
         semantic_loss = self.semantic_criterion(semantic_scores, semantic_labels)
-
-        # return LossType(
-        #     semantic_loss=semantic_loss,
-        #     offset_norm_loss=0,
-        #     offset_dir_loss=0,
-        #     score_loss=0,
-        #     number_of_instances=0,
-        #     number_of_points=semantic_scores.shape[0],
-        #     number_of_valid_labels=0,
-        #     total_loss=semantic_loss,
-        # )
 
         """offset loss"""
         gt_offsets = batch.instance_centers - batch.points  # (N, 3)

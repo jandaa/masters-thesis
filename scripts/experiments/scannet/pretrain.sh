@@ -1,5 +1,5 @@
 dataset_dir=/media/starslab/datasets/scannet_preprocessed_2mm
-python src/train.py \
+python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
     tasks=["pretrain"] \

@@ -10,8 +10,8 @@ import pytorch_lightning as pl
 from sklearn.manifold import TSNE
 from matplotlib import pyplot as plt
 
-from dataloaders.data_interface import DataInterfaceFactory
-from model import ModelFactory
+from datasets.interface import DataInterfaceFactory
+from models.factory import ModelFactory
 
 from scipy.stats import wasserstein_distance
 

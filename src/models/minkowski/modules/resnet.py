@@ -1,15 +1,9 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
-
 import torch.nn as nn
 
 import MinkowskiEngine as ME
 from MinkowskiEngine import MinkowskiNetwork
 
-from model.minkowski.common import ConvType, NormType, get_norm, conv, sum_pool
+from models.minkowski.modules.common import ConvType, NormType, get_norm, conv, sum_pool
 
 
 class Model(MinkowskiNetwork):

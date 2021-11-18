@@ -4,8 +4,8 @@ import shutil
 
 # Load data Interfaces
 from util.types import DataInterface
-from dataloaders.scannetv2 import ScannetDataInterface
-from dataloaders.s3dis import S3DISDataInterface
+from datasets.scannetv2 import ScannetDataInterface
+from datasets.s3dis import S3DISDataInterface
 
 log = logging.getLogger(__name__)
 

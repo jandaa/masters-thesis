@@ -59,7 +59,7 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
     }
 
 
-class SegmentationModule(pl.LightningModule):
+class SegmentationTrainer(pl.LightningModule):
     def __init__(
         self,
         cfg: DictConfig,
@@ -285,7 +285,7 @@ class SegmentationModule(pl.LightningModule):
         return unique[counts == max_count][0]
 
 
-class BackboneModule(pl.LightningModule):
+class BackboneTrainer(pl.LightningModule):
     def __init__(
         self,
         cfg: DictConfig,
