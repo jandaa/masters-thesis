@@ -6,6 +6,5 @@ python src/train.py \
     tasks=["train","eval"] \
     gpus=1 \
     max_epochs=400 \
-    dataset.scale=50 \
     check_val_every_n_epoch=10 \
     model.train.train_workers=10 

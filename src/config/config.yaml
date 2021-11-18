@@ -1,8 +1,6 @@
 # general parameters
-experiment_name: test_1
 dataset_dir: ??? # Must be provided at command line
 output_dir: 
-manual_seed: 123
 
 # What tasks to run, Options
 # 1. train - train and run on test set
@@ -16,8 +14,6 @@ gpus: 1
 accelerator: "ddp"
 max_epochs: 384
 check_val_every_n_epoch: 10
-preload_data: False
-force_reload: False
 precision: 32
 
 # Fraction of training set to use during training

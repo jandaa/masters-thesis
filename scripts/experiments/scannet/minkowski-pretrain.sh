@@ -8,7 +8,6 @@ python src/train.py \
     dataset.pretrain.batch_size=16 \
     dataset.pretrain.accumulate_grad_batches=2 \
     model.train.train_workers=8 \
-    dataset.scale=50 \
     check_val_every_n_epoch=10 \
     model.optimizer.type=SGD \
     model.optimizer.lr=0.1

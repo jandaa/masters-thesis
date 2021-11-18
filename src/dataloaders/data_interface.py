@@ -14,7 +14,6 @@ class DataInterfaceFactory:
     """Factory that returns the interface specified by the dataset type chosen."""
 
     def __init__(self, cfg):
-        self.force_reload = cfg.force_reload
         self.dataset_cfg = cfg.dataset
         self.dataset_dir = Path(cfg.dataset_dir)
 

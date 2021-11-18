@@ -25,7 +25,8 @@ class SegmentationDataset(Dataset):
         self.num_workers = cfg.model.train.train_workers
         self.ignore_label = cfg.dataset.ignore_label
         self.is_test = is_test
-        self.scale = cfg.dataset.scale
+        self.voxel_size = cfg.dataset.voxel_size
+        self.scale = 1 / cfg.dataset.voxel_size
         self.mode = cfg.dataset.mode
 
         self.max_npoint = cfg.dataset.max_npoint
@@ -64,7 +65,7 @@ class PretrainDataset(Dataset):
         self.scenes = scenes
         self.num_workers = cfg.model.train.train_workers
         self.ignore_label = cfg.dataset.ignore_label
-        self.scale = cfg.dataset.scale
+        self.voxel_size = cfg.dataset.voxel_size
 
     def __len__(self):
         return len(self.scenes)
@@ -149,7 +150,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
             # Voxelize input
             (discrete_coords, mapping, inv_mapping,) = ME.utils.sparse_quantize(
                 coordinates=xyz,
-                quantization_size=(1 / self.scale),
+                quantization_size=self.voxel_size,
                 return_index=True,
                 return_inverse=True,
             )
@@ -284,7 +285,7 @@ class MinkowskiDataset(SegmentationDataset):
             xyz,
             features=features,
             labels=labels[:, 0],
-            quantization_size=(1 / self.scale),
+            quantization_size=self.voxel_size,
         )
 
         return MinkowskiInput(

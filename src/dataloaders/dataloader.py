@@ -40,7 +40,6 @@ class DataModule(pl.LightningDataModule):
 
         # Dataloader specific parameters
         self.cfg = cfg
-        self.scale = cfg.dataset.scale  # voxel_size = 1 / scale, scale 50(2cm)
         self.max_npoint = cfg.dataset.max_npoint
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
         self.ignore_label = cfg.dataset.ignore_label
