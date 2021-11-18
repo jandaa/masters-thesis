@@ -21,6 +21,44 @@ import util.eval_semantic as eval_semantic
 log = logging.getLogger(__name__)
 
 
+def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
+    if optimizer_cfg.type == "Adam":
+        optimizer = torch.optim.Adam(
+            parameters,
+            lr=optimizer_cfg.lr,
+        )
+    elif optimizer_cfg.type == "SGD":
+        optimizer = torch.optim.SGD(
+            parameters,
+            lr=optimizer_cfg.lr,
+            momentum=optimizer_cfg.momentum,
+            weight_decay=optimizer_cfg.weight_decay,
+        )
+    else:
+        # TODO: Put error logging at high level try catch block
+        log.error(f"Invalid optimizer type: {optimizer_cfg.type}")
+        raise ValueError(f"Invalid optimizer type: {optimizer_cfg.type}")
+
+    # Get scheduler if any is specified
+    if not scheduler_cfg.type:
+        log.info("No learning rate schedular specified")
+        return optimizer
+    elif scheduler_cfg.type == "ExpLR":
+        scheduler = ExponentialLR(optimizer, scheduler_cfg.exp_gamma)
+    else:
+        log.error(f"Invalid scheduler type: {scheduler_cfg.type}")
+        raise ValueError(f"Invalid scheduler type: {scheduler_cfg.type}")
+
+    return {
+        "optimizer": optimizer,
+        "lr_scheduler": {
+            "scheduler": scheduler,
+            "interval": scheduler_cfg.interval,
+            "frequency": scheduler_cfg.frequency,
+        },
+    }
+
+
 class SegmentationModule(pl.LightningModule):
     def __init__(
         self,
@@ -68,34 +106,8 @@ class SegmentationModule(pl.LightningModule):
         torch.cuda.empty_cache()
 
     def configure_optimizers(self):
-        if self.optimizer_cfg.type == "Adam":
-            optimizer = torch.optim.Adam(
-                filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.optimizer_cfg.lr,
-            )
-        elif self.optimizer_cfg.type == "SGD":
-            optimizer = torch.optim.SGD(
-                filter(lambda p: p.requires_grad, self.parameters()),
-                lr=self.optimizer_cfg.lr,
-                momentum=self.optimizer_cfg.momentum,
-                weight_decay=self.optimizer_cfg.weight_decay,
-            )
-        else:
-            # TODO: Put error logging at high level try catch block
-            log.error(f"Invalid optimizer type: {self.optimizer_type}")
-            raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
-
-        # Get scheduler if any
-        if not self.scheduler_cfg.type:
-            log.info("No learning rate schedular specified")
-            return optimizer
-        if self.scheduler_cfg.type == "ExpLR":
-            scheduler = ExponentialLR(optimizer, self.scheduler_cfg.exp_gamma)
-        else:
-            log.error(f"Invalid scheduler type: {self.scheduler_cfg.type}")
-            raise ValueError(f"Invalid scheduler type: {self.scheduler_cfg.type}")
-
-        return [optimizer], [scheduler]
+        parameters = filter(lambda p: p.requires_grad, self.parameters())
+        return configure_optimizers(parameters, self.optimizer_cfg, self.scheduler_cfg)
 
     def validation_epoch_end(self, outputs):
         semantic_matches = {}
@@ -294,38 +306,5 @@ class BackboneModule(pl.LightningModule):
         self.criterion = NCESoftmaxLoss()
 
     def configure_optimizers(self):
-        if self.optimizer_cfg.type == "Adam":
-            optimizer = torch.optim.Adam(
-                self.parameters(),
-                lr=self.optimizer_cfg.lr,
-            )
-        elif self.optimizer_cfg.type == "SGD":
-            optimizer = torch.optim.SGD(
-                self.parameters(),
-                lr=self.optimizer_cfg.lr,
-                momentum=self.optimizer_cfg.momentum,
-                weight_decay=self.optimizer_cfg.weight_decay,
-            )
-        else:
-            # TODO: Put error logging at high level try catch block
-            log.error(f"Invalid optimizer type: {self.optimizer_type}")
-            raise ValueError(f"Invalid optimizer type: {self.optimizer_type}")
-
-        # Get scheduler if any is specified
-        if not self.scheduler_cfg.type:
-            log.info("No learning rate schedular specified")
-            return optimizer
-        elif self.scheduler_cfg.type == "ExpLR":
-            scheduler = ExponentialLR(optimizer, self.scheduler_cfg.exp_gamma)
-        else:
-            log.error(f"Invalid scheduler type: {self.scheduler_cfg.type}")
-            raise ValueError(f"Invalid scheduler type: {self.scheduler_cfg.type}")
-
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "interval": self.scheduler_cfg.interval,
-                "frequency": self.scheduler_cfg.frequency,
-            },
-        }
+        parameters = self.parameters()
+        return configure_optimizers(parameters, self.optimizer_cfg, self.scheduler_cfg)
