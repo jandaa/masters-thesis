@@ -24,7 +24,7 @@ sudo apt-get install python3-pip python3-venv
 
 ### Nvidia Drivers
 
-This project requires both nvidia [cuDNN](https://developer.nvidia.com/cudnn) and the [cuda toolkit](https://developer.nvidia.com/cuda-downloads) to be installed.
+This project requires both nvidia [cuDNN](https://developer.nvidia.com/cudnn) and the [cuda toolkit](https://developer.nvidia.com/cuda-downloads) to be installed. It's important that both the cuda toolkit and cuDNN match versions (e.g. 11.1) and that this matches the pytorch cuda toolkit version being used (in this project this is version 11.1). You can find archived versions in both links.
 
 When installing the cuDNN library, download both the runtime and developer library and install each using the following commands.
 
@@ -49,11 +49,11 @@ source ~/.bashrc
 
 ### Installation
 
-Run the following commands to install a virtual entironment with all the requirements. Note this is not necessary if running on a SLURM cluster (refer to the next section).
+Run the following commands to install a virtual entironment with all the requirements. Note this is not necessary if running on a SLURM cluster (refer to the next section). Also note that the install script will ask for sudo privileges in the very first step.
 
 ```shell
 bash scripts/third_party.sh
-sudo bash scripts/install.sh
+bash scripts/install.sh
 ```
 
 The virtual environment can be activated using:
