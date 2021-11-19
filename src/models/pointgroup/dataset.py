@@ -91,6 +91,7 @@ class SpconvDataset(SegmentationDataset):
         ) = pointgroup_ops.voxelization_idx(coordinates, len(batch), self.mode)
 
         spatial_shape = (coordinates.max(0)[0][1:] + 1).numpy()
+        spatial_shape = spatial_shape.clip(128, None)
         test_filename = batch[0]["filename"]
         return PointGroupBatch(
             batch_indices=coordinates[:, 0].int(),
