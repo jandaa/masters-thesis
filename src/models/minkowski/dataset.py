@@ -158,6 +158,7 @@ class MinkowskiDataset(SegmentationDataset):
             points=coordinates_batch,
             features=features_batch.float(),
             labels=labels_batch.int(),
+            batch_size=len(batch),
             test_filename=batch[0].test_filename,
         )
 
@@ -186,5 +187,6 @@ class MinkowskiDataset(SegmentationDataset):
             points=coords,
             features=feats,
             labels=labels,
+            batch_size=1,
             test_filename=scene.name,
         )

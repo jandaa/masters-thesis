@@ -11,7 +11,7 @@ class MinkowskiInput:
     points: torch.Tensor
     features: torch.Tensor
     labels: torch.Tensor
-
+    batch_size: int
     test_filename: str
 
     def to(self, device):
@@ -22,6 +22,9 @@ class MinkowskiInput:
                 setattr(self, fieldname, data.to(device))
 
         return self
+
+    def __len__(self):
+        return self.batch_size
 
 
 @dataclass
