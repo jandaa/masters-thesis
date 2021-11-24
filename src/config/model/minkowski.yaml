@@ -2,11 +2,14 @@ name: minkowski
 
 net:
   model: Res16UNet34C
-  model_n_out: 32 # Feature dimension
+  model_n_out: 256 # Feature dimension
   conv1_kernel_size: 3
-  normalize_feature: True
+  normalize_feature: False
   dist_type: L2
   bn_momentum: 0.05
+
+  use_mlp: True
+  mlp_dim: [256, 256, 128]
 
 optimizer:
   type: Adam # Adam or SGD
@@ -15,22 +18,23 @@ optimizer:
   weight_decay: 1e-4
 
 scheduler:
-  type: 
-  exp_gamma: 
+  type:
+  exp_gamma:
   interval:
   frequency:
 
 pretrain:
-
   optimizer:
     type: SGD # Adam or SGD
-    lr: 1e-1
+    lr: 12e-2
     momentum: 0.9
     weight_decay: 1e-4
 
   scheduler:
-    type: ExpLR
-    exp_gamma: 0.99
+    type: CosineLR
+    exp_gamma:
+    final_lr: 0.00012
+    t_max: 10000
     interval: "step"
     frequency: 1000
 
@@ -47,11 +51,10 @@ pretrain:
       across_format_weight1: 0.0
       NCE_LOSS:
         NORM_EMBEDDING: True
-        TEMPERATURE: 0.4
+        TEMPERATURE: 0.1
         LOSS_TYPE: cross_entropy
-        NUM_NEGATIVES: 4092
-        EMBEDDING_DIM: 32
-    
+        NUM_NEGATIVES: 100
+        EMBEDDING_DIM: 128
 
 train:
   epochs: 384

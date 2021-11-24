@@ -118,7 +118,7 @@ class NCELossMoco(nn.Module):
 
             self.queue_other_ptr[0] = other_ptr
 
-    def forward(self, output):
+    def forward(self, output, is_val=False):
         assert isinstance(
             output, list
         ), "Model output should be a list of tensors. Got Type {}".format(type(output))
@@ -205,6 +205,9 @@ class NCELossMoco(nn.Module):
             curr_loss += loss_npid * self.npid0_w
 
         loss = curr_loss
+
+        if is_val:
+            self.queue_ptr[0] = 0
 
         return loss, [loss_npid, loss_npid_other, loss_cmc_p2i, loss_cmc_i2p]
 

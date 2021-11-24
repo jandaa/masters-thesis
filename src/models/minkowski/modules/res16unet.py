@@ -228,52 +228,52 @@ class Res16UNetBase(ResNetBase):
         out = self.conv1p1s2(out_p1)
         out = self.bn1(out)
         out = self.relu(out)
-        out_b1p2 = self.block1(out)
+        out_b1p2 = self.block1(out)  # 32
 
         out = self.conv2p2s2(out_b1p2)
         out = self.bn2(out)
         out = self.relu(out)
-        out_b2p4 = self.block2(out)
+        out_b2p4 = self.block2(out)  # 64
 
         out = self.conv3p4s2(out_b2p4)
         out = self.bn3(out)
         out = self.relu(out)
-        out_b3p8 = self.block3(out)
+        out_b3p8 = self.block3(out)  # 128
 
         out = self.conv4p8s2(out_b3p8)
         out = self.bn4(out)
         out = self.relu(out)
-        encoder_out = self.block4(out)
+        encoder_out = self.block4(out)  # 256
 
         out = self.convtr4p16s2(encoder_out)
         out = self.bntr4(out)
         out = self.relu(out)
 
         out = me.cat(out, out_b3p8)
-        out = self.block5(out)
+        out = self.block5(out)  # 256
 
         out = self.convtr5p8s2(out)
         out = self.bntr5(out)
         out = self.relu(out)
 
         out = me.cat(out, out_b2p4)
-        out = self.block6(out)
+        out = self.block6(out)  # 256
 
         out = self.convtr6p4s2(out)
         out = self.bntr6(out)
-        out = self.relu(out)
+        out = self.relu(out)  # 256
 
         out = me.cat(out, out_b1p2)
-        out = self.block7(out)
+        out = self.block7(out)  # 256
 
         out = self.convtr7p2s2(out)
         out = self.bntr7(out)
-        out = self.relu(out)
+        out = self.relu(out)  # 256
 
         out = me.cat(out, out_p1)
-        out = self.block8(out)
+        out = self.block8(out)  # 256
 
-        contrastive = self.final(out)
+        contrastive = self.final(out)  # 256
         if self.normalize_feature:
             contrastive = SparseTensor(
                 contrastive.F / torch.norm(contrastive.F, p=2, dim=1, keepdim=True),

@@ -9,7 +9,11 @@ from models.minkowski.trainer import (
     MinkowskiBackboneTrainer,
     MinkowskiBackboneMOCOTrainer,
 )
-from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
+from models.minkowski.dataset import (
+    MinkowskiDataset,
+    MinkowskiDepthContrastDataset,
+    MinkowskiPointContrastDataset,
+)
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -88,6 +92,6 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise RuntimeError(self.error_msg)
         elif self.model_name == minkowski_name:
-            return MinkowskiPretrainDataset
+            return MinkowskiDepthContrastDataset
         else:
             raise RuntimeError(self.error_msg)

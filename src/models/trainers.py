@@ -7,7 +7,7 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, CosineAnnealingLR
 import pytorch_lightning as pl
 import numpy as np
 import open3d as o3d
@@ -45,6 +45,10 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
         return optimizer
     elif scheduler_cfg.type == "ExpLR":
         scheduler = ExponentialLR(optimizer, scheduler_cfg.exp_gamma)
+    elif scheduler_cfg.type == "CosineLR":
+        scheduler = CosineAnnealingLR(
+            optimizer, T_max=scheduler_cfg.t_max, eta_min=scheduler_cfg.final_lr
+        )
     else:
         log.error(f"Invalid scheduler type: {scheduler_cfg.type}")
         raise ValueError(f"Invalid scheduler type: {scheduler_cfg.type}")

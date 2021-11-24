@@ -8,7 +8,8 @@ import MinkowskiEngine as ME
 import numpy as np
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
-from models.minkowski.modules.res16unet import Res16UNet34C
+from models.minkowski.modules.res16unet import Res16UNet34C, Res16UNet34
+from models.minkowski.modules.smlp import SMLP
 
 from util.types import DataInterface
 from models.minkowski.types import (
@@ -31,16 +32,27 @@ class MinkovskiSemantic(nn.Module):
         if backbone:
             self.backbone = backbone
         else:
-            self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+            self.backbone = Res16UNet34(3, self.feature_dim, cfg.model, D=3)
         self.linear = ME.MinkowskiLinear(
             self.feature_dim, self.dataset_cfg.classes, bias=False
         )
 
+        # DepthContrast
+        self.use_mlp = cfg.model.net.use_mlp
+        self.mlp_dim = cfg.model.net.mlp_dim
+        if self.use_mlp:
+            self.head = SMLP(self.mlp_dim)
+            self.maxpool = ME.MinkowskiGlobalMaxPooling()
+
     def forward(self, input):
         """Extract features and predict semantic class."""
         output = self.backbone(input)
-        output = self.linear(output)
-        return MinkowskiOutput(semantic_scores=output.F)
+
+        if self.use_mlp:
+            output = self.maxpool(output)
+            return self.head(output)
+        else:
+            return self.linear(output)
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):
@@ -119,7 +131,8 @@ class MinkowskiBackboneMOCOTrainer(BackboneTrainer):
         super(MinkowskiBackboneMOCOTrainer, self).__init__(cfg)
 
         self.feature_dim = cfg.model.net.model_n_out
-        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.model = MinkovskiSemantic(cfg)
 
         self.criterion = NCELossMoco(cfg.model.pretrain.loss.args)
 
@@ -129,9 +142,7 @@ class MinkowskiBackboneMOCOTrainer(BackboneTrainer):
         return output
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self.model(model_input)
-        loss = self.loss_fn(batch, output)
+        loss = self.shared_step(batch)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -140,35 +151,24 @@ class MinkowskiBackboneMOCOTrainer(BackboneTrainer):
         return loss
 
     def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features, batch.points)
-        output = self.model(model_input)
-        loss = self.loss_fn(batch, output)
+        loss = self.shared_step(batch, is_val=True)
         self.log("val_loss", loss, sync_dist=True)
 
-    def loss_fn(self, batch, output):
-        max_pos = 4092
+    def shared_step(self, batch: MinkowskiPretrainInput, is_val=False):
 
-        qs, ks = [], []
-        for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [v for v, _ in matches]
-            voxel_indices_2 = [v for _, v in matches]
-            output_batch_1 = output.features_at(2 * i)
-            output_batch_2 = output.features_at(2 * i + 1)
-            q = output_batch_1[voxel_indices_1]
-            k = output_batch_2[voxel_indices_2]
+        # Features of first augmentation
+        model_input1 = ME.SparseTensor(batch[0].features.float(), batch[0].points)
+        output1 = self.model(model_input1)
 
-            qs.append(q)
-            ks.append(k)
+        # Features of second augmentation
+        model_input2 = ME.SparseTensor(batch[1].features.float(), batch[1].points)
+        output2 = self.model(model_input2)
 
-        q = torch.cat(qs, 0)
-        k = torch.cat(ks, 0)
+        # Compute loss function
+        return self.loss_fn(output1, output2, is_val=is_val)
 
-        if q.shape[0] > max_pos:
-            inds = np.random.choice(q.shape[0], max_pos, replace=False)
-            q = q[inds]
-            k = k[inds]
-
-        loss, _ = self.criterion([q, k])
+    def loss_fn(self, output1, output2, is_val=False):
+        loss, _ = self.criterion([output1.F, output2.F], is_val=is_val)
         return loss
 
 

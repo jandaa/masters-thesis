@@ -8,10 +8,90 @@ import dataloaders.transforms as transforms
 from models.minkowski.types import MinkowskiInput, MinkowskiPretrainInput
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
 
+from util.utils import visualize_pointcloud
 
-class MinkowskiPretrainDataset(PretrainDataset):
+
+class MinkowskiDepthContrastDataset(PretrainDataset):
     def __init__(self, scenes, cfg):
-        super(MinkowskiPretrainDataset, self).__init__(scenes, cfg)
+        super(MinkowskiDepthContrastDataset, self).__init__(scenes, cfg)
+
+        color_jitter_std = 0.05
+        self.scale_range = (0.9, 1.1)
+        self.augmentations = transforms.Compose(
+            [
+                transforms.RandomCuboid(),
+                transforms.RandomDropPatches(),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomRotateZ(),
+            ]
+        )
+
+    def __len__(self):
+        return 130000
+
+    def collate(self, batch):
+        pretrain_inputs = []
+        for i in range(2):
+            coords_list = [datapoint[i]["coordinates"] for datapoint in batch]
+            features_list = [datapoint[i]["features"] for datapoint in batch]
+
+            coordinates_batch, features_batch = ME.utils.sparse_collate(
+                coords_list, features_list
+            )
+
+            pretrain_inputs.append(
+                MinkowskiPretrainInput(
+                    points=coordinates_batch,
+                    features=features_batch.float(),
+                    correspondences=None,
+                    batch_size=len(batch),
+                )
+            )
+
+        return pretrain_inputs
+
+    def get_augmented_frame(self, xyz, features):
+        import copy
+
+        xyz = copy.deepcopy(xyz)
+        features = copy.deepcopy(features)
+
+        # Randomly rotate each frame
+        xyz = xyz - xyz.mean(0)
+        xyz, features, _ = self.augmentations(xyz, features, None)
+
+        # Voxelize input
+        coordinates, mapping = ME.utils.sparse_quantize(
+            coordinates=xyz, quantization_size=self.voxel_size, return_index=True
+        )
+
+        return {
+            "coordinates": coordinates,
+            "features": features[mapping],
+        }
+
+    def __getitem__(self, index):
+
+        scene = random.choice(range(len(self.scenes)))
+        scene = self.scenes[scene].load_measurements()
+
+        frame = random.choice(range(scene.num_measurements))
+        frame = scene.get_measurement(frame)
+
+        # Extract data
+        xyz = np.ascontiguousarray(frame.points)
+        features = torch.from_numpy(frame.point_colors)
+
+        # apply a random scalling
+        xyz *= np.random.uniform(*self.scale_range)
+
+        # Create two versions of frame with different augmentations
+        return [self.get_augmented_frame(xyz, features) for i in range(2)]
+
+
+class MinkowskiPointContrastDataset(PretrainDataset):
+    def __init__(self, scenes, cfg):
+        super(MinkowskiPointContrastDataset, self).__init__(scenes, cfg)
 
         color_jitter_std = 0.05
         self.scale_range = (0.9, 1.1)

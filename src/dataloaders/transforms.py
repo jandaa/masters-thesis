@@ -69,6 +69,96 @@ class ChromaticJitter(object):
 ##############################
 # Coordinate transformations
 ##############################
+class RandomCuboid(object):
+    def __init__(self):
+        """Extract a random cuboid from the scene."""
+
+        self.crop = 0.5
+        self.npoints = 5000
+        self.randomcrop = 1.0
+        self.aspect = 0.75
+
+    def check_aspect(self, crop_range, aspect_min):
+        xy_aspect = np.min(crop_range[:2]) / np.max(crop_range[:2])
+        xz_aspect = np.min(crop_range[[0, 2]]) / np.max(crop_range[[0, 2]])
+        yz_aspect = np.min(crop_range[1:]) / np.max(crop_range[1:])
+        return (
+            (xy_aspect >= aspect_min)
+            or (xz_aspect >= aspect_min)
+            or (yz_aspect >= aspect_min)
+        )
+
+    def __call__(self, coords, feats, labels):
+
+        if coords.shape[0] < self.npoints:
+            return coords, feats, labels
+
+        range_xyz = np.max(coords, axis=0) - np.min(coords, axis=0)
+
+        if self.randomcrop:
+
+            crop_range = self.crop + np.random.rand(3) * (self.randomcrop - self.crop)
+            if self.aspect:
+                loop_count = 0
+                while not self.check_aspect(crop_range, self.aspect):
+                    loop_count += 1
+                    crop_range = self.crop + np.random.rand(3) * (
+                        self.randomcrop - self.crop
+                    )
+                    if loop_count > 100:
+                        break
+        else:
+            crop_range = self.crop
+
+        loop_count = 0
+        while True:
+            loop_count += 1
+
+            sample_center = coords[np.random.choice(coords.shape[0])]
+
+            new_range = range_xyz * crop_range / 2.0
+
+            max_xyz = sample_center + new_range
+            min_xyz = sample_center - new_range
+
+            upper_idx = np.sum((coords <= max_xyz).astype(np.int32), 1) == 3
+            lower_idx = np.sum((coords >= min_xyz).astype(np.int32), 1) == 3
+
+            new_pointidx = (upper_idx) & (lower_idx)
+
+            if (loop_count > 100) or (np.sum(new_pointidx) > self.npoints):
+                break
+
+        labels = labels[new_pointidx] if labels else None
+        return coords[new_pointidx], feats[new_pointidx], labels
+
+
+class RandomDropPatches(object):
+    def __init__(self):
+        """Randomly drop patches from the input scene."""
+
+        self.crop_range = 0.2
+
+    def __call__(self, coords, feats, labels):
+
+        # compute ranges
+        range_xyz = np.max(coords, axis=0) - np.min(coords, axis=0)
+        new_range = range_xyz * self.crop_range / 2.0
+
+        sample_center = coords[np.random.choice(coords.shape[0]), 0:3]
+
+        max_xyz = sample_center + new_range
+        min_xyz = sample_center - new_range
+
+        upper_idx = np.sum((coords < max_xyz).astype(np.int32), 1) == 3
+        lower_idx = np.sum((coords > min_xyz).astype(np.int32), 1) == 3
+
+        # Return new indices
+        new_pointidx = ~((upper_idx) & (lower_idx))
+        labels = labels[new_pointidx] if labels else None
+        return coords[new_pointidx], feats[new_pointidx], labels
+
+
 class RandomDropout(object):
     def __init__(self, dropout_ratio=0.2, dropout_application_ratio=0.5):
         """
