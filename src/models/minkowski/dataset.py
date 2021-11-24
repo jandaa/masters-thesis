@@ -60,10 +60,10 @@ class MinkowskiPretrainDataset(PretrainDataset):
         frame1 = random.choice(list(scene.matching_frames_map.keys()))
         frame2 = random.choice(scene.matching_frames_map[frame1])
 
+        correspondences = scene.correspondance_map[frame1][frame2]
+
         frame1 = scene.get_measurement(frame1)
         frame2 = scene.get_measurement(frame2)
-
-        correspondences = scene.correspondance_map[frame1][frame2]
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)

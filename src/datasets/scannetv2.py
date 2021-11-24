@@ -16,7 +16,7 @@ from hydra.utils import get_original_cwd
 from plyfile import PlyData
 
 from util.types import DataInterface, DataPoint, SceneWithLabels
-from datasets.measurements import SceneMeasurements, measurements_dir_name
+from util.scene import SceneMeasurements, measurements_dir_name
 
 log = logging.getLogger(__name__)
 

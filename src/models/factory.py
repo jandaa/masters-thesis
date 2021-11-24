@@ -4,7 +4,11 @@ from omegaconf import DictConfig
 import torch
 from models.pointgroup.trainer import PointgroupTrainer
 from models.pointgroup.dataset import SpconvDataset
-from models.minkowski.trainer import MinkowskiTrainer, MinkowskiBackboneTrainer
+from models.minkowski.trainer import (
+    MinkowskiTrainer,
+    MinkowskiBackboneTrainer,
+    MinkowskiBackboneMOCOTrainer,
+)
 from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
 from util.types import DataInterface
 
@@ -39,7 +43,10 @@ class ModelFactory:
 
     def get_backbone_wrapper_type(self):
         if self.model_name == minkowski_name:
-            return MinkowskiBackboneTrainer
+            if self.cfg.model.pretrain.loss.name == "NCELossMoco":
+                return MinkowskiBackboneMOCOTrainer
+            else:
+                return MinkowskiBackboneTrainer
         else:
             raise RuntimeError(self.error_msg)
 

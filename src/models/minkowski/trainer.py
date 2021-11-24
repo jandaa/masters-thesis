@@ -16,7 +16,7 @@ from models.minkowski.types import (
     MinkowskiOutput,
     MinkowskiPretrainInput,
 )
-from util.utils import NCESoftmaxLoss
+from util.utils import NCESoftmaxLoss, NCELossMoco
 
 log = logging.getLogger(__name__)
 
@@ -109,6 +109,67 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         out = out.squeeze().contiguous()
 
         return self.criterion(out, labels)
+
+
+class MinkowskiBackboneMOCOTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(MinkowskiBackboneMOCOTrainer, self).__init__(cfg)
+
+        self.feature_dim = cfg.model.net.model_n_out
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        self.criterion = NCELossMoco(cfg.model.pretrain.loss.args)
+
+    def forward(self, batch: MinkowskiInput):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input)
+        return output
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input)
+        loss = self.loss_fn(batch, output)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output = self.model(model_input)
+        loss = self.loss_fn(batch, output)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def loss_fn(self, batch, output):
+        max_pos = 4092
+
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [v for v, _ in matches]
+            voxel_indices_2 = [v for _, v in matches]
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        loss, _ = self.criterion([q, k])
+        return loss
 
 
 class MinkowskiTrainer(SegmentationTrainer):

@@ -33,6 +33,24 @@ pretrain:
     exp_gamma: 0.99
     interval: "step"
     frequency: 1000
+
+  loss:
+    name: "NCELossMoco"
+    # name: NCELoss
+    args:
+      two_domain: True
+      LOSS_TYPE: NPID
+      OTHER_INPUT: False
+      within_format_weight0: 1.0
+      within_format_weight1: 0.0
+      across_format_weight0: 0.0
+      across_format_weight1: 0.0
+      NCE_LOSS:
+        NORM_EMBEDDING: True
+        TEMPERATURE: 0.4
+        LOSS_TYPE: cross_entropy
+        NUM_NEGATIVES: 4092
+        EMBEDDING_DIM: 32
     
 
 train:
