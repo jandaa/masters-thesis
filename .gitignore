@@ -133,3 +133,12 @@ outputs/
 
 *sens
 *.out
+
+doc/*.aux
+doc/*.bbl
+doc/*.blg
+doc/*.fdb_latexmk
+doc/*.fls 
+doc/*.log
+doc/*.pdf
+doc/*.synctex.gz

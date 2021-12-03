@@ -1,0 +1,128 @@
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry} 
+\usepackage{amsmath}
+\usepackage{tcolorbox}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\usepackage{accents}
+
+\pagestyle{fancy}
+\setlength{\headheight}{40pt}
+
+\begin{document}
+
+\lhead{Contrastive Learning \& Pre-training on 3D Data}
+\rhead{Theory \& Proposal}
+\cfoot{\thepage\ of \pageref{LastPage}}
+
+\section{background}
+
+\begin{itemize}
+    \item Want to leverage unlabeled Data
+    \item This is especially important in 3D
+          \begin{itemize}
+              \item where large 3D datasets do not exist on the web
+              \item Easy to capture large amounts of 3D data with new sensors
+              \item Extremely hard to label when compared to 2D
+          \end{itemize}
+    \item Semi-Supervised Contrastive pre-training has show to outperform supervised pre-training in some 2D vision downstream tasks
+    \item Focus more on learning structure of the Data
+    \item Learning from structure should be more general to downstream tasks than pre-training on a particular objective
+    \item Contrastive Learning is a subset of Representational learning that aims to learn how to represent high dimensional data in a lower dimensional space.
+          \begin{itemize}
+              \item Generative (e.g. VAE)
+              \item discriminative (e.g. Contrastive)
+              \item Contrastive-Generative (Adversarial)
+              \item Contrastive has shown biggest promise so far
+          \end{itemize}
+    \item Contrative learning learns by comparing similarities among data points.
+\end{itemize}
+
+
+\section{Theory}
+
+Much of this theory is coming from the framework laid out in \cite{le-khac_contrastive_2020}
+
+\subsection{Sampling}
+
+To learn from comparing data samples, we first need to define positive and negative distributions. These allow us to sample points which we know should be like and which should be un-like. We define these distributions as:
+%
+
+$$\mathbf{x}^{+} \sim p^{+}( \cdot | \mathbf{x})$$
+$$\mathbf{x}^{-} \sim p^{-}( \cdot | \mathbf{x})$$
+
+Where x is an individual data point. At a high level, we want to sample points from both distributions and make those coming from the positive distribution close together in feature space and those from the negative distribution far in feature space.
+%
+
+In a supervised setting, these distributions can be defined by the labels themselves. But in self-supervised, we have to define these distributions using the raw data only.
+%
+
+Note that the definition of these two distributions are ultimately what will determine what kind of features and invariances the encoder will learn.
+%
+
+\subsection{Pre-text Tasks}
+
+As mentioned in the previous section, the labels on which we are learning have to come solely from the data itself. This is done by defining some kind of pre-text task that automatically labels the data without human annotation.
+%
+
+For example, a common pre-text task in natural language processing is to mask a part of a sentence and try to predict the masked token. This would fall under the category of Predictive Coding \cite{oord_representation_2019} and is a generative method instead of contrastive method.
+%
+
+In vision, some common pre-text tasks are
+\begin{itemize}
+    \item \textbf{Colorization:} Predict the colorization of a grey-scale image
+    \item \textbf{Rotation:} Predict the rotation applied to an image
+    \item \textbf{Jigsaw:} Rebuild an image from randomly permuted rectangular patches
+    \item \textbf{Instance Discrimination:} Treat each data point as its own instance
+\end{itemize}
+%
+
+The most common contrastive pre-text task in vision, is instance discrimination. The idea is to treat each data point as its own instance. Then the goal is to discriminate this instance, an any of its augmentations, from other instances in the dataset coming from the negative distribution.
+%
+
+We define the positive distribution as different augmentations of the same data point. These augmentations come from a set of transforms $\mathcal{T}$ where we sample two (or more) transformations $ t, t^{'} \sim \mathcal{T} $ and apply them to the original data point.
+% 
+
+$$x = t(x), \quad x^{+} = t^{'}(x)$$
+
+Common transforms in 2D vision include random cropping, colour jitter, gaussian blurring, and elastic distortion.
+%
+
+Negative Samples are then defined as any other data point and its augmentations. This is obviously a very simple and naive sampling strategy. Its limitations will be addressed in a future section.
+%
+
+\subsection{Encoder \& Decoder}
+
+The goal of representational learning is to learn a good mapping from the high-dimensional raw input $\mathbf{x} \in \mathbb{R}^{n_0 \times \dots \times n_N}$ to a smaller one-dimensional but more expressive latent representation in feature space denoted as $\mathbf{v} \in \mathbb{R}^{d}$ where $d << n_0 \times \dots \times n_N$. To get this representation we will use some function $e()$ which performs the mapping $\mathbf{v} = e(\mathbf{x})$. This function is usually implemented as some sort of neural network.
+%
+
+This representation is then fed into a decoder (otherwise known as a projection head) that projects these embeddings into a metric space that is used directly to contrast different instances from each other.
+
+
+
+\subsection{Contrastive Loss}
+
+\section{Contrastive in 3D}
+
+\section{Limitations}
+
+\section{Addressing Limitations}
+
+\subsection{Supervised Contrastive Learning}
+
+\subsection{Clustering}
+
+\subsection{Memory Banks \& Momentum Encoders}
+
+\subsection{Hard Negative \& Positive Mining}
+
+\section{Proposal}
+
+\newpage
+\bibliographystyle{plain}
+\bibliography{contrastive-learning}
+
+\end{document}
