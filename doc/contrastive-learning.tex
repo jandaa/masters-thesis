@@ -146,8 +146,10 @@ Using really large negative batches requires a lot of computational resources an
 Many of the approaches also do not condition their negative samples based off of their query.
 
 \section{Addressing Limitations}
+\label{limitations}
 
 \subsection{Supervised Contrastive Learning}
+\label{limitations:supervised}
 
 This method assumes that even if we don't have complete label information, we have at least some ground truth labels. It tries to bridge self-supervised contrastive learning into supervised learning. With the few labels that we do have, we can train our model and use it's outputs to generate pseudo-labels. For outputs that the model is sufficiently certain of, it can use these to select positive samples as those in the same class as the query and negative samples as those from any other class. This has shown to work especially well, beating fully supervised pre-training on ImageNet in downstream vision tasks \cite{khosla_supervised_2021}.
 %
@@ -158,16 +160,19 @@ The core of their contribution is re-formulation of the InfoNCE loss to use mult
 It has also been shown to be useful in 3D \cite{jiang_guided_2021}
 
 \subsection{Clustering}
+\label{limitations:clustering}
 
 Prototypical Contrastive Learning \cite{li_prototypical_2021}, BYOL \cite{grill_bootstrap_nodate} or SwAV \cite{caron_unsupervised_2021}
 
 \subsection{Memory Banks \& Momentum Encoders}
+\label{limitations:memory}
 
 This method tries to deal with negative sampling by just having a lot of negative samples. This is obviously very brute force and requires a lot of compute resources. If we define $Q$ as a memory bank of fixed size that holds features from the previous iterations then we can reformulate the loss as:
 
 $$\mathcal{L}_{i} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum_{k^{-} \in Q} \exp(q_{i} \cdot k^{-} / \tau)}$$
 
 \subsection{Hard Negative \& Positive Mining}
+\label{limitations:mining}
 
 In the beginning when many negative samples are close to the query point, the gradient contribution from each negative sample is strong. But as training goes on, negative points become farther from the query and thus contribute much less to the gradient. Instead of tackling this using extremely large memory banks or batch sizes, this area of research tries to smartly select samples that best benefit encoder training and thus reduce the computational resources required and decrease the training time.
 %
@@ -214,7 +219,7 @@ It can be hard to tune properly
 
 \begin{figure}[h!]
     \begin{center}
-        \includegraphics[scale=0.5]{images/synthetic-negatives.png}
+        \includegraphics[scale=0.35]{images/synthetic-negatives.png}
         \caption{Negative Hard Mixing \cite{kalantidis_hard_nodate}}
     \end{center}
 \end{figure}
@@ -233,11 +238,71 @@ It can be hard to tune properly
     \end{center}
 \end{figure}
 
-
-
+\pagebreak
 
 \section{Proposal}
 
+My work is focused on improving self-supervised contrastive learning in 3D point clouds for semantic and instance segmentation. I will use the work of PointContrast as my starting point. My focus will be on improving the Positive and Negative sampling strategies so that the pretext task and downstream performance improves as well as requiring fewer computational resources.
+
+\subsection{Contrastive Loss}
+
+It's been shown that InfoNCE loss with a temperature parameter is the most effective contrastive loss and the main one used in all recent vision applications. For this reason I will stick with this loss function. It is reprinted below for completeness.
+
+$$\mathcal{L}_{i} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum^{K}_{j}\exp(q_{i} \cdot k^{-}_{j} / \tau)}$$
+
+\subsection{Negative Sampling}
+
+The main focus will be on improving the negative sampling techniques. Currently, negative samples are selected uniformly at random from the set of positive keys. However, this is a naive sampling strategy that is not conditioned on the sampled query point at all. It introduces the possibility for a large number of false negatives or semi-false negatives. Ideally we want to sample from a distribution like:
+
+$$\mathbf{x}^{-} \sim p^{-}( \cdot | \mathbf{x})$$
+
+To condition on the input point, I plan to use Fast Histogram Point Features (FHPF) as a way to select negative points that are sufficiently different from the input point. This operates on the assumption that if the point is different locally, then it for sure is different globally even if the surrounding area is the same.
+
+$$p^{-}( \cdot | \mathbf{x}) = \text{Uniform}(\{ \: \mathbf{x}^- \: | \: \text{sim}(\text{FPFH}(\mathbf{x}^-),\text{FPFH}(\mathbf{x})) > \delta \})$$
+
+where $\text{sim}(\cdot,\cdot)$ is some kind of distance function between the histograms such as earth movers distance.
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.3]{images/regions.png}
+        \caption{Visualization of local vs global region dissimilarity}
+    \end{center}
+\end{figure}
+
+Instead of uniform sampling, I can also try cluster sampling by clustering different local features into feature types (e.g. flat surfaces, round objects, corners) and sample equally from those distributions.
+
+$$p^{-}( \cdot | \mathbf{x}) = \text{Uniform}(\{ \textbf{c} | \textbf{c} \in \text{KNN}\{ \text{FPFH} ( \{ \textbf{x}^- | \textbf{x}^- \in \mathcal{X} \} ) \}, \textbf{c} \neq \textbf{x} \})$$
+
+Where $\text{KNN}$ represents the K-nearest-neigbours clustering algorithm and $\textbf{c}$ is a set of negative samples clustered together based on their similar properties. Thus this strategy constitutes sampling equally from different clusters of points.
+%
+
+Another option is to weight the negative samples based off of the local dissimilarity of the points and incorporate this into the loss function itself.
+%
+
+$$\mathcal{L}_{i} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum^{K}_{j}\exp(w_{i,j} (q_{i} \cdot k^{-}_{j}) / \tau)}$$
+
+$$\text{where} \: w_{i,j} = 1 - \frac{s_{i,j}}{\sum_k^{K}s_{i,k}} $$
+$$ s_{i,j} = \text{sim}(\text{FPFH}(q_{i}), \text{FPFH}(k^{-}_{j}))$$
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.5]{images/fpfh.png}
+        \caption{Visualization of Fast Point Feature Histogram features in a sample point cloud}
+    \end{center}
+\end{figure}
+
+The last possibility is to look at applying different loss functions at different parts of the network depending on the receptive field. So that the parts looking at local regions have different objects than those looking at more global regions. Perhaps there's no advantage to training the global region at all?
+
+\subsection{Positive Sampling}
+
+Using different augmentations or adding points from the same cluster as the query.
+
+
+\subsection{Informative Sampling}
+
+\subsection{Other Techniques}
+
+Implement all the negative sampling techniques from section \ref{limitations:mining} as well as compare using a momentum encoder and perhaps one of the clustering techniques from section \ref{limitations:clustering}
 
 
 \pagebreak
