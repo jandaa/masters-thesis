@@ -80,7 +80,7 @@ In vision, some common pre-text tasks are
 \end{itemize}
 %
 
-The most common contrastive pre-text task in vision, is instance discrimination. The idea is to treat each data point as its own instance. Then the goal is to discriminate this instance, an any of its augmentations, from other instances in the dataset coming from the negative distribution.
+The most common contrastive pre-text task in vision, is instance discrimination. This is also the task that we will focus on through the remainder of the document. The idea is to treat each data point as its own instance. Then the goal is to discriminate this instance, and any of its augmentations, from other instances in the dataset coming from the negative distribution. It's important to note that the augmentations that are selected will define what the network learns to be invariant to. It also has been shown that the proper selection of augmentations is absolutely vital to getting any contrastive system working.
 %
 
 We define the positive distribution as different augmentations of the same data point. These augmentations come from a set of transforms $\mathcal{T}$ where we sample two (or more) transformations $ t, t^{'} \sim \mathcal{T} $ and apply them to the original data point.
@@ -99,27 +99,148 @@ Negative Samples are then defined as any other data point and its augmentations.
 The goal of representational learning is to learn a good mapping from the high-dimensional raw input $\mathbf{x} \in \mathbb{R}^{n_0 \times \dots \times n_N}$ to a smaller one-dimensional but more expressive latent representation in feature space denoted as $\mathbf{v} \in \mathbb{R}^{d}$ where $d << n_0 \times \dots \times n_N$. To get this representation we will use some function $e()$ which performs the mapping $\mathbf{v} = e(\mathbf{x})$. This function is usually implemented as some sort of neural network.
 %
 
-This representation is then fed into a decoder (otherwise known as a projection head) that projects these embeddings into a metric space that is used directly to contrast different instances from each other.
-
-
+This representation is then fed into a decoder (otherwise known as a projection head) that projects these embeddings into a metric space that is used directly to contrast different instances from each other. We define this decoder as $z=h(\mathbf{v})$ with $\{z | z \in \mathbb{R}^{d'}, \lVert z \lVert^{2} = 1\}$ being another normalized latent representation but in a smaller dimension than the encoded vectors (i.e. $z \in \mathbb{R}^{d'}$ where $d^{'} < d$). The projection $z$ is what is ultimately being used to measure similarity between samples. It is also thrown away after pre-training and only the encoder is kept for downstream tasks.
 
 \subsection{Contrastive Loss}
 
+The final component, after selecting positive and negatives samples along with an architecture, is to select what final loss function to optimize for. Whatever the function, it should have some common features. The first is that it makes positive samples close together in embedding space. Although this could potentially be sufficient, there exists a degenerate solution whereby all samples are given the same embedding and thus brings the loss to zero. To counter against this degenerate solution, we require some sort of repulsive force to balance out the attractive force. A simple solution is to use negative samples and make them far apart from their positive matches.
+%
+
+For notation we will define the concept of a query $q$ and key $k$. This is so that the problem can be formulated as a dictionary lookup where we want to make a query point similar to positive keys $k^+$ or dissimilar to negative keys $k^-$.
+
+
+This was first made popular in Noise Contrastive Estimation (NCE) where this was formulated with a single negative sample to compare against.
+
+$$\mathcal{L} = -\log \frac{\exp(q \cdot k^{+})}{\exp(q \cdot k^{+}) + \exp(q \cdot k^{-})}$$
+%
+
+However this has been shown to be hard to train as a single negative sample has a very weak signal and makes it hard to train. Instead, InfoNCE and NT-Xent were proposed to use many more negative samples with an added temperature parameter. This can be formulated as follows:
+
+$$\mathcal{L}_{i} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum^{K}_{j}\exp(q_{i} \cdot k^{-}_{j} / \tau)}$$
+
+Where $\tau \in (0,1]$ and represents the temperature parameter that controls the smoothness of the latent representations. It also scales the gradient by $1/\tau$ and so that has to be scaled along with the temperature. Generally it was found that smaller temperature values benefit training but having them too small creates a lot of numerical instability.
+
+It's been shown that NCE is an upperbound on the Mutual Information between samples...
+
+This is not the only loss formulation. There exist others using marginal losses, triplet losses, N-pair losses (which is shown to be a form of InfoNCE loss)
+
+We don't have to limit ourselves to a single positive either. That's what the formulation in supervised contrastive learning \cite{khosla_supervised_2021} used. There are two options, where the extra positives can be placed inside the log or outside but it was shown that placing it outside is preferred. This is formulated as:
+
+$$\mathcal{L}_{i} = \frac{-1}{|P(i)|} \sum_{p \in P(i)} -\log \frac{\exp(q_{i} \cdot k^{+}_{p} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum^{K}_{j}\exp(q_{i} \cdot k^{-}_{j} / \tau)}$$
+
+
 \section{Contrastive in 3D}
 
+Two options for instance discrimination in 3D, use entire scene or use points.
+
 \section{Limitations}
+
+The biggest limitation of contrastive learning is the need to select positive and negative samples. The positive samples have been shown to be really important in learning invariant properties, while a large negative sample size is critical to properly learn to separate samples.
+%
+
+Sampling large batches of negative samples assumes that there is a low probability of false negatives in the batch. Otherwise, many keys that should be close to the query will end up being pushed further away.
+
+Using really large negative batches requires a lot of computational resources and dramatically slows down training making research on the topic much slower and only possible for those researchers who have access to such computational resources.
+%
+
+Many of the approaches also do not condition their negative samples based off of their query.
 
 \section{Addressing Limitations}
 
 \subsection{Supervised Contrastive Learning}
 
+This method assumes that even if we don't have complete label information, we have at least some ground truth labels. It tries to bridge self-supervised contrastive learning into supervised learning. With the few labels that we do have, we can train our model and use it's outputs to generate pseudo-labels. For outputs that the model is sufficiently certain of, it can use these to select positive samples as those in the same class as the query and negative samples as those from any other class. This has shown to work especially well, beating fully supervised pre-training on ImageNet in downstream vision tasks \cite{khosla_supervised_2021}.
+%
+
+The core of their contribution is re-formulation of the InfoNCE loss to use multiple positive samples. This is required as they use multiple positive samples from the same class.
+%
+
+It has also been shown to be useful in 3D \cite{jiang_guided_2021}
+
 \subsection{Clustering}
+
+Prototypical Contrastive Learning \cite{li_prototypical_2021}, BYOL \cite{grill_bootstrap_nodate} or SwAV \cite{caron_unsupervised_2021}
 
 \subsection{Memory Banks \& Momentum Encoders}
 
+This method tries to deal with negative sampling by just having a lot of negative samples. This is obviously very brute force and requires a lot of compute resources. If we define $Q$ as a memory bank of fixed size that holds features from the previous iterations then we can reformulate the loss as:
+
+$$\mathcal{L}_{i} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + \sum_{k^{-} \in Q} \exp(q_{i} \cdot k^{-} / \tau)}$$
+
 \subsection{Hard Negative \& Positive Mining}
 
+In the beginning when many negative samples are close to the query point, the gradient contribution from each negative sample is strong. But as training goes on, negative points become farther from the query and thus contribute much less to the gradient. Instead of tackling this using extremely large memory banks or batch sizes, this area of research tries to smartly select samples that best benefit encoder training and thus reduce the computational resources required and decrease the training time.
+%
+
+One approach is instead of using real data points, to generate synthetic data points from those negative samples that are closest to the query as was done in Mixing of Hard Negatives (MoChi) \cite{kalantidis_hard_nodate}. This creates more hard negative samples to train from and should increase the gradient contribution from the samples.
+%
+
+We can define these synthetic negatives as a mix of other negative samples that are most similar to the query point.
+
+$$\mathbf{h}_k = \frac{\mathbf{h}_k}{\lVert \mathbf{h}_k \lVert^{2}}, \quad \text{where} \: \mathbf{h}_k = \alpha \mathbf{k_i} + (1-\alpha) \mathbf{k_j}$$
+
+where $k_i$ and $k_j$ are randomly chosen from a set $\tilde{Q}$ of the logits that are most similar to the query point. Alpha is a mixing factor that is randomly selected from $(0,1)$. In theory, this shouldn't generate samples that are any harder than the existing negative samples but it does stretch the space around the query point more uniformly.
+
+One way to make the task even harder is to mix the negative with the query point.
+
+$$\mathbf{h}_k = \frac{\mathbf{h}_k}{\lVert \mathbf{h}_k \lVert^{2}}, \quad \text{where} \: \mathbf{h}_k = \beta \mathbf{q} + (1-\beta) \mathbf{k_i}$$
+
+This technique however does not address the case where there may exist a large number of false negatives that would and should cluster around the query point.
+
+Another approach that addresses this limitation is to remove these points from the dataset. Selecting false negatives is refereed to as a sampling bias in \cite{chuang_debiased_2020}. The key idea behind their approach is to approximate the underlying distribution of negative samples. They do this by accounting for the presence of positive samples in the denominator.
+
+$$\mathcal{L}_{debiased} = -\log \frac{\exp(q_{i} \cdot k^{+}_{i} / \tau)}{\exp(q_{i} \cdot k^{+}_{i} / \tau) + Ng(x, \{u_i\}^N_i, \{v_i\}^M_i)}$$
+
+$$g(x, \{u_i\}^N_i, \{v_i\}^M_i) = \frac{1}{\kappa^-}\max \{\frac{1}{N} \sum_i^N exp(q \cdot u_i)  - \tau^+\frac{1}{M} \sum_i^M exp(q \cdot v_i), \: \exp(\frac{1}{\tau})\}$$
+
+where $\kappa^+$ is the uniform class probability and $\kappa^- = 1 - \kappa^+$
+%
+
+A followup work was presented in \cite{robinson_contrastive_2021}. They define informative negative samples as those that have embeddings close to the query but in reality should be far apart. They ask the question what makes a good negative point? Their answer is that 1) whose labels are different from the query point and 2) those whose embedding is most similar to the query point. They have a method to get the first principal approximately. The challenge is that points near the query are the hardest but also have a higher likelihood of being of the same class.
+
+Their derivation is quite complicated but they end up with a similar formulation to \cite{chuang_debiased_2020} except with an additional parameter $\beta$ which specifies a concentration parameter. The formulation then becomes:
+
+$$g(x, \{u_i\}^N_i, \{v_i\}^M_i) = \frac{1}{\kappa^-}\max \{ \eta \frac{1}{N} \sum_i^N exp(q \cdot u_i)  - \tau^+\frac{1}{M} \sum_i^M exp(q \cdot v_i), \: \exp(\frac{1}{\tau})\}$$
+
+$$\eta = \frac{1}{N} \sum_i^N exp(\beta q \cdot u_i) $$
+
+Not sure if this is right
+
+Both of the above techniques \cite{chuang_debiased_2020} and \cite{robinson_contrastive_2021} have extremely simple implementations despite their complicated derivations.
+
+It can be hard to tune properly
+%
+
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.5]{images/synthetic-negatives.png}
+        \caption{Negative Hard Mixing \cite{kalantidis_hard_nodate}}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.45]{images/debiased.png}
+        \caption{t-SNE visualization of debiased objective \cite{chuang_debiased_2020}}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.4]{images/hard-samplign.png}
+        \caption{Pytorch pseudo code of hard sampling objectives. \cite{robinson_contrastive_2021}}
+    \end{center}
+\end{figure}
+
+
+
+
 \section{Proposal}
+
+
+
+\pagebreak
 
 \newpage
 \bibliographystyle{plain}
