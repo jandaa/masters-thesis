@@ -216,7 +216,6 @@ Both of the above techniques \cite{chuang_debiased_2020} and \cite{robinson_cont
 It can be hard to tune properly
 %
 
-
 \begin{figure}[h!]
     \begin{center}
         \includegraphics[scale=0.35]{images/synthetic-negatives.png}
@@ -230,7 +229,7 @@ It can be hard to tune properly
         \caption{t-SNE visualization of debiased objective \cite{chuang_debiased_2020}}
     \end{center}
 \end{figure}
-
+\newpage
 \begin{figure}[h!]
     \begin{center}
         \includegraphics[scale=0.4]{images/hard-samplign.png}
@@ -238,7 +237,9 @@ It can be hard to tune properly
     \end{center}
 \end{figure}
 
+\newpage
 \pagebreak
+\newpage
 
 \section{Proposal}
 
@@ -271,7 +272,7 @@ where $\text{sim}(\cdot,\cdot)$ is some kind of distance function between the hi
 
 Instead of uniform sampling, I can also try cluster sampling by clustering different local features into feature types (e.g. flat surfaces, round objects, corners) and sample equally from those distributions.
 
-$$p^{-}( \cdot | \mathbf{x}) = \text{Uniform}(\{ \textbf{c} | \textbf{c} \in \text{KNN}\{ \text{FPFH} ( \{ \textbf{x}^- | \textbf{x}^- \in \mathcal{X} \} ) \}, \textbf{c} \neq \textbf{x} \})$$
+$$p^{-}( \cdot | \mathbf{x}) = \text{Uniform}(\{ \textbf{c} \: | \: \textbf{c} \in \text{KNN}\{ \text{FPFH} ( \{ \: \textbf{x}^- \: | \: \textbf{x}^- \in \mathcal{X} \: \} ) \}, \textbf{c} \neq \textbf{x} \})$$
 
 Where $\text{KNN}$ represents the K-nearest-neigbours clustering algorithm and $\textbf{c}$ is a set of negative samples clustered together based on their similar properties. Thus this strategy constitutes sampling equally from different clusters of points.
 %
@@ -295,15 +296,42 @@ The last possibility is to look at applying different loss functions at differen
 
 \subsection{Positive Sampling}
 
-Using different augmentations or adding points from the same cluster as the query.
+The way you define positive sampling defines what you want the network to be invariant to. In the case where positive samples are different data augmentations, then the network will try to become invariant to these transforms. This may be desirable or undesirable for the task at hand. It has been shown in other works also that the positive sampling is what ultimately defines the hardness of the task.
+%
 
+Currently, the only data augmentations are random rotations. We can explore other kind of augmentations such as different elastic distortions but it may be too hard to learn as already it struggles to overfit. Another option is to train different networks to be invariant to different things such as one that is invariant to rotations and another that is not.
+%
+
+If we're using clusters, we can add points from the same cluster as other positive samples.
+%
 
 \subsection{Informative Sampling}
 
+Beyond positive and negative sampling techniques, it maybe be beneficial to sample points that have locally interesting features. Currently many of the points that are sampled are those on the wall which is not very informative or helpful to the algorithm. During supervised training its able to learn walls and floors the quickest and with high accuracy so any pre-training for flat surfaces may be a waste of time.
+
+Instead, we can to to select points according to the entropy of their feature vector.
+
+$$p^{-}( \cdot | \mathbf{x}) = \text{Weighted}(\{ \: (w_i, \mathbf{x}^-_i) \: | \: \mathbf{x}^-_i \in \mathcal{X} \: \})$$
+
+$$\text{where} \: w_i = \frac{\text{Entropy}(\text{FPFH}(\mathbf{x}^-_i))}{\sum_k^K \text{Entropy}(\text{FPFH}(\mathbf{x}^-_k))}$$
+
+With $w_i$ being the weighted probability of the sample being selected.
+
+
 \subsection{Other Techniques}
 
-Implement all the negative sampling techniques from section \ref{limitations:mining} as well as compare using a momentum encoder and perhaps one of the clustering techniques from section \ref{limitations:clustering}
+Although there does not exist and other kind of point sampling strategy in 3D (or even for 2D in fact), I would like to compare some of the other techniques that try to deal with the sampling problem.
+%
 
+I would like to compare my approach to one of each of the different options for addressing sampling issues. These being:
+
+\begin{itemize}
+    \item Momentum encoder from section \ref{limitations:memory}
+    \item Hard negative sampling from section \ref{limitations:mining}
+    \item Hard negative mixing from section \ref{limitations:mining}
+    \item Clustering using either SwAV or BYOL from section \ref{limitations:clustering}
+    \item Supervised contrastive from section \ref{limitations:supervised}
+\end{itemize}
 
 \pagebreak
 
