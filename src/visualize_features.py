@@ -37,10 +37,12 @@ def mesh_sphere(pcd, voxel_size, sphere_size=0.6):
     return spheres
 
 
-def get_colored_point_cloud_feature(pcd, feature, voxel_size):
-    tsne_results = embed_tsne(feature)
-
-    color = get_color_map(tsne_results)
+def get_colored_point_cloud_feature(pcd, feature, voxel_size, color_map=None):
+    if type(color_map) != np.ndarray:
+        tsne_results = embed_tsne(feature)
+        color = get_color_map(tsne_results)
+    else:
+        color = get_color_map(color_map)
     pcd.colors = o3d.utility.Vector3dVector(color)
     spheres = mesh_sphere(pcd, voxel_size)
 
@@ -124,6 +126,25 @@ def test_backbone(cfg: DictConfig):
     o3d.visualization.draw_geometries([vis_pcd])
 
 
+from math import log, e
+
+
+def entropy(feature, base=None):
+    """Compute entropy of a feature vector."""
+
+    feature = feature / feature.sum()
+
+    entropy = 0
+
+    # Compute entropy
+    base = e if base is None else base
+    for i in feature:
+        if i != 0:
+            entropy -= i * log(i, base)
+
+    return entropy
+
+
 @hydra.main(config_path="config", config_name="config")
 def test_fpfh(cfg: DictConfig):
     """Test FPFH features."""
@@ -139,11 +160,11 @@ def test_fpfh(cfg: DictConfig):
     dataset_type = model_factory.get_backbone_dataset_type()
     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
     collate_fn = dataset.collate
-    scene = collate_fn([dataset[300]])
+    scene = collate_fn([dataset[30]])
 
     first_frame = np.where(scene.points[:, 0] == 0)[0]
     points = scene.points[first_frame, :]
-    colors = scene.features[first_frame, :]
+    # colors = scene.features[first_frame, :]
 
     points = scene.points[:, 1:4] * 0.02
     features = scene.features
@@ -164,15 +185,23 @@ def test_fpfh(cfg: DictConfig):
     )
     fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
 
-    # features = fpfh.data.T
+    features = fpfh.data.T
+    color_map = np.array([entropy(feature) for feature in features])
+
+    # Normalize color map
+    color_map = color_map - color_map.min()
+    color_map = color_map / color_map.max()
+    color_map = 1 - color_map
     # dist = wasserstein_distance(features[0], features[100])
 
-    vis_pcd = get_colored_point_cloud_feature(pcd, fpfh.data.T, voxel_size)
+    vis_pcd = get_colored_point_cloud_feature(
+        pcd, fpfh.data.T, voxel_size, color_map=color_map
+    )
     o3d.visualization.draw_geometries([vis_pcd])
 
     # wasserstein_distance()
 
 
 if __name__ == "__main__":
-    test_backbone()
-    # test_fpfh()
+    # test_backbone()
+    test_fpfh()
