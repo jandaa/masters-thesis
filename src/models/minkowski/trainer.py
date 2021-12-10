@@ -81,22 +81,42 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # Get all positive and negative pairs
         qs, ks = [], []
+        es = []
         for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [v for v, _ in matches]
-            voxel_indices_2 = [v for _, v in matches]
+            voxel_indices_1 = [v for v, _, _ in matches]
+            voxel_indices_2 = [v for _, v, _ in matches]
+            entropies = [v for _, _, v in matches]
+
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
             q = output_batch_1[voxel_indices_1]
             k = output_batch_2[voxel_indices_2]
 
+            # model_input = ME.SparseTensor(batch.features, batch.points)
+            # points1 = model_input.coordinates_at(2 * i)
+            # points2 = model_input.coordinates_at(2 * i + 1)
+
+            # entropies = np.array(entropies)
+            # entropies = np.array(entropies) / np.array(entropies).sum()
+            # voxel_indices_1 = np.random.choice(
+            #     voxel_indices_1, 500, p=entropies, replace=False
+            # )
+            # visualize_mapping(points1, points2, voxel_indices_1)
+
             qs.append(q)
             ks.append(k)
+            es.append(np.array(entropies))
+
+        # TODO: Iterate through each scene and make sure that the negative
+        # points don't come from the same scene
 
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
+        es = np.concatenate(es, axis=0)
+        es = es / es.sum()
 
         if q.shape[0] > max_pos:
-            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            inds = np.random.choice(q.shape[0], max_pos, p=es, replace=False)
             q = q[inds]
             k = k[inds]
 
@@ -109,6 +129,56 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         out = out.squeeze().contiguous()
 
         return self.criterion(out, labels)
+
+
+import open3d as o3d
+
+
+def visualize_mapping(points1, points2, voxel_indices_1):
+    points1 = points1.detach().cpu().numpy()
+
+    pcd1 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(points1)
+
+    colors = np.ones(points1.shape) * np.array([0, 0.4, 0.4])
+    colors[voxel_indices_1] = np.array([0, 0, 0])
+    pcd1.colors = o3d.utility.Vector3dVector(colors)
+
+    o3d.visualization.draw_geometries([pcd1])
+
+
+from util.utils import get_random_colour
+
+
+def visualize_correspondances(quantized_frames, correspondances):
+    """Visualize the point correspondances between the matched scans in
+    the pretrain input"""
+
+    # for i, matches in enumerate(pretrain_input.correspondances):
+    points1 = quantized_frames[0]["discrete_coords"]
+    colors1 = quantized_frames[0]["unique_feats"]
+
+    points2 = quantized_frames[1]["discrete_coords"]
+    colors2 = quantized_frames[1]["unique_feats"]
+
+    pcd1 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(points1)
+    pcd1.colors = o3d.utility.Vector3dVector(colors1)
+
+    pcd2 = o3d.geometry.PointCloud()
+    pcd2.points = o3d.utility.Vector3dVector(points2)
+    pcd2.colors = o3d.utility.Vector3dVector(colors2)
+    pcd2 = pcd2.translate([100.0, 0, 0])
+
+    correspondences = random.choices(correspondances, k=100)
+    lineset = o3d.geometry.LineSet()
+    lineset = lineset.create_from_point_cloud_correspondences(
+        pcd1, pcd2, correspondences
+    )
+    colors = [get_random_colour() for i in range(len(correspondences))]
+    lineset.colors = o3d.utility.Vector3dVector(colors)
+
+    o3d.visualization.draw_geometries([pcd1, pcd2, lineset])
 
 
 class MinkowskiTrainer(SegmentationTrainer):

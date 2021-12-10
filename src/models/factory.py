@@ -5,7 +5,11 @@ import torch
 from models.pointgroup.trainer import PointgroupTrainer
 from models.pointgroup.dataset import SpconvDataset
 from models.minkowski.trainer import MinkowskiTrainer, MinkowskiBackboneTrainer
-from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
+from models.minkowski.dataset import (
+    MinkowskiDataset,
+    MinkowskiPretrainDataset,
+    MinkowskiEntropyPretrainDataset,
+)
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -81,6 +85,6 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise RuntimeError(self.error_msg)
         elif self.model_name == minkowski_name:
-            return MinkowskiPretrainDataset
+            return MinkowskiEntropyPretrainDataset
         else:
             raise RuntimeError(self.error_msg)

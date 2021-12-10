@@ -37,12 +37,18 @@ def mesh_sphere(pcd, voxel_size, sphere_size=0.6):
     return spheres
 
 
-def get_colored_point_cloud_feature(pcd, feature, voxel_size, color_map=None):
+def get_colored_point_cloud_feature(
+    pcd, feature, voxel_size, color_map=None, selected=None
+):
     if type(color_map) != np.ndarray:
         tsne_results = embed_tsne(feature)
         color = get_color_map(tsne_results)
     else:
         color = get_color_map(color_map)
+
+    if selected:
+        color[selected] = np.array([0, 0, 0])
+
     pcd.colors = o3d.utility.Vector3dVector(color)
     spheres = mesh_sphere(pcd, voxel_size)
 
@@ -149,7 +155,7 @@ def entropy(feature, base=None):
 def test_fpfh(cfg: DictConfig):
     """Test FPFH features."""
 
-    pl.seed_everything(42, workers=True)
+    pl.seed_everything(56, workers=True)
 
     # load a data interface
     data_interface_factory = DataInterfaceFactory(cfg)
@@ -160,13 +166,13 @@ def test_fpfh(cfg: DictConfig):
     dataset_type = model_factory.get_backbone_dataset_type()
     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
     collate_fn = dataset.collate
-    scene = collate_fn([dataset[30]])
+    scene = collate_fn([dataset[0]])
 
     first_frame = np.where(scene.points[:, 0] == 0)[0]
     points = scene.points[first_frame, :]
     # colors = scene.features[first_frame, :]
 
-    points = scene.points[:, 1:4] * 0.02
+    points = points[:, 1:4] * 0.02
     features = scene.features
 
     pcd = o3d.geometry.PointCloud()
@@ -174,10 +180,10 @@ def test_fpfh(cfg: DictConfig):
     pcd.colors = o3d.utility.Vector3dVector(features)
 
     # compute the features
-    voxel_size = 0.04
+    voxel_size = 0.02
     pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
     pcd.estimate_normals(
-        o3d.geometry.KDTreeSearchParamHybrid(radius=2 * voxel_size, max_nn=30)
+        o3d.geometry.KDTreeSearchParamHybrid(radius=20 * voxel_size, max_nn=500)
     )
 
     search_param = o3d.geometry.KDTreeSearchParamHybrid(
@@ -194,8 +200,18 @@ def test_fpfh(cfg: DictConfig):
     color_map = 1 - color_map
     # dist = wasserstein_distance(features[0], features[100])
 
+    # Select points based off of entropy values
+    import random
+
+    probability = 1 - color_map
+    probability[np.where(probability < 0.4)[0]] = 0.0
+    # selected = list(np.where(probability < 0.4)[0])
+    # probability = probability / probability.sum()
+    selected = random.choices(range(len(color_map)), weights=probability, k=1000)
+    # selected = random.choices(range(len(color_map)), k=1000)
+
     vis_pcd = get_colored_point_cloud_feature(
-        pcd, fpfh.data.T, voxel_size, color_map=color_map
+        pcd, fpfh.data.T, voxel_size, color_map=color_map, selected=selected
     )
     o3d.visualization.draw_geometries([vis_pcd])
 
