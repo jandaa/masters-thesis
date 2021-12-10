@@ -77,14 +77,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
-    def get_negative_mask(self, batch_size, ind, batch_indices, device):
-        neg_mask = torch.zeros((batch_size, batch_size), dtype=bool, device=device)
-        neg_mask[ind] = 1
-        neg_mask[ind, ind] = 0
-        same_scene = np.where(batch_indices == batch_indices[ind])[0]
-        neg_mask[ind, same_scene] = 0
-        return neg_mask
-
     def loss_fn(self, batch, output):
         tau = 0.4
         max_pos = 6092
@@ -113,10 +105,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             batch_indices[old_pos : old_pos + qs[i].shape[0]] = i
             old_pos = qs[i].shape[0]
 
-        # TODO: Iterate through each scene and make sure that the negative
-        # points don't come from the same scene
-        # for q, k in zip(qs, ks):
-
         if q.shape[0] > max_pos:
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
             q = q[inds]
@@ -130,8 +118,11 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         for ind in range(q.shape[0]):
 
             # select the negative values
-            neg_mask = self.get_negative_mask(q.shape[0], ind, batch_indices, q.device)
-            neg = combined.masked_select(neg_mask)
+            neg = combined.index_select(0, torch.tensor([ind], device=q.device))
+            diff_scene_indices = torch.tensor(
+                np.where(batch_indices != batch_indices[ind])[0], device=q.device
+            )
+            neg = neg.index_select(1, diff_scene_indices)
             Ng[ind] = neg.sum(dim=-1)
 
         loss = (-torch.log(pos / (pos + Ng))).mean()
