@@ -192,6 +192,68 @@ def test_fpfh(cfg: DictConfig):
     fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
 
     features = fpfh.data.T
+
+    # Pick a point and compute distances to all other features
+    ind = 4500
+    color_map = np.array(
+        [wasserstein_distance(features[ind], feature) for feature in features]
+    )
+
+    # Normalize color map
+    color_map = color_map - color_map.min()
+    color_map = color_map / color_map.max()
+
+    # dist = wasserstein_distance(features[0], features[100])
+
+    vis_pcd = get_colored_point_cloud_feature(
+        pcd, fpfh.data.T, voxel_size, color_map=color_map, selected=np.array([ind])
+    )
+    o3d.visualization.draw_geometries([vis_pcd])
+
+    # wasserstein_distance()
+
+
+@hydra.main(config_path="config", config_name="config")
+def test_fpfh_entropy(cfg: DictConfig):
+    """Test FPFH features."""
+
+    pl.seed_everything(56, workers=True)
+
+    # load a data interface
+    data_interface_factory = DataInterfaceFactory(cfg)
+    data_interface = data_interface_factory.get_interface()
+
+    # Load in a scene
+    model_factory = ModelFactory(cfg, data_interface)
+    dataset_type = model_factory.get_backbone_dataset_type()
+    dataset = dataset_type(data_interface.pretrain_val_data, cfg)
+    collate_fn = dataset.collate
+    scene = collate_fn([dataset[0]])
+
+    first_frame = np.where(scene.points[:, 0] == 0)[0]
+    points = scene.points[first_frame, :]
+    # colors = scene.features[first_frame, :]
+
+    points = points[:, 1:4] * 0.02
+    features = scene.features
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    pcd.colors = o3d.utility.Vector3dVector(features)
+
+    # compute the features
+    voxel_size = 0.02
+    pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
+    pcd.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=20 * voxel_size, max_nn=500)
+    )
+
+    search_param = o3d.geometry.KDTreeSearchParamHybrid(
+        radius=30 * voxel_size, max_nn=200
+    )
+    fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
+
+    features = fpfh.data.T
     color_map = np.array([entropy(feature) for feature in features])
 
     # Normalize color map

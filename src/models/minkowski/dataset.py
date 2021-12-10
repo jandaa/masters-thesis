@@ -201,6 +201,71 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             xyz = np.ascontiguousarray(frame.points)
             features = torch.from_numpy(frame.point_colors)
 
+            # apply a random scalling
+            xyz *= random_scale
+
+            # Randomly rotate each frame
+            xyz = xyz - xyz.mean(0)
+            xyz, features, _ = self.augmentations(xyz, features, None)
+
+            # Voxelize input
+            discrete_coords, mapping = ME.utils.sparse_quantize(
+                coordinates=xyz, quantization_size=self.voxel_size, return_index=True
+            )
+
+            unique_feats = features[mapping]
+
+            # Get the point to voxel mapping
+            mapping = {
+                point_ind: voxel_ind
+                for voxel_ind, point_ind in enumerate(mapping.numpy())
+            }
+
+            # Append to quantized frames
+            quantized_frames.append(
+                {
+                    "discrete_coords": discrete_coords,
+                    "unique_feats": unique_feats,
+                    "mapping": mapping,
+                }
+            )
+
+        # Remap the correspondances into voxel world
+        mapping1 = quantized_frames[0]["mapping"]
+        mapping2 = quantized_frames[1]["mapping"]
+        correspondences = [
+            (mapping1[k], mapping2[v])
+            for k, v in correspondences.items()
+            if k in mapping1.keys() and v in mapping2.keys()
+        ]
+
+        # visualize_correspondances(quantized_frames, correspondences)
+        return {
+            "correspondences": correspondences,
+            "quantized_frames": quantized_frames,
+        }
+
+    def entropy__getitem__(self, index):
+
+        scene = self.scenes[index].load_measurements()
+
+        # pick matching scenes at random
+        frame1 = random.choice(list(scene.matching_frames_map.keys()))
+        frame2 = random.choice(scene.matching_frames_map[frame1])
+
+        correspondences = scene.correspondance_map[frame1][frame2]
+
+        frame1 = scene.get_measurement(frame1)
+        frame2 = scene.get_measurement(frame2)
+
+        quantized_frames = []
+        random_scale = np.random.uniform(*self.scale_range)
+        for frame in [frame1, frame2]:
+
+            # Extract data
+            xyz = np.ascontiguousarray(frame.points)
+            features = torch.from_numpy(frame.point_colors)
+
             # Compute FPFH features
             pcd = o3d.geometry.PointCloud()
             pcd.points = o3d.utility.Vector3dVector(xyz)
@@ -257,7 +322,7 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
         mapping2 = quantized_frames[1]["mapping"]
         entropies1 = quantized_frames[0]["entropies"]
         correspondences = [
-            (mapping1[k], mapping2[v], entropies1[k])
+            (mapping1[k], mapping2[v], entropies1[v])
             for k, v in correspondences.items()
             if k in mapping1.keys() and v in mapping2.keys()
         ]

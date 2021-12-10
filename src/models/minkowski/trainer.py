@@ -53,6 +53,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         self.feature_dim = cfg.model.net.model_n_out
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
+        self.sim = torch.nn.CosineSimilarity(dim=0)
+
     def forward(self, batch: MinkowskiInput):
         model_input = ME.SparseTensor(batch.features.float(), batch.points)
         output = self.model(model_input)
@@ -75,7 +77,68 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
+    def get_negative_mask(self, batch_size, ind, batch_indices, device):
+        neg_mask = torch.zeros((batch_size, batch_size), dtype=bool, device=device)
+        neg_mask[ind] = 1
+        neg_mask[ind, ind] = 0
+        same_scene = np.where(batch_indices == batch_indices[ind])[0]
+        neg_mask[ind, same_scene] = 0
+        return neg_mask
+
     def loss_fn(self, batch, output):
+        tau = 0.4
+        max_pos = 6092
+        # max_pos = 1024
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [v for v, _ in matches]
+            voxel_indices_2 = [v for _, v in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        batch_indices = np.zeros(q.shape[0])
+        old_pos = 0
+        for i in range(len(qs)):
+            batch_indices[old_pos : old_pos + qs[i].shape[0]] = i
+            old_pos = qs[i].shape[0]
+
+        # TODO: Iterate through each scene and make sure that the negative
+        # points don't come from the same scene
+        # for q, k in zip(qs, ks):
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+            batch_indices = batch_indices[inds]
+
+        pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
+        combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        Ng = torch.zeros(q.shape[0], device=q.device)
+        for ind in range(q.shape[0]):
+
+            # select the negative values
+            neg_mask = self.get_negative_mask(q.shape[0], ind, batch_indices, q.device)
+            neg = combined.masked_select(neg_mask)
+            Ng[ind] = neg.sum(dim=-1)
+
+        loss = (-torch.log(pos / (pos + Ng))).mean()
+
+        return loss
+
+    def loss_fn_old(self, batch, output):
         tau = 0.4
         max_pos = 4092
 
@@ -83,9 +146,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         qs, ks = [], []
         es = []
         for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [v for v, _, _ in matches]
-            voxel_indices_2 = [v for _, v, _ in matches]
-            entropies = [v for _, _, v in matches]
+            voxel_indices_1 = [v for v, _ in matches]
+            voxel_indices_2 = [v for _, v in matches]
+            # entropies = [v for _, _, v in matches]
 
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
@@ -105,18 +168,19 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
             qs.append(q)
             ks.append(k)
-            es.append(np.array(entropies))
+            # es.append(np.array(entropies))
 
         # TODO: Iterate through each scene and make sure that the negative
         # points don't come from the same scene
 
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
-        es = np.concatenate(es, axis=0)
-        es = es / es.sum()
+        # es = np.concatenate(es, axis=0)
+        # es = es / es.sum()
 
         if q.shape[0] > max_pos:
-            inds = np.random.choice(q.shape[0], max_pos, p=es, replace=False)
+            # inds = np.random.choice(q.shape[0], max_pos, p=es, replace=False)
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
             q = q[inds]
             k = k[inds]
 
