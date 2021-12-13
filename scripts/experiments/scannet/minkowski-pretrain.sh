@@ -3,10 +3,11 @@ python src/main.py \
     dataset=scannet \
     model=minkowski \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/scannetv2/minkowski-pretrained-2cm \
-    gpus=2 \
-    dataset.pretrain.batch_size=4 \
-    dataset.pretrain.accumulate_grad_batches=8 \
+    hydra.run.dir=outputs/pretrain/sampling-other-scenes \
+    gpus=1 \
+    max_time="00:12:00:00" \
+    dataset.pretrain.batch_size=8 \
+    dataset.pretrain.accumulate_grad_batches=2 \
     model.train.train_workers=8 \
     check_val_every_n_epoch=10 \
     model.optimizer.type=SGD \

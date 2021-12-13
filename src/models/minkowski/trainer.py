@@ -79,8 +79,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn(self, batch, output):
         tau = 0.4
-        max_pos = 6092
-        # max_pos = 1024
+        max_pos = 4092
 
         # Get all positive and negative pairs
         qs, ks = [], []

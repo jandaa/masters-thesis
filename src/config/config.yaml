@@ -13,6 +13,7 @@ tasks:
 gpus: 1
 accelerator: "ddp"
 max_epochs: 384
+max_time: # Format DD:HH:MM:SS
 check_val_every_n_epoch: 10
 precision: 32
 

@@ -117,6 +117,7 @@ class Trainer:
             limit_train_batches=self.cfg.limit_train_batches,
             deterministic=True,
             precision=self.cfg.precision,
+            max_time=self.cfg.max_time,
         )
 
     def get_pretrainer(self):
@@ -132,6 +133,7 @@ class Trainer:
             limit_train_batches=self.cfg.limit_train_batches,
             accumulate_grad_batches=self.cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
+            max_time=self.cfg.max_time,
         )
 
     def get_datamodule(self):
