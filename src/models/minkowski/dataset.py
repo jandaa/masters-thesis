@@ -168,6 +168,10 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
     def entropy(self, feature, base=None):
         """Compute entropy of a feature vector."""
 
+        norm = feature.sum()
+        if norm == 0:
+            return 0
+
         feature = feature / feature.sum()
 
         entropy = 0
@@ -285,7 +289,7 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             entropies = entropies - entropies.min()
             entropies = entropies / entropies.max()
 
-            entropies[np.where(entropies < 0.4)[0]] = 0.0
+            entropies[np.where(entropies < 0.35)[0]] = 0.0
 
             # apply a random scalling
             xyz *= random_scale

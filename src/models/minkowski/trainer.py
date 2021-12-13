@@ -172,6 +172,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         if q.shape[0] > max_pos:
             # inds = np.random.choice(q.shape[0], max_pos, p=es, replace=False)
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
+
+            # max_pos_batch = min(max_pos, np.count_nonzero(es))
+            # inds = np.random.choice(q.shape[0], max_pos_batch, p=es, replace=False)
+
             q = q[inds]
             k = k[inds]
 
