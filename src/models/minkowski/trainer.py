@@ -9,6 +9,8 @@ import numpy as np
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
+from models.minkowski.modules.resnet import get_norm
+from models.minkowski.modules.common import NormType
 
 from util.types import DataInterface
 from models.minkowski.types import (
@@ -27,20 +29,48 @@ class MinkovskiSemantic(nn.Module):
 
         self.dataset_cfg = cfg.dataset
         self.feature_dim = cfg.model.net.model_n_out
+        self.bn_momentum = cfg.model.net.bn_momentum
+        self.norm_type = NormType.BATCH_NORM
 
+        # Backbone
         if backbone:
             self.backbone = backbone
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-        self.linear = ME.MinkowskiLinear(
-            self.feature_dim, self.dataset_cfg.classes, bias=False
+
+        # Projection head
+        self.linear1 = ME.MinkowskiLinear(
+            self.feature_dim,
+            self.dataset_cfg.classes,
         )
+        self.bn1 = get_norm(
+            self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
+        )
+
+        self.linear2 = ME.MinkowskiLinear(
+            self.dataset_cfg.classes,
+            self.dataset_cfg.classes,
+        )
+        self.bn2 = get_norm(
+            self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
+        )
+        self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
+
+        # Get backbone features
         output = self.backbone(input)
-        output = self.linear(output)
-        return MinkowskiOutput(semantic_scores=output.F)
+
+        # Run features through 2-layer non-linear projection head
+        output = self.linear1(output)
+        output = self.bn1(output)
+        output = self.relu(output)
+        output = self.linear2(output)
+        output = self.bn2(output)
+        output = self.relu(output)
+
+        return MinkowskiOutput(output=output, semantic_scores=output.F)
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):
@@ -51,7 +81,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         super(MinkowskiBackboneTrainer, self).__init__(cfg)
 
         self.feature_dim = cfg.model.net.model_n_out
-        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.model = MinkovskiSemantic(cfg)
 
         self.sim = torch.nn.CosineSimilarity(dim=0)
 
@@ -81,6 +112,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         tau = 0.4
         max_pos = 4092
 
+        output = output.output
+
         # Get all positive and negative pairs
         qs, ks = [], []
         for i, matches in enumerate(batch.correspondences):
@@ -97,6 +130,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         batch_indices = np.zeros(q.shape[0])
         old_pos = 0

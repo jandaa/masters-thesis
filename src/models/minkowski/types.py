@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 import torch
 
+import MinkowskiEngine as ME
+
 from util.types import SemanticOutput
 
 
@@ -52,3 +54,5 @@ class MinkowskiPretrainInput:
 @dataclass
 class MinkowskiOutput(SemanticOutput):
     """Minkowski output type."""
+
+    output: ME.SparseTensor
