@@ -152,7 +152,7 @@ class Trainer:
         log.info("Loading backbone dataloader")
         dataset_type = self.model_factory.get_backbone_dataset_type()
         pretrain_data_loader = DataModule(
-            self.data_interface, self.cfg, dataset_type=dataset_type
+            self.data_interface, self.cfg, dataset_type=dataset_type, is_pretrain=True
         )
 
         log.info("Creating backbone model")

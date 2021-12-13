@@ -21,6 +21,7 @@ class DataModule(pl.LightningDataModule):
         data_interface: DataInterface,
         cfg: DictConfig,
         dataset_type: SegmentationDataset,
+        is_pretrain: bool = False
     ):
         super().__init__()
 
@@ -48,11 +49,18 @@ class DataModule(pl.LightningDataModule):
         self.num_workers = cfg.model.train.train_workers
 
         # Load data from interface
-        self.pretrain_data = data_interface.pretrain_data
-        self.pretrain_val_data = data_interface.pretrain_val_data
-        self.train_data = data_interface.train_data
-        self.val_data = data_interface.val_data
-        self.test_data = data_interface.test_data
+        if is_pretrain:
+            self.pretrain_data = data_interface.pretrain_data
+            self.pretrain_val_data = data_interface.pretrain_val_data
+            self.train_data = []
+            self.val_data = []
+            self.test_data = []
+        else:
+            self.pretrain_data = []
+            self.pretrain_val_data = []
+            self.train_data = data_interface.train_data
+            self.val_data = data_interface.val_data
+            self.test_data = data_interface.test_data
 
         # Grab label to index map
         self.label_to_index_map = data_interface.label_to_index_map
