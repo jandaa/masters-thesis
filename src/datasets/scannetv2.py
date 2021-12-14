@@ -16,7 +16,7 @@ from hydra.utils import get_original_cwd
 from plyfile import PlyData
 
 from util.types import DataInterface, DataPoint, SceneWithLabels
-from util.scene import SceneMeasurements, measurements_dir_name
+from datasets.measurements import SceneMeasurements, measurements_dir_name
 
 log = logging.getLogger(__name__)
 
@@ -284,7 +284,7 @@ class ScannetDataInterface(DataInterface):
             datapoint.scene_path,
             datapoint.preprocessed_path,
             frame_skip=self.dataset_cfg.pretrain.frame_skip,
-            voxel_size=self.dataset_cfg.pretrain.voxel_size,
+            voxel_size=self.dataset_cfg.voxel_size,
         )
 
         # Save measurements
