@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import cv2
+from math import log, e
 
 from scipy.spatial import KDTree
 
@@ -183,12 +184,63 @@ class SceneMeasurement:
         """Pickle the entire object into a single binary file."""
         pickle.dump(self, self.get_pickle_file(directory, self.frame_id).open("wb"))
 
+    def entropy(self, feature, base=None):
+        """Compute entropy of a feature vector."""
+
+        norm = feature.sum()
+        if norm == 0:
+            return 0
+
+        feature = feature / feature.sum()
+
+        entropy = 0
+
+        # Compute entropy
+        base = e if base is None else base
+        for i in feature:
+            if i != 0:
+                entropy -= i * log(i, base)
+
+        return entropy
+
     @staticmethod
     def load(directory: Path, frame_id):
         """Load from a previously pickled measurements file."""
-        return pickle.load(
+
+        measurement = pickle.load(
             SceneMeasurement.get_pickle_file(directory, frame_id).open("rb")
         )
+
+        # compute FPFH values if not done already
+        if not hasattr(measurement, "fpfh"):
+            # Compute FPFH features
+            voxel_size = 0.02
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(measurement.points)
+            pcd.estimate_normals(
+                o3d.geometry.KDTreeSearchParamHybrid(radius=20 * voxel_size, max_nn=500)
+            )
+
+            search_param = o3d.geometry.KDTreeSearchParamHybrid(
+                radius=30 * voxel_size, max_nn=200
+            )
+            fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
+
+            # Store fpfh values as numpy array
+            measurement.fpfh = fpfh.data.T
+
+            # Compute entropies
+            entropies = np.array(
+                [measurement.entropy(feature) for feature in measurement.fpfh]
+            )
+            entropies = entropies - entropies.min()
+            entropies = entropies / entropies.max()
+            measurement.entropies = entropies
+
+            # Save to file
+            measurement.save_to_file(directory)
+
+        return measurement
 
 
 class SceneMeasurements:
