@@ -107,7 +107,9 @@ class Trainer:
     def get_trainer(self):
         """Build a trainer for regular training"""
         log.info("Building Trainer")
+        tb_logger = pl.loggers.TensorBoardLogger("lightning_logs/train")
         return pl.Trainer(
+            logger=tb_logger,
             gpus=self.cfg.gpus,
             accelerator=self.cfg.accelerator,
             resume_from_checkpoint=self.checkpoint_path,
@@ -123,7 +125,9 @@ class Trainer:
     def get_pretrainer(self):
         """Build a pretrainer for pretraining backbone models."""
         log.info("Building Pre-Trainer")
+        tb_logger = pl.loggers.TensorBoardLogger("lightning_logs/pretrain")
         return pl.Trainer(
+            logger=tb_logger,
             gpus=self.cfg.gpus,
             accelerator=self.cfg.accelerator,
             resume_from_checkpoint=self.pretrain_checkpoint,

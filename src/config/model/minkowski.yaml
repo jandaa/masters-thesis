@@ -7,6 +7,7 @@ net:
   normalize_feature: True
   dist_type: L2
   bn_momentum: 0.05
+  loss:
 
 optimizer:
   type: Adam # Adam or SGD
@@ -15,13 +16,12 @@ optimizer:
   weight_decay: 1e-4
 
 scheduler:
-  type: 
-  exp_gamma: 
+  type:
+  exp_gamma:
   interval:
   frequency:
 
 pretrain:
-
   optimizer:
     type: SGD # Adam or SGD
     lr: 1e-1
@@ -33,7 +33,6 @@ pretrain:
     exp_gamma: 0.99
     interval: "step"
     frequency: 1000
-    
 
 train:
   epochs: 384

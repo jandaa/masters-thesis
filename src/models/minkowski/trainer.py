@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import MinkowskiEngine as ME
 import numpy as np
+from scipy.stats import wasserstein_distance
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
@@ -38,23 +39,23 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        # Projection head
+        # # Projection head
         self.linear1 = ME.MinkowskiLinear(
             self.feature_dim,
             self.dataset_cfg.classes,
         )
-        self.bn1 = get_norm(
-            self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
-        )
+        # self.bn1 = get_norm(
+        #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
+        # )
 
-        self.linear2 = ME.MinkowskiLinear(
-            self.dataset_cfg.classes,
-            self.dataset_cfg.classes,
-        )
-        self.bn2 = get_norm(
-            self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
-        )
-        self.relu = ME.MinkowskiReLU(inplace=True)
+        # self.linear2 = ME.MinkowskiLinear(
+        #     self.dataset_cfg.classes,
+        #     self.dataset_cfg.classes,
+        # )
+        # self.bn2 = get_norm(
+        #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
+        # )
+        # self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
@@ -62,13 +63,13 @@ class MinkovskiSemantic(nn.Module):
         # Get backbone features
         output = self.backbone(input)
 
-        # Run features through 2-layer non-linear projection head
+        # # Run features through 2-layer non-linear projection head
         output = self.linear1(output)
-        output = self.bn1(output)
-        output = self.relu(output)
-        output = self.linear2(output)
-        output = self.bn2(output)
-        output = self.relu(output)
+        # output = self.bn1(output)
+        # output = self.relu(output)
+        # output = self.linear2(output)
+        # output = self.bn2(output)
+        # output = self.relu(output)
 
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
@@ -81,10 +82,14 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         super(MinkowskiBackboneTrainer, self).__init__(cfg)
 
         self.feature_dim = cfg.model.net.model_n_out
-        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-        self.model = MinkovskiSemantic(cfg)
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        # self.model = MinkovskiSemantic(cfg)
 
-        self.sim = torch.nn.CosineSimilarity(dim=0)
+        # which training loss to use
+        if cfg.model.net.loss == "new":
+            self.loss_fn = self.loss_fn_new
+        else:
+            self.loss_fn = self.loss_fn_original
 
     def forward(self, batch: MinkowskiInput):
         model_input = ME.SparseTensor(batch.features.float(), batch.points)
@@ -108,17 +113,16 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
-    def loss_fn(self, batch, output):
+    def loss_fn_new(self, batch, output):
         tau = 0.4
         max_pos = 4092
-
-        output = output.output
+        n = 4092
 
         # Get all positive and negative pairs
         qs, ks = [], []
         for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [v for v, _ in matches]
-            voxel_indices_2 = [v for _, v in matches]
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
 
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
@@ -135,6 +139,105 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
         k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
+        combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        Ng = torch.zeros(q.shape[0], device=q.device)
+        for ind in range(q.shape[0]):
+
+            # select the negative values
+            neg = combined.index_select(0, torch.tensor([ind], device=q.device))
+            Ng[ind] = neg.mean(dim=-1) * n
+
+        loss = (-torch.log(pos / (pos + Ng))).mean()
+
+        return loss
+
+    def loss_fn_original(self, batch, output):
+        tau = 0.4
+        max_pos = 4092
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            # visualize_mapping(points1, points2, voxel_indices_1)
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        # Labels
+        npos = q.shape[0]
+        labels = torch.arange(npos).to(batch.device).long()
+
+        logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+        out = torch.div(logits, tau)
+        out = out.squeeze().contiguous()
+
+        return self.criterion(out, labels)
+
+    def loss_fn_delta(self, batch, output):
+        tau = 0.4
+        max_pos = 50
+        n = 4092
+
+        output = output.output
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        qs_fpfh, ks_fpfh = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            fpfh_1 = [match["frame1"]["fpfh"] for match in matches]
+            fpfh_2 = [match["frame2"]["fpfh"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+            qs_fpfh.append(np.array(fpfh_1))
+            ks_fpfh.append(np.array(fpfh_2))
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        q_fpfh = np.concatenate(qs_fpfh)
+        k_fpfh = np.concatenate(ks_fpfh)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
         batch_indices = np.zeros(q.shape[0])
         old_pos = 0
         for i in range(len(qs)):
@@ -145,27 +248,39 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
             q = q[inds]
             k = k[inds]
+            q_fpfh = q_fpfh[inds]
+            k_fpfh = k_fpfh[inds]
             batch_indices = batch_indices[inds]
 
         pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
         combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        import itertools
+
+        distances = np.zeros((q.shape[0], q.shape[0]))
+        for i, j in itertools.combinations(range(q.shape[0]), 2):
+            distances[i, j] = wasserstein_distance(q_fpfh[i], k_fpfh[j])
+            distances[j, i] = wasserstein_distance(q_fpfh[j], k_fpfh[i])
 
         Ng = torch.zeros(q.shape[0], device=q.device)
         for ind in range(q.shape[0]):
 
             # select the negative values
             neg = combined.index_select(0, torch.tensor([ind], device=q.device))
-            diff_scene_indices = torch.tensor(
-                np.where(batch_indices != batch_indices[ind])[0], device=q.device
+            # diff_scene_indices = torch.tensor(
+            #     np.where(batch_indices != batch_indices[ind])[0], device=q.device
+            # )
+            select_indices = torch.tensor(
+                np.where(distances[ind] > 5.0)[0], device=q.device
             )
-            neg = neg.index_select(1, diff_scene_indices)
-            Ng[ind] = neg.sum(dim=-1)
+            neg = neg.index_select(1, select_indices)
+            Ng[ind] = neg.mean(dim=-1) * n
 
         loss = (-torch.log(pos / (pos + Ng))).mean()
 
         return loss
 
-    def loss_fn_old(self, batch, output):
+    def loss_fn_entropy(self, batch, output):
         tau = 0.4
         max_pos = 4092
 
