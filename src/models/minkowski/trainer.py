@@ -39,10 +39,9 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        # # Projection head
-        self.linear1 = ME.MinkowskiLinear(
-            self.feature_dim,
-            self.dataset_cfg.classes,
+        # Projection head
+        self.linear = ME.MinkowskiLinear(
+            self.feature_dim, self.dataset_cfg.classes, bias=False
         )
         # self.bn1 = get_norm(
         #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
@@ -64,7 +63,7 @@ class MinkovskiSemantic(nn.Module):
         output = self.backbone(input)
 
         # # Run features through 2-layer non-linear projection head
-        output = self.linear1(output)
+        output = self.linear(output)
         # output = self.bn1(output)
         # output = self.relu(output)
         # output = self.linear2(output)
@@ -135,9 +134,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
 
-        # normalize to unit vectors
-        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        # TODO: Comment out for now but normalization should be done here
+        # # normalize to unit vectors
+        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         if q.shape[0] > max_pos:
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
@@ -186,9 +186,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             q = q[inds]
             k = k[inds]
 
-        # normalize to unit vectors
-        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        # TODO: Comment out for now but normalization should be done here
+        # # normalize to unit vectors
+        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         # Labels
         npos = q.shape[0]

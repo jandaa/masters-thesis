@@ -79,6 +79,17 @@ class Trainer:
         self.data_interface = DataInterfaceFactory(cfg).get_interface()
         self.model_factory = ModelFactory(cfg, self.data_interface)
 
+        if self.pretrain_checkpoint:
+            log.info("Continuing pretraining from checkpoint.")
+            backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
+            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
+                cfg=self.cfg,
+                checkpoint_path=self.pretrain_checkpoint,
+            )
+            self.model_factory = ModelFactory(
+                cfg, self.data_interface, backbone=backbonewraper.model
+            )
+
         # Create model
         log.info("Creating Model")
         self.model = self.model_factory.get_model()
