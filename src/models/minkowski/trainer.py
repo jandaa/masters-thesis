@@ -41,7 +41,7 @@ class MinkovskiSemantic(nn.Module):
 
         # Projection head
         self.linear = ME.MinkowskiLinear(
-            self.feature_dim, self.dataset_cfg.classes, bias=False
+            self.feature_dim, self.dataset_cfg.classes, bias=True
         )
         # self.bn1 = get_norm(
         #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
@@ -54,7 +54,7 @@ class MinkovskiSemantic(nn.Module):
         # self.bn2 = get_norm(
         #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
         # )
-        # self.relu = ME.MinkowskiReLU(inplace=True)
+        self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
@@ -68,7 +68,7 @@ class MinkovskiSemantic(nn.Module):
         # output = self.relu(output)
         # output = self.linear2(output)
         # output = self.bn2(output)
-        # output = self.relu(output)
+        output = self.relu(output)
 
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
