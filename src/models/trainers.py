@@ -8,6 +8,7 @@ from omegaconf import DictConfig
 
 import torch
 from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import LambdaLR
 import pytorch_lightning as pl
 import numpy as np
 import open3d as o3d
@@ -19,6 +20,27 @@ import util.eval as eval
 import util.eval_semantic as eval_semantic
 
 log = logging.getLogger(__name__)
+
+class LambdaStepLR(LambdaLR):
+
+  def __init__(self, optimizer, lr_lambda, last_step=-1):
+    super(LambdaStepLR, self).__init__(optimizer, lr_lambda, last_step)
+
+  @property
+  def last_step(self):
+    """Use last_epoch for the step counter"""
+    return self.last_epoch
+
+  @last_step.setter
+  def last_step(self, v):
+    self.last_epoch = v
+
+
+class PolyLR(LambdaStepLR):
+  """DeepLab learning rate policy"""
+
+  def __init__(self, optimizer, max_iter, power=0.9, last_step=-1):
+    super(PolyLR, self).__init__(optimizer, lambda s: (1 - s / (max_iter + 1))**power, last_step)
 
 
 def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
@@ -45,6 +67,8 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
         return optimizer
     elif scheduler_cfg.type == "ExpLR":
         scheduler = ExponentialLR(optimizer, scheduler_cfg.exp_gamma)
+    elif scheduler_cfg.type == "PolyLR":
+        scheduler = PolyLR(optimizer, max_iter=scheduler_cfg.max_iter, power=scheduler_cfg.poly_power)
     else:
         log.error(f"Invalid scheduler type: {scheduler_cfg.type}")
         raise ValueError(f"Invalid scheduler type: {scheduler_cfg.type}")

@@ -18,6 +18,8 @@ optimizer:
 scheduler:
   type:
   exp_gamma:
+  poly_power:
+  max_iter:
   interval:
   frequency:
 
