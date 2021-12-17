@@ -39,10 +39,9 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        # # Projection head
-        self.linear1 = ME.MinkowskiLinear(
-            self.feature_dim,
-            self.dataset_cfg.classes,
+        # Projection head
+        self.linear = ME.MinkowskiLinear(
+            self.feature_dim, self.dataset_cfg.classes, bias=True
         )
         # self.bn1 = get_norm(
         #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
@@ -55,7 +54,7 @@ class MinkovskiSemantic(nn.Module):
         # self.bn2 = get_norm(
         #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
         # )
-        # self.relu = ME.MinkowskiReLU(inplace=True)
+        self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
@@ -64,12 +63,12 @@ class MinkovskiSemantic(nn.Module):
         output = self.backbone(input)
 
         # # Run features through 2-layer non-linear projection head
-        output = self.linear1(output)
+        output = self.linear(output)
         # output = self.bn1(output)
         # output = self.relu(output)
         # output = self.linear2(output)
         # output = self.bn2(output)
-        # output = self.relu(output)
+        output = self.relu(output)
 
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
@@ -115,7 +114,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn_new(self, batch, output):
         tau = 0.4
-        max_pos = 4092
+        max_pos = 3072
         n = 4092
 
         # Get all positive and negative pairs
@@ -135,9 +134,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
 
-        # normalize to unit vectors
-        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        # TODO: Comment out for now but normalization should be done here
+        # # normalize to unit vectors
+        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         if q.shape[0] > max_pos:
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
@@ -154,7 +154,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             neg = combined.index_select(0, torch.tensor([ind], device=q.device))
             Ng[ind] = neg.mean(dim=-1) * n
 
-        loss = (-torch.log(pos / (pos + Ng))).mean()
+        loss = (-torch.log(pos / (Ng))).mean()
 
         return loss
 
@@ -186,9 +186,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             q = q[inds]
             k = k[inds]
 
-        # normalize to unit vectors
-        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        # TODO: Comment out for now but normalization should be done here
+        # # normalize to unit vectors
+        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         # Labels
         npos = q.shape[0]
