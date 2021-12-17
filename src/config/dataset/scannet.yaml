@@ -16,7 +16,7 @@ mode: 4 # 4=mean
 pretrain:
   frame_skip: 25
   batch_size: 16
-  max_steps: 20000
+  max_steps: 40000
   accumulate_grad_batches: 1
 
 categories: [

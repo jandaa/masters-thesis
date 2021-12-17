@@ -114,7 +114,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn_new(self, batch, output):
         tau = 0.4
-        max_pos = 4092
+        max_pos = 3072
         n = 4092
 
         # Get all positive and negative pairs
@@ -154,7 +154,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             neg = combined.index_select(0, torch.tensor([ind], device=q.device))
             Ng[ind] = neg.mean(dim=-1) * n
 
-        loss = (-torch.log(pos / (pos + Ng))).mean()
+        loss = (-torch.log(pos / (Ng))).mean()
 
         return loss
 
