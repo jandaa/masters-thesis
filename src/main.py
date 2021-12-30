@@ -128,6 +128,7 @@ class Trainer:
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
             limit_train_batches=self.cfg.limit_train_batches,
+            accumulate_grad_batches=self.cfg.dataset.accumulate_grad_batches,
             deterministic=True,
             precision=self.cfg.precision,
             max_time=self.cfg.max_time,
