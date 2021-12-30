@@ -136,8 +136,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # TODO: Comment out for now but normalization should be done here
         # # normalize to unit vectors
-        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         if q.shape[0] > max_pos:
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
@@ -188,8 +188,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # TODO: Comment out for now but normalization should be done here
         # # normalize to unit vectors
-        # q = q / torch.norm(q, p=2, dim=1, keepdim=True)
-        # k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         # Labels
         npos = q.shape[0]
