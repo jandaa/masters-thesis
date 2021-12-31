@@ -134,15 +134,9 @@ class SceneMeasurement:
         # Compute FPFH features and entropy
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(self.points)
-        pcd.estimate_normals(
-            o3d.geometry.KDTreeSearchParamHybrid(
-                radius=20 * info["voxel_size"], max_nn=500
-            )
-        )
+        pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=100))
 
-        search_param = o3d.geometry.KDTreeSearchParamHybrid(
-            radius=30 * info["voxel_size"], max_nn=200
-        )
+        search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=7, max_nn=200)
         fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
 
         # Store fpfh values as numpy array
