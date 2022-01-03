@@ -1,6 +1,7 @@
 import logging
 from omegaconf import DictConfig
 import functools
+import itertools
 
 import torch
 import torch.nn as nn
@@ -90,7 +91,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         elif cfg.model.net.loss == "entropy":
             self.loss_fn = self.loss_fn_entropy
         elif cfg.model.net.loss == "delta":
-            self.loss_fn == self.loss_fn_delta
+            self.loss_fn = self.loss_fn_delta
         else:
             self.loss_fn = self.loss_fn_original
 
@@ -138,8 +139,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
 
-        # TODO: Comment out for now but normalization should be done here
-        # # normalize to unit vectors
+        # normalize to unit vectors
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
         k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
@@ -206,10 +206,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn_delta(self, batch, output):
         tau = 0.4
-        max_pos = 50
+        max_pos = 200
         n = 4092
-
-        output = output.output
 
         # Get all positive and negative pairs
         qs, ks = [], []
@@ -242,42 +240,38 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
         k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
-        batch_indices = np.zeros(q.shape[0])
-        old_pos = 0
-        for i in range(len(qs)):
-            batch_indices[old_pos : old_pos + qs[i].shape[0]] = i
-            old_pos = qs[i].shape[0]
-
         if q.shape[0] > max_pos:
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
             q = q[inds]
             k = k[inds]
             q_fpfh = q_fpfh[inds]
             k_fpfh = k_fpfh[inds]
-            batch_indices = batch_indices[inds]
 
         pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
         combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
 
-        import itertools
-
         distances = np.zeros((q.shape[0], q.shape[0]))
         for i, j in itertools.combinations(range(q.shape[0]), 2):
-            distances[i, j] = wasserstein_distance(q_fpfh[i], k_fpfh[j])
-            distances[j, i] = wasserstein_distance(q_fpfh[j], k_fpfh[i])
+            if i == j:
+                distances[i, j] = 0.0
+                distances[j, i] = 0.0
+            else:
+                distances[i, j] = wasserstein_distance(q_fpfh[i], k_fpfh[j])
+                distances[j, i] = wasserstein_distance(q_fpfh[j], k_fpfh[i])
 
         Ng = torch.zeros(q.shape[0], device=q.device)
         for ind in range(q.shape[0]):
 
-            # select the negative values
+            # select row corresponding to query point
             neg = combined.index_select(0, torch.tensor([ind], device=q.device))
-            # diff_scene_indices = torch.tensor(
-            #     np.where(batch_indices != batch_indices[ind])[0], device=q.device
-            # )
+
+            # select the negative values
             select_indices = torch.tensor(
-                np.where(distances[ind] > 5.0)[0], device=q.device
+                np.where(distances[ind] > 7.0)[0], device=q.device
             )
             neg = neg.index_select(1, select_indices)
+
+            # Compute the mean and normalize by n
             Ng[ind] = neg.mean(dim=-1) * n
 
         loss = (-torch.log(pos / (pos + Ng))).mean()
