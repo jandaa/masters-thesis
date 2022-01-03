@@ -5,7 +5,7 @@ python src/main.py \
     tasks=["train","eval"] \
     hydra.run.dir=outputs/pretrain/5cm-extra-slow \
     gpus=1 \
-    dataset.batch_size=6 \
+    dataset.batch_size=16 \
     dataset.accumulate_grad_batches=3 \
     dataset.voxel_size=0.05 \
     model.optimizer.type=SGD \
