@@ -358,6 +358,36 @@ I would like to compare my approach to one of each of the different options for 
 
 \pagebreak
 
+\section{Results}
+
+\subsection{Experimental Setup}
+
+hyper-parameters:
+
+batch size: 16
+accumulate gradient: 3
+learning rate: 0.2
+iterations: 4000
+
+\subsection{Semantic Segmentation Negative Sampling}
+
+\begin{center}
+    \begin{table}[h!]
+        \resizebox{\textwidth}{!}{
+            \begin{tabular}{ c | c c c c c c c c c c c c c | c }
+                              & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU           \\
+                \hline
+                baseline      & 0.869          & 0.95           & 0.798          & \textbf{0.001} & 0.253          & \textbf{0.585} & 0.510          & 0.731          & \textbf{0.841} & 0.391          & 0.715          & \textbf{0.725} & 0.534          & 0.608          \\
+                PointContrast & \textbf{0.895} & \textbf{0.961} & \textbf{0.817} & 0              & \textbf{0.350} & 0.561          & \textbf{0.671} & \textbf{0.737} & 0.834          & \textbf{0.572} & \textbf{0.727} & 0.699          & \textbf{0.554} & \textbf{0.644}
+            \end{tabular}
+        }
+        \caption{S3DIS pretraining results on Semantic Segmentation}
+    \end{table}
+\end{center}
+
+
+\pagebreak
+
 \newpage
 \bibliographystyle{plain}
 \bibliography{contrastive-learning}
