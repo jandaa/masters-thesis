@@ -5,8 +5,8 @@ python src/main.py \
     tasks=["train","eval"] \
     hydra.run.dir=outputs/s3dis/minkowski-5cm-extra-slow \
     gpus=1 \
-    dataset.batch_size=16 \
-    dataset.accumulate_grad_batches=3 \
+    dataset.batch_size=6 \
+    dataset.accumulate_grad_batches=8 \
     dataset.voxel_size=0.05 \
     model.optimizer.type=SGD \
     model.optimizer.lr=0.2 \
@@ -16,6 +16,6 @@ python src/main.py \
     model.scheduler.interval=step \
     model.scheduler.frequency=100 \
     max_time="02:00:00:00" \
-    max_epochs=600 \
+    max_epochs=1200 \
     check_val_every_n_epoch=10 \
     model.train.train_workers=10 
