@@ -185,6 +185,19 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             # Extract data
             xyz = np.ascontiguousarray(frame.points)
             features = torch.from_numpy(frame.point_colors)
+            fpfh = frame.fpfh
+            entropies = frame.entropies
+
+            # VISUALIZATION
+            # import copy
+            # inds = np.where(entropies < 0.4)[0]
+            # entropies_ = copy.deepcopy(entropies)
+            # entropies_[inds] = 0
+            # entropies_ = 1 - entropies_
+            # entropies_ = entropies_ / entropies_.max()
+            # visualize_mapping(xyz, entropies)
+            # colors = get_color_map(entropies_)
+            # features = torch.from_numpy(colors)
 
             # apply a random scalling
             xyz *= random_scale
@@ -212,6 +225,8 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
                     "mapping": mapping,
+                    "fpfh": fpfh,
+                    "entropies": entropies,
                 }
             )
 
@@ -222,9 +237,13 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             {
                 "frame1": {
                     "voxel_inds": mapping1[k],
+                    "fpfh": quantized_frames[0]["fpfh"][k],
+                    "entropies": quantized_frames[0]["entropies"][k],
                 },
                 "frame2": {
                     "voxel_inds": mapping2[v],
+                    "fpfh": quantized_frames[1]["fpfh"][v],
+                    "entropies": quantized_frames[1]["entropies"][v],
                 },
             }
             for k, v in correspondences.items()
@@ -404,6 +423,30 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             "correspondences": correspondences,
             "quantized_frames": quantized_frames,
         }
+
+
+import open3d as o3d
+from matplotlib import pyplot as plt
+
+
+def get_color_map(x):
+    colours = plt.cm.Spectral(x)
+    return colours[:, :3]
+
+
+def visualize_mapping(points1, entropies):
+    # points1 = points1.detach().cpu().numpy()
+
+    pcd1 = o3d.geometry.PointCloud()
+    pcd1.points = o3d.utility.Vector3dVector(points1)
+
+    colors = get_color_map(entropies)
+
+    # colors = np.ones(points1.shape) * np.array([0, 0.4, 0.4])
+    # colors[voxel_indices_1] = np.array([0, 0, 0])
+    pcd1.colors = o3d.utility.Vector3dVector(colors)
+
+    o3d.visualization.draw_geometries([pcd1])
 
 
 class MinkowskiDataset(SegmentationDataset):

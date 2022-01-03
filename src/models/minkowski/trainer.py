@@ -87,6 +87,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         # which training loss to use
         if cfg.model.net.loss == "new":
             self.loss_fn = self.loss_fn_new
+        elif cfg.model.net.loss == "entropy":
+            self.loss_fn = self.loss_fn_entropy
+        elif cfg.model.net.loss == "delta":
+            self.loss_fn == self.loss_fn_delta
         else:
             self.loss_fn = self.loss_fn_original
 
@@ -186,8 +190,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             q = q[inds]
             k = k[inds]
 
-        # TODO: Comment out for now but normalization should be done here
-        # # normalize to unit vectors
+        # normalize to unit vectors
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
         k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
@@ -289,47 +292,49 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         qs, ks = [], []
         es = []
         for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [v for v, _ in matches]
-            voxel_indices_2 = [v for _, v in matches]
-            # entropies = [v for _, _, v in matches]
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+            entropies = [match["frame1"]["entropies"] for match in matches]
 
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
             q = output_batch_1[voxel_indices_1]
             k = output_batch_2[voxel_indices_2]
 
+            # Visualize sampling
+            entropies = np.array(entropies)
+            inds = np.where(entropies < 0.4)[0]
+            entropies[inds] = 0
+
+            # VISUALIZATION
+            # entropies = entropies / entropies.sum()
+            # voxel_indices_1 = np.random.choice(
+            #     voxel_indices_1, 1000, p=entropies, replace=False
+            # )
             # model_input = ME.SparseTensor(batch.features, batch.points)
             # points1 = model_input.coordinates_at(2 * i)
-            # points2 = model_input.coordinates_at(2 * i + 1)
-
-            # entropies = np.array(entropies)
-            # entropies = np.array(entropies) / np.array(entropies).sum()
-            # voxel_indices_1 = np.random.choice(
-            #     voxel_indices_1, 500, p=entropies, replace=False
-            # )
-            # visualize_mapping(points1, points2, voxel_indices_1)
+            # features1 = model_input.features_at(2 * i)
+            # visualize_mapping(points1, features1, voxel_indices_1, entropies)
 
             qs.append(q)
             ks.append(k)
-            # es.append(np.array(entropies))
-
-        # TODO: Iterate through each scene and make sure that the negative
-        # points don't come from the same scene
+            es.append(entropies)
 
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
-        # es = np.concatenate(es, axis=0)
-        # es = es / es.sum()
+        es = np.concatenate(es, axis=0)
+        es = es / es.sum()
 
         if q.shape[0] > max_pos:
-            # inds = np.random.choice(q.shape[0], max_pos, p=es, replace=False)
-            inds = np.random.choice(q.shape[0], max_pos, replace=False)
-
-            # max_pos_batch = min(max_pos, np.count_nonzero(es))
-            # inds = np.random.choice(q.shape[0], max_pos_batch, p=es, replace=False)
+            max_pos_batch = min(max_pos, np.count_nonzero(es))
+            inds = np.random.choice(q.shape[0], max_pos_batch, p=es, replace=False)
 
             q = q[inds]
             k = k[inds]
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
         # Labels
         npos = q.shape[0]
@@ -343,15 +348,24 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
 
 import open3d as o3d
+from matplotlib import pyplot as plt
 
 
-def visualize_mapping(points1, points2, voxel_indices_1):
+def get_color_map(x):
+    colours = plt.cm.Spectral(x)
+    return colours[:, :3]
+
+
+def visualize_mapping(points1, features1, voxel_indices_1, entropies):
     points1 = points1.detach().cpu().numpy()
+    features1 = features1.detach().cpu().numpy()
 
     pcd1 = o3d.geometry.PointCloud()
     pcd1.points = o3d.utility.Vector3dVector(points1)
+    colors = features1
+    # colors = get_color_map(entropies)
 
-    colors = np.ones(points1.shape) * np.array([0, 0.4, 0.4])
+    # colors = np.ones(points1.shape) * np.array([0, 0.4, 0.4])
     colors[voxel_indices_1] = np.array([0, 0, 0])
     pcd1.colors = o3d.utility.Vector3dVector(colors)
 
