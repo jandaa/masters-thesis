@@ -1,6 +1,6 @@
 # general parameters
 dataset_dir: ??? # Must be provided at command line
-output_dir: 
+output_dir:
 
 # What tasks to run, Options
 # 1. train - train and run on test set
@@ -13,6 +13,7 @@ tasks:
 gpus: 1
 accelerator: "ddp"
 max_epochs: 384
+max_steps:
 max_time: # Format DD:HH:MM:SS
 check_val_every_n_epoch: 10
 precision: 32
