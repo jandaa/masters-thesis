@@ -364,10 +364,14 @@ I would like to compare my approach to one of each of the different options for 
 
 hyper-parameters:
 
-batch size: 16
-accumulate gradient: 3
-learning rate: 0.2
-iterations: 4000
+\begin{itemize}
+    \item batch size: 6
+    \item accumulate gradient: 8
+    \item learning rate: 0.2
+    \item iterations: 4000
+\end{itemize}
+
+
 
 \subsection{Semantic Segmentation Negative Sampling}
 
@@ -377,8 +381,8 @@ iterations: 4000
             \begin{tabular}{ c | c c c c c c c c c c c c c | c }
                               & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU           \\
                 \hline
-                baseline      & 0.869          & 0.95           & 0.798          & \textbf{0.001} & 0.253          & \textbf{0.585} & 0.510          & 0.731          & \textbf{0.841} & 0.391          & 0.715          & \textbf{0.725} & 0.534          & 0.608          \\
-                PointContrast & \textbf{0.895} & \textbf{0.961} & \textbf{0.817} & 0              & \textbf{0.350} & 0.561          & \textbf{0.671} & \textbf{0.737} & 0.834          & \textbf{0.572} & \textbf{0.727} & 0.699          & \textbf{0.554} & \textbf{0.644}
+                baseline      & 0.862          & 0.947          & 0.811          & \textbf{0.002} & \textbf{0.356} & 0.551          & 0.590          & 0.745          & 0.751          & 0.452          & 0.719          & 0.606          & 0.514          & 0.608          \\
+                PointContrast & \textbf{0.905} & \textbf{0.962} & \textbf{0.818} & 0              & 0.345          & \textbf{0.581} & \textbf{0.633} & \textbf{0.750} & \textbf{0.861} & \textbf{0.648} & \textbf{0.729} & \textbf{0.799} & \textbf{0.566} & \textbf{0.661}
             \end{tabular}
         }
         \caption{S3DIS pretraining results on Semantic Segmentation}
