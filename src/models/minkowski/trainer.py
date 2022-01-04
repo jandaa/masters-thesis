@@ -2,6 +2,7 @@ import logging
 from omegaconf import DictConfig
 import functools
 import itertools
+import pickle
 
 import torch
 import torch.nn as nn
@@ -92,6 +93,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             self.loss_fn = self.loss_fn_entropy
         elif cfg.model.net.loss == "delta":
             self.loss_fn = self.loss_fn_delta
+        elif cfg.model.net.loss == "cluster":
+            self.clusters = pickle.load(open("clustering.pkl", "rb"))
+            self.loss_fn = self.loss_fn_cluster
         else:
             self.loss_fn = self.loss_fn_original
 
@@ -268,6 +272,73 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             # select the negative values
             select_indices = torch.tensor(
                 np.where(distances[ind] > 7.0)[0], device=q.device
+            )
+            neg = neg.index_select(1, select_indices)
+
+            # Compute the mean and normalize by n
+            Ng[ind] = neg.mean(dim=-1) * n
+
+        loss = (-torch.log(pos / (pos + Ng))).mean()
+
+        return loss
+
+    def loss_fn_cluster(self, batch, output):
+        tau = 0.4
+        max_pos = 2 * 4092
+        n = 4092
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        qs_fpfh = []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            fpfh_1 = [match["frame1"]["fpfh"] for match in matches]
+            # fpfh_2 = [match["frame2"]["fpfh"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+            qs_fpfh.append(np.array(fpfh_1))
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        q_fpfh = np.concatenate(qs_fpfh)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+            q_fpfh = q_fpfh[inds]
+
+        cluster_pred = self.clusters.predict(q_fpfh)
+
+        pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
+        combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        Ng = torch.zeros(q.shape[0], device=q.device)
+        for ind in range(q.shape[0]):
+
+            # select row corresponding to query point
+            neg = combined.index_select(0, torch.tensor([ind], device=q.device))
+
+            # get cluster
+            cluster_ind = cluster_pred[ind]
+
+            # select the negative values
+            select_indices = torch.tensor(
+                np.where(cluster_pred != cluster_ind)[0], device=q.device
             )
             neg = neg.index_select(1, select_indices)
 
