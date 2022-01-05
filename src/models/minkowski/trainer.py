@@ -284,7 +284,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn_cluster(self, batch, output):
         tau = 0.4
-        max_pos = 2 * 4092
+        max_pos = int(4092 / 4)
         n = 4092
 
         # Get all positive and negative pairs
@@ -295,7 +295,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
 
             fpfh_1 = [match["frame1"]["fpfh"] for match in matches]
-            # fpfh_2 = [match["frame2"]["fpfh"] for match in matches]
 
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
