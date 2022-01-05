@@ -160,98 +160,77 @@ def entropy(feature, base=None):
 import random
 
 
+def compute_fpfh(pcd):
+    pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=100))
+
+    search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=7, max_nn=200)
+    fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
+
+    return fpfh.data.T
+
+
+import pickle
+
+
 @hydra.main(config_path="config", config_name="config")
 def test_fpfh(cfg: DictConfig):
     """Test FPFH features."""
 
-    pl.seed_everything(62, workers=True)
+    pl.seed_everything(70, workers=True)
 
     # load a data interface
     data_interface_factory = DataInterfaceFactory(cfg)
     data_interface = data_interface_factory.get_interface()
 
+    # Load in a scene
+    model_factory = ModelFactory(cfg, data_interface)
+    dataset_type = model_factory.get_dataset_type()
+    dataset = dataset_type(data_interface.val_data[:100], cfg)
+    collate_fn = dataset.collate
+
     # # get a couple of values
-    # voxel_size = 0.02
     # fpfh_features = []
     # for i in range(50):
-
-    #     # Load in a scene
-    #     model_factory = ModelFactory(cfg, data_interface)
-    #     dataset_type = model_factory.get_dataset_type()
-    #     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
-    #     collate_fn = dataset.collate
 
     #     scene_ind = random.randint(0, len(dataset) - 1)
     #     scene = collate_fn([dataset[scene_ind]])
 
-    #     # first_frame = np.where(scene.points[:, 0] == 0)[0]
-    #     # points = scene.points[first_frame, 1:4] * voxel_size
+    #     points = scene.points[:, 1:4]
 
-    #     points = scene.points[:, 1:4] * voxel_size
-
-    #     # points = points[:, 1:4] * voxel_size
     #     pcd = o3d.geometry.PointCloud()
     #     pcd.points = o3d.utility.Vector3dVector(points)
 
     #     # o3d.visualization.draw_geometries([pcd])
 
-    #     # compute the features
-    #     pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
-    #     pcd.estimate_normals(
-    #         o3d.geometry.KDTreeSearchParamHybrid(radius=20 * voxel_size, max_nn=500)
-    #     )
-
-    #     search_param = o3d.geometry.KDTreeSearchParamHybrid(
-    #         radius=30 * voxel_size, max_nn=200
-    #     )
-    #     fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
-
-    #     features = fpfh.data.T
-
+    #     features = compute_fpfh(pcd)
     #     fpfh_features.append(features)
-
-    # points = points[:, 1:4] * voxel_size
 
     # fpfh_features = np.concatenate(fpfh_features)
     # np.save("fpfh_features.npy", fpfh_features)
 
-    fpfh_features = np.load("fpfh_features.npy")
+    # fpfh_features = np.load("fpfh_features.npy")
 
-    num_clusters = 3
+    num_clusters = 2
     cluster_colors = np.array([get_random_colour() for i in range(num_clusters)])
 
-    kmeans = KMeans(n_clusters=num_clusters, random_state=0)
-    kmeans.fit(fpfh_features)
+    # kmeans = KMeans(n_clusters=num_clusters, random_state=0)
+    # kmeans.fit(fpfh_features)
 
-    # colours = cluster_colors[kmeans.labels_]
+    # pickle.dump(kmeans, open("clustering.pkl", "wb"))
 
-    # Load in a scene
-    model_factory = ModelFactory(cfg, data_interface)
-    dataset_type = model_factory.get_dataset_type()
-    dataset = dataset_type(data_interface.pretrain_val_data, cfg)
-    collate_fn = dataset.collate
+    kmeans = pickle.load(open("clustering.pkl", "rb"))
 
-    scene_ind = random.randint(0, len(dataset) - 1)
+    # scene_ind = random.randint(0, len(dataset) - 1)
+    scene_ind = 25
     scene = collate_fn([dataset[scene_ind]])
 
-    voxel_size = 0.02
-    points = scene.points[:, 1:4] * voxel_size
+    points = scene.points[:, 1:4]
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
 
     # compute the features
-    pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
-    pcd.estimate_normals(
-        o3d.geometry.KDTreeSearchParamHybrid(radius=20 * voxel_size, max_nn=500)
-    )
-
-    search_param = o3d.geometry.KDTreeSearchParamHybrid(
-        radius=30 * voxel_size, max_nn=200
-    )
-    fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
-
-    features = fpfh.data.T
+    features = compute_fpfh(pcd)
 
     predicted_clusters = kmeans.predict(features)
     colours = cluster_colors[predicted_clusters]
@@ -326,7 +305,7 @@ def test_fpfh_distance(cfg: DictConfig):
 def test_fpfh_entropy(cfg: DictConfig):
     """Test FPFH features."""
 
-    pl.seed_everything(62, workers=True)
+    pl.seed_everything(65, workers=True)
 
     # load a data interface
     data_interface_factory = DataInterfaceFactory(cfg)
@@ -337,7 +316,7 @@ def test_fpfh_entropy(cfg: DictConfig):
     dataset_type = model_factory.get_backbone_dataset_type()
     dataset = dataset_type(data_interface.pretrain_val_data, cfg)
     collate_fn = dataset.collate
-    scene = collate_fn([dataset[0]])
+    scene = collate_fn([dataset[20]])
 
     first_frame = np.where(scene.points[:, 0] == 0)[0]
     points = scene.points[first_frame, :]
@@ -353,24 +332,26 @@ def test_fpfh_entropy(cfg: DictConfig):
     # compute the features
     voxel_size = 0.02
     pcd = pcd.voxel_down_sample(voxel_size=voxel_size)
-    pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=5, max_nn=100))
+    pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=100))
+    # pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=5, max_nn=100))
 
-    search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=8, max_nn=200)
+    # search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=6, max_nn=200)
+    search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=7, max_nn=200)
     fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
 
     features = fpfh.data.T
-    color_map = np.array([entropy(feature) for feature in features])
+    # color_map = np.array([entropy(feature) for feature in features])
 
-    # Normalize color map
-    color_map = color_map - color_map.min()
-    color_map = color_map / color_map.max()
-    color_map = 1 - color_map
+    # # Normalize color map
+    # color_map = color_map - color_map.min()
+    # color_map = color_map / color_map.max()
+    # color_map = 1 - color_map
     # dist = wasserstein_distance(features[0], features[100])
 
     # Select points based off of entropy values
     import random
 
-    probability = 1 - color_map
+    # probability = 1 - color_map
     # probability[np.where(probability < 0.4)[0]] = 0.0
     # selected = list(np.where(probability < 0.4)[0])
     # probability = probability / probability.sum()
@@ -385,4 +366,4 @@ def test_fpfh_entropy(cfg: DictConfig):
 
 if __name__ == "__main__":
     # test_backbone()
-    test_fpfh_entropy()
+    test_fpfh()
