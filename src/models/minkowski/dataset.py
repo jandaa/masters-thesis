@@ -334,10 +334,10 @@ class MinkowskiDataset(SegmentationDataset):
         features = torch.from_numpy(scene.features)
         labels = np.array([scene.semantic_labels, scene.instance_labels]).T
 
-        # if self.is_test:
-        #     xyz, features, labels = self.test_augmentations(xyz, features, labels)
-        # else:
-        #     xyz, features, labels = self.augmentations(xyz, features, labels)
+        if self.is_test:
+            xyz, features, labels = self.test_augmentations(xyz, features, labels)
+        else:
+            xyz, features, labels = self.augmentations(xyz, features, labels)
 
         coords, feats, labels = ME.utils.sparse_quantize(
             xyz,
