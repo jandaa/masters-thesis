@@ -29,14 +29,25 @@ def get_pretrain_checkpoint_callback():
     )
 
 
+# def get_checkpoint_callback():
+#     return ModelCheckpoint(
+#         dirpath="checkpoints",
+#         filename="{epoch}-{step}-{val_loss:.2f}",
+#         save_last=True,
+#         monitor="val_loss",
+#         mode="min",
+#         save_top_k=-1,
+#     )
+
+
 def get_checkpoint_callback():
     return ModelCheckpoint(
         dirpath="checkpoints",
-        filename="{epoch}-{step}-{val_loss:.2f}",
+        filename="{epoch}-{step}-{val_semantic_mIOU:.3f}",
         save_last=True,
-        monitor="val_loss",
-        mode="min",
-        save_top_k=-1,
+        monitor="val_semantic_mIOU",
+        mode="max",
+        save_top_k=3,
     )
 
 
@@ -212,7 +223,7 @@ class Trainer:
 
         # Load the best checkpoint so far if desired
         if self.cfg.eval_on_best:
-            self.checkpoint_path = get_checkpoint_callback().best_model_path
+            self.checkpoint_path = self.trainer.checkpoint_callback.best_model_path
 
     def eval(self):
         """Evaluate full pipline on test set."""

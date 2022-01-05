@@ -67,6 +67,7 @@ class ModelFactory:
         elif self.model_name == minkowski_name:
             return MinkowskiTrainer.load_from_checkpoint(
                 cfg=self.cfg,
+                data_interface=self.data_interface,
                 checkpoint_path=checkpoint_path,
             )
 
