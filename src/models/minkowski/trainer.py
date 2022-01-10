@@ -94,7 +94,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         elif cfg.model.net.loss == "delta":
             self.loss_fn = self.loss_fn_delta
         elif cfg.model.net.loss == "cluster":
-            self.clusters = pickle.load(open("clustering.pkl", "rb"))
             self.loss_fn = self.loss_fn_cluster
         else:
             self.loss_fn = self.loss_fn_original
@@ -284,17 +283,17 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def loss_fn_cluster(self, batch, output):
         tau = 0.4
-        max_pos = int(4092 / 4)
+        max_pos = int(4092 / 1)
         n = 4092
 
         # Get all positive and negative pairs
         qs, ks = [], []
-        qs_fpfh = []
+        qs_clusters = []
         for i, matches in enumerate(batch.correspondences):
             voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
             voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
 
-            fpfh_1 = [match["frame1"]["fpfh"] for match in matches]
+            clusters = [match["frame1"]["clusters"] for match in matches]
 
             output_batch_1 = output.features_at(2 * i)
             output_batch_2 = output.features_at(2 * i + 1)
@@ -304,12 +303,12 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             qs.append(q)
             ks.append(k)
 
-            qs_fpfh.append(np.array(fpfh_1))
+            qs_clusters.append(np.array(clusters))
 
         q = torch.cat(qs, 0)
         k = torch.cat(ks, 0)
 
-        q_fpfh = np.concatenate(qs_fpfh)
+        q_clusters = np.concatenate(qs_clusters)
 
         # normalize to unit vectors
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
@@ -319,9 +318,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             inds = np.random.choice(q.shape[0], max_pos, replace=False)
             q = q[inds]
             k = k[inds]
-            q_fpfh = q_fpfh[inds]
+            q_clusters = q_clusters[inds]
 
-        cluster_pred = self.clusters.predict(q_fpfh)
+        # cluster_pred = self.clusters.predict(q_fpfh)
 
         pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
         combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
@@ -333,11 +332,11 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             neg = combined.index_select(0, torch.tensor([ind], device=q.device))
 
             # get cluster
-            cluster_ind = cluster_pred[ind]
+            cluster_ind = q_clusters[ind]
 
             # select the negative values
             select_indices = torch.tensor(
-                np.where(cluster_pred != cluster_ind)[0], device=q.device
+                np.where(q_clusters != cluster_ind)[0], device=q.device
             )
             neg = neg.index_select(1, select_indices)
 

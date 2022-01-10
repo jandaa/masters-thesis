@@ -187,6 +187,7 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
             features = torch.from_numpy(frame.point_colors)
             fpfh = frame.fpfh
             entropies = frame.entropies
+            clusters = frame.clusters
 
             # VISUALIZATION
             # import copy
@@ -227,6 +228,7 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
                     "mapping": mapping,
                     "fpfh": fpfh,
                     "entropies": entropies,
+                    "clusters": clusters,
                 }
             )
 
@@ -239,11 +241,13 @@ class MinkowskiEntropyPretrainDataset(PretrainDataset):
                     "voxel_inds": mapping1[k],
                     "fpfh": quantized_frames[0]["fpfh"][k],
                     "entropies": quantized_frames[0]["entropies"][k],
+                    "clusters": quantized_frames[0]["clusters"][k],
                 },
                 "frame2": {
                     "voxel_inds": mapping2[v],
                     "fpfh": quantized_frames[1]["fpfh"][v],
                     "entropies": quantized_frames[1]["entropies"][v],
+                    "clusters": quantized_frames[1]["clusters"][v],
                 },
             }
             for k, v in correspondences.items()

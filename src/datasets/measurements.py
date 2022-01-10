@@ -47,7 +47,14 @@ def get_point_cloud(depth, intrinsics):
 class SceneMeasurement:
     """Stores sensor measurements for a single frame"""
 
-    def __init__(self, directory: Path, output_dir: Path, info: dict, frame_id: str):
+    def __init__(
+        self,
+        directory: Path,
+        output_dir: Path,
+        info: dict,
+        frame_id: str,
+        cluster_model,
+    ):
         """
         Load all measurements of a single frame from a scene catpure
 
@@ -147,6 +154,9 @@ class SceneMeasurement:
         entropies = entropies - entropies.min()
         entropies = entropies / entropies.max()
         self.entropies = entropies
+
+        # Compute clusters
+        self.clusters = cluster_model.predict(self.fpfh)
 
         # save all processed data to file
         self.save_to_file(output_dir)
@@ -253,8 +263,13 @@ class SceneMeasurements:
         self.label_id_to_colour = {i: self.get_random_colour() for i in range(100)}
         self.instance_id_to_colour = {i: self.get_random_colour() for i in range(100)}
 
+        # Load cluster model
+        cluster_model = pickle.load(open("clustering.pkl", "rb"))
+
         measurements = [
-            SceneMeasurement(directory, output_dir, self.info, f"{frame:06d}")
+            SceneMeasurement(
+                directory, output_dir, self.info, f"{frame:06d}", cluster_model
+            )
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
         self.num_measurements = len(measurements)
