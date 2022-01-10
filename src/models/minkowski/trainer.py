@@ -95,6 +95,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             self.loss_fn = self.loss_fn_delta
         elif cfg.model.net.loss == "cluster":
             self.loss_fn = self.loss_fn_cluster
+        elif cfg.model.net.loss == "debiased":
+            self.loss_fn = self.loss_fn_debiased
+        elif cfg.model.net.loss == "hard":
+            self.loss_fn = self.loss_fn_hard
         else:
             self.loss_fn = self.loss_fn_original
 
@@ -408,6 +412,124 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         out = out.squeeze().contiguous()
 
         return self.criterion(out, labels)
+
+    def loss_fn_debiased(self, batch, output):
+        tau = 0.4
+        max_pos = 4092
+        n = 4092
+        tau_plus = 0.1  # class probability
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
+        combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        Ng = torch.zeros(q.shape[0], device=q.device)
+        for ind in range(q.shape[0]):
+
+            # select the negative values
+            neg = combined.index_select(0, torch.tensor([ind], device=q.device))
+
+            # Select all but the same index
+            select_indices = torch.tensor(
+                [i for i in range(neg.shape[1]) if i != ind], device=q.device
+            )
+            neg = neg.index_select(1, select_indices)
+
+            Ng[ind] = neg.mean(dim=-1) * n
+
+        # Debiased objective
+        Ng = torch.max(
+            (-n * tau_plus * pos + Ng).sum() / (1 - tau_plus),
+            torch.exp(-1 / torch.tensor(tau, device=q.device)),
+        )
+        loss = (-torch.log(pos / (pos + Ng))).mean()
+
+        return loss
+
+    def loss_fn_hard(self, batch, output):
+        tau = 0.4
+        max_pos = 4092
+        n = 4092
+        tau_plus = 0.1  # class probability
+        beta = 5.0
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        pos = torch.exp(torch.sum(q * k, dim=-1) / tau)
+        combined = torch.exp(torch.mm(q, k.t().contiguous()) / tau)
+
+        Ng = torch.zeros(q.shape[0], device=q.device)
+        for ind in range(q.shape[0]):
+
+            # select the negative values
+            neg = combined.index_select(0, torch.tensor([ind], device=q.device))
+
+            # Select all but the same index
+            select_indices = torch.tensor(
+                [i for i in range(neg.shape[1]) if i != ind], device=q.device
+            )
+            neg = neg.index_select(1, select_indices)
+
+            reweight = (beta * neg) / neg.mean(dim=-1)
+            Ng[ind] = (reweight * neg).mean(dim=-1) * n
+
+        # Debiased objective
+        Ng = torch.max(
+            (-n * tau_plus * pos + Ng).sum() / (1 - tau_plus),
+            torch.exp(-1 / torch.tensor(tau, device=q.device)),
+        )
+        loss = (-torch.log(pos / (pos + Ng))).mean()
+
+        return loss
 
 
 import open3d as o3d
