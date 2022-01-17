@@ -41,6 +41,7 @@ pretrain:
     num_neg_points: 4092 # Number negatives to select
     queue_multiple: 10  # Multiple of batchsize
     temperature: 0.4
+    difficulty: hard
 
 train:
   epochs: 384
