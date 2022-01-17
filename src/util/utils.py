@@ -84,7 +84,29 @@ class NCELossMoco(nn.Module):
             values, indices = torch.sort(l_neg, dim=1, descending=False)
             l_neg = values[:, : 3 * 4092]
         else:  # mixing
-            values, indices = torch.sort(l_neg, dim=1, descending=True)
+
+            # TODO: Don't do it on logits!!
+
+            # Select hard examples to mix
+            values, indicies = torch.sort(l_neg, dim=1, descending=True)
+            hard_neg = values[:, : 2 * 4092]
+
+            # Select mixing coefficients and random i,j values
+            # note that these are same across all positive samples
+            alpha_s = torch.rand((hard_neg.shape[1],), device=l_neg.device)
+            i_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
+            j_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
+
+            # Perform mixing
+            mixed_neg = torch.mul(alpha_s, hard_neg[:, i_s]) + torch.mul(
+                1 - alpha_s, hard_neg[:, j_s]
+            )
+
+            # Normalize new samples
+            mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
+
+            # Add mixed samples to negatives samples
+            l_neg = torch.cat((l_neg, mixed_neg), 1)
 
         # logits: Nx(1+K)
         logits = torch.cat([l_pos, l_neg], dim=1)
