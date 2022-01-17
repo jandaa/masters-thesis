@@ -36,6 +36,12 @@ pretrain:
     interval: "step"
     frequency: 1000
 
+  # For moco loss
+  loss:
+    num_neg_points: 4092 # Number negatives to select
+    queue_multiple: 20  # Multiple of batchsize
+    temperature: 0.4
+
 train:
   epochs: 384
   train_workers: 8 # data loader workers

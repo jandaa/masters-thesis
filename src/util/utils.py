@@ -1,6 +1,7 @@
 import sys
 import shutil
 import math
+import pprint
 from pathlib import Path
 import concurrent.futures
 from omegaconf import DictConfig, OmegaConf
@@ -20,6 +21,74 @@ class NCESoftmaxLoss(nn.Module):
         x = x.squeeze()
         loss = self.criterion(x, label)
         return loss
+
+
+class NCELossMoco(nn.Module):
+    def __init__(self, config):
+        super(NCELossMoco, self).__init__()
+
+        self.K = (
+            config.pretrain.loss.num_neg_points * config.pretrain.loss.queue_multiple
+        )
+        self.dim = config.net.model_n_out
+        self.T = config.pretrain.loss.temperature
+
+        self.register_buffer("queue", torch.randn(self.dim, self.K))
+        self.queue = nn.functional.normalize(self.queue, dim=0)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
+        # cross-entropy loss. Also called InfoNCE
+        self.xe_criterion = nn.CrossEntropyLoss()
+
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys):
+        # gather keys before updating queue
+        # keys = concat_all_gather(keys)
+
+        batch_size = keys.shape[0]
+
+        ptr = int(self.queue_ptr)
+        assert self.K % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        self.queue[:, ptr : ptr + batch_size] = torch.transpose(keys, 0, 1)
+        ptr = (ptr + batch_size) % self.K  # move pointer
+
+        self.queue_ptr[0] = ptr
+
+    def forward(self, output):
+
+        normalized_output1 = nn.functional.normalize(output[0], dim=1, p=2)
+        normalized_output2 = nn.functional.normalize(output[1], dim=1, p=2)
+
+        # positive logits: Nx1
+        l_pos = torch.einsum(
+            "nc,nc->n", [normalized_output1, normalized_output2]
+        ).unsqueeze(-1)
+
+        # negative logits: NxK
+        l_neg = torch.einsum(
+            "nc,ck->nk", [normalized_output1, self.queue.clone().detach()]
+        )
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits /= self.T
+
+        self._dequeue_and_enqueue(normalized_output2)
+
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.xe_criterion(torch.squeeze(logits), labels)
+
+    def __repr__(self):
+        repr_dict = {
+            "name": self._get_name(),
+            "loss_type": self.loss_type,
+        }
+        return pprint.pformat(repr_dict, indent=2)
 
 
 class Visualizer:
