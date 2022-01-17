@@ -77,6 +77,7 @@ class NCELossMoco(nn.Module):
         # apply temperature
         logits /= self.T
 
+        # Why do this at the end?
         self._dequeue_and_enqueue(normalized_output2)
 
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
