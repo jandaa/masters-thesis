@@ -15,6 +15,7 @@ from models.minkowski.modules.res16unet import Res16UNet34C
 from models.minkowski.modules.resnet import get_norm
 from models.minkowski.modules.common import NormType
 
+from util.utils import NCELossMoco
 from util.types import DataInterface
 from models.minkowski.types import (
     MinkowskiInput,
@@ -99,6 +100,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             self.loss_fn = self.loss_fn_debiased
         elif cfg.model.net.loss == "hard":
             self.loss_fn = self.loss_fn_hard
+        elif cfg.model.net.loss == "mixing":
+            self.criterion = NCELossMoco(cfg.model)
+            self.loss_fn = self.loss_fn_mixing
         else:
             self.loss_fn = self.loss_fn_original
 
@@ -530,6 +534,34 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = (-torch.log(pos / (pos + Ng))).mean()
 
         return loss
+
+    def loss_fn_mixing(self, batch, output):
+        max_pos = 4092
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        outputs = [q, k]
+        return self.criterion(outputs)
 
 
 import open3d as o3d
