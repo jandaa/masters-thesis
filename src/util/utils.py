@@ -88,16 +88,14 @@ class NCELossMoco(nn.Module):
 
             # Select hard examples to mix
             values, indicies = torch.sort(l_neg, dim=1, descending=True)
-            # cut_off = 2 * 4092
-            cut_off = 2
+            cut_off = 4092
             n_dim = neg_features.shape[0]
-            hard_neg = values[:, :cut_off]
             hard_indices = indicies[:, :cut_off]
 
             # Select mixing coefficients and random i,j values
             # note that these are same across all positive samples
-            n_pos = hard_neg.shape[0]
-            n_neg = hard_neg.shape[1]
+            n_pos = hard_indices.shape[0]
+            n_neg = hard_indices.shape[1]
             alpha_s = torch.rand((n_neg,), device=l_neg.device)
             i_s = torch.randint(n_neg, (n_neg,))
             j_s = torch.randint(n_neg, (n_neg,))
@@ -119,12 +117,27 @@ class NCELossMoco(nn.Module):
                 1 - alpha_s, hard_neg_js
             )
 
+            # check
+            # mixed_neg_check = torch.zeros_like(hard_neg_is)
+            # for pos_ind in range(n_pos):
+            #     for neg_ind in range(n_neg):
+            #         mixed_neg_check[pos_ind, :, neg_ind] = (
+            #             alpha_s[neg_ind] * hard_neg_is[pos_ind, :, neg_ind]
+            #             + (1 - alpha_s[neg_ind]) * hard_neg_js[pos_ind, :, neg_ind]
+            #         )
+
             # Normalize new samples
             # TODO: check that its normalizing along correct axis
             mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
 
+            # check
+            # check = torch.norm(mixed_neg, dim=1, p=2)
+
             # compute new logits
             l_new = torch.einsum("nc,nck->nk", [normalized_output1, mixed_neg])
+
+            # check
+            # test = normalized_output1[0].dot(mixed_neg[0, :, 0])
 
             # Add mixed samples to negatives samples
             l_neg = torch.cat((l_neg, l_new), 1)
@@ -141,34 +154,6 @@ class NCELossMoco(nn.Module):
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
 
         return self.xe_criterion(torch.squeeze(logits), labels)
-
-    # def forward(self, output):
-
-    #     normalized_output1 = nn.functional.normalize(output[0], dim=1, p=2)
-    #     normalized_output2 = nn.functional.normalize(output[1], dim=1, p=2)
-
-    #     # positive logits: Nx1
-    #     l_pos = torch.einsum(
-    #         "nc,nc->n", [normalized_output1, normalized_output2]
-    #     ).unsqueeze(-1)
-
-    #     # negative logits: NxK
-    #     l_neg = torch.einsum(
-    #         "nc,ck->nk", [normalized_output1, self.queue.clone().detach()]
-    #     )
-
-    #     # logits: Nx(1+K)
-    #     logits = torch.cat([l_pos, l_neg], dim=1)
-
-    #     # apply temperature
-    #     logits /= self.T
-
-    #     # Why do this at the end?
-    #     self._dequeue_and_enqueue(normalized_output2)
-
-    #     labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
-
-    #     return self.xe_criterion(torch.squeeze(logits), labels)
 
     def __repr__(self):
         repr_dict = {
