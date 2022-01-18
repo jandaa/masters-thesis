@@ -20,4 +20,5 @@ python src/main.py \
     max_steps=4000 \
     check_val_every_n_epoch=20 \
     model.train.train_workers=10 \
+    model.net.loss=mixing \
     pretrain_checkpoint=\"moco.ckpt\"
