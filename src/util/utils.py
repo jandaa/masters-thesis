@@ -68,9 +68,8 @@ class NCELossMoco(nn.Module):
         ).unsqueeze(-1)
 
         # negative logits: NxK
-        l_neg = torch.einsum(
-            "nc,ck->nk", [normalized_output1, self.queue.clone().detach()]
-        )
+        neg_features = self.queue.clone().detach()
+        l_neg = torch.einsum("nc,ck->nk", [normalized_output1, neg_features])
 
         # sort based off of hardness to each positive sample
         # select based off of hardest indices
@@ -89,24 +88,46 @@ class NCELossMoco(nn.Module):
 
             # Select hard examples to mix
             values, indicies = torch.sort(l_neg, dim=1, descending=True)
-            hard_neg = values[:, : 2 * 4092]
+            # cut_off = 2 * 4092
+            cut_off = 2
+            n_dim = neg_features.shape[0]
+            hard_neg = values[:, :cut_off]
+            hard_indices = indicies[:, :cut_off]
 
             # Select mixing coefficients and random i,j values
             # note that these are same across all positive samples
-            alpha_s = torch.rand((hard_neg.shape[1],), device=l_neg.device)
-            i_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
-            j_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
+            n_pos = hard_neg.shape[0]
+            n_neg = hard_neg.shape[1]
+            alpha_s = torch.rand((n_neg,), device=l_neg.device)
+            i_s = torch.randint(n_neg, (n_neg,))
+            j_s = torch.randint(n_neg, (n_neg,))
+
+            # indices
+            hard_indices_is = hard_indices[:, i_s].reshape(-1)
+            hard_indices_js = hard_indices[:, j_s].reshape(-1)
+
+            hard_neg_is = neg_features[:, hard_indices_is].T.reshape(n_pos, cut_off, -1)
+            hard_neg_js = neg_features[:, hard_indices_js].T.reshape(n_pos, cut_off, -1)
+
+            hard_neg_is = hard_neg_is.transpose(1, 2)
+            hard_neg_js = hard_neg_js.transpose(1, 2)
 
             # Perform mixing
-            mixed_neg = torch.mul(alpha_s, hard_neg[:, i_s]) + torch.mul(
-                1 - alpha_s, hard_neg[:, j_s]
+            # TODO: check that this is correct
+            alpha_s = alpha_s.repeat((n_pos, n_dim, 1))
+            mixed_neg = torch.mul(alpha_s, hard_neg_is) + torch.mul(
+                1 - alpha_s, hard_neg_js
             )
 
             # Normalize new samples
+            # TODO: check that its normalizing along correct axis
             mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
 
+            # compute new logits
+            l_new = torch.einsum("nc,nck->nk", [normalized_output1, mixed_neg])
+
             # Add mixed samples to negatives samples
-            l_neg = torch.cat((l_neg, mixed_neg), 1)
+            l_neg = torch.cat((l_neg, l_new), 1)
 
         # logits: Nx(1+K)
         logits = torch.cat([l_pos, l_neg], dim=1)
