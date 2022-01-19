@@ -3,7 +3,7 @@ python src/main.py \
     dataset=scannet \
     model=minkowski \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/pretrain/old-loss-easy \
+    hydra.run.dir=outputs/pretrain/old-loss-verify \
     gpus=[0] \
     max_time="01:00:00:00" \
     dataset.pretrain.batch_size=4 \
@@ -13,4 +13,4 @@ python src/main.py \
     model.optimizer.type=SGD \
     model.optimizer.lr=0.1 \
     model.net.loss=select_difficulty \
-    model.pretrain.loss.difficulty=easy
+    model.pretrain.loss.difficulty=original
