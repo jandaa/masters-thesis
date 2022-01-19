@@ -83,7 +83,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
     ):
         super(MinkowskiBackboneTrainer, self).__init__(cfg)
 
+        # config
         self.feature_dim = cfg.model.net.model_n_out
+        self.difficulty = cfg.model.pretrain.loss.difficulty
+
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
         # self.model = MinkovskiSemantic(cfg)
 
@@ -98,8 +101,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             self.loss_fn = self.loss_fn_cluster
         elif cfg.model.net.loss == "debiased":
             self.loss_fn = self.loss_fn_debiased
-        elif cfg.model.net.loss == "hard":
+        elif cfg.model.net.loss == "hard":  # TODO: rename this
             self.loss_fn = self.loss_fn_hard
+        elif cfg.model.net.loss == "select_difficulty":
+            self.loss_fn = self.loss_fn_select_difficulty
         elif cfg.model.net.loss == "mixing":
             self.criterion = NCELossMoco(cfg.model)
             self.loss_fn = self.loss_fn_mixing
@@ -534,6 +539,74 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = (-torch.log(pos / (pos + Ng))).mean()
 
         return loss
+
+    def loss_fn_select_difficulty(self, batch, output):
+        initial_max_pos = 10 * 4092
+        max_pos = 4092
+        tau = 0.4
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        # limit max number of query points
+        k_pos = k
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k_pos = k_pos[inds]
+
+        k_neg = k
+        if k.shape[0] > initial_max_pos:
+            inds = np.random.choice(k.shape[0], initial_max_pos, replace=False)
+            k_neg = k_neg[inds]
+
+        l_pos = torch.einsum("nc,nc->n", [q, k_pos]).unsqueeze(-1)
+
+        # negative logits: NxK
+        l_neg = torch.einsum("nc,ck->nk", [q, k_neg.T])
+
+        # select difficulty
+        if self.difficulty == "hard":
+            values, _ = torch.sort(l_neg, dim=1, descending=True)
+            l_neg = values[:, :max_pos]
+        elif self.difficulty == "medium":
+            values, _ = torch.sort(l_neg, dim=1, descending=True)
+            l_neg = values[:, 3 * max_pos : 6 * max_pos]
+        elif self.difficulty == "easy":
+            values, _ = torch.sort(l_neg, dim=1, descending=False)
+            l_neg = values[:, :max_pos]
+        else:
+            # Just use other positive ks as before
+            l_neg = torch.einsum("nc,ck->nk", [q, k_pos.T])
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits = torch.div(logits, tau).squeeze().contiguous()
+
+        # Labels
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.criterion(logits, labels)
 
     def loss_fn_mixing(self, batch, output):
         max_pos = 4092
