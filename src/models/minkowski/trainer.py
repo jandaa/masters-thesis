@@ -543,6 +543,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
     def loss_fn_select_difficulty(self, batch, output):
         initial_max_pos = 10 * 4092
         max_pos = 4092
+        # initial_max_pos = 10 * 5
+        # max_pos = 5
         tau = 0.4
 
         # Get all positive and negative pairs
@@ -595,6 +597,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         elif self.difficulty == "easy":
             values, _ = torch.sort(l_neg, dim=1, descending=False)
             l_neg = values[:, :max_pos]
+        elif self.difficulty == "mixing":
+            l_neg_new = self.get_mixed_negatives(q, k_neg.T, l_neg, max_pos)
+            l_neg = torch.einsum("nc,ck->nk", [q, k_pos.T])
+            l_neg = torch.cat((l_neg, l_neg_new), 1)
         else:
             # Just use other positive ks as before
             l_neg = torch.einsum("nc,ck->nk", [q, k_pos.T])
@@ -609,6 +615,50 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
 
         return self.criterion(logits, labels)
+
+    # def get_mixed_negatives_verify(self, pos_features, neg_features, l_neg, cut_off):
+
+    #     _, indicies = torch.sort(l_neg, dim=1, descending=True)
+    #     n_dim = neg_features.shape[0]
+    #     hard_indices = indicies[:, :cut_off]
+
+    def get_mixed_negatives(self, pos_features, neg_features, l_neg, cut_off):
+
+        # Select hard examples to mix
+        _, indicies = torch.sort(l_neg, dim=1, descending=True)
+        n_dim = neg_features.shape[0]
+        hard_indices = indicies[:, :cut_off]
+
+        # Select mixing coefficients and random i,j values
+        # note that these are same across all positive samples
+        n_pos = hard_indices.shape[0]
+        n_neg = hard_indices.shape[1]
+        alpha_s = torch.rand((n_neg,), device=l_neg.device)
+        i_s = torch.randint(n_neg, (n_neg,))
+        j_s = torch.randint(n_neg, (n_neg,))
+
+        # indices
+        hard_indices_is = hard_indices[:, i_s].reshape(-1)
+        hard_indices_js = hard_indices[:, j_s].reshape(-1)
+
+        hard_neg_is = neg_features[:, hard_indices_is].T.reshape(n_pos, cut_off, -1)
+        hard_neg_js = neg_features[:, hard_indices_js].T.reshape(n_pos, cut_off, -1)
+
+        hard_neg_is = hard_neg_is.transpose(1, 2)
+        hard_neg_js = hard_neg_js.transpose(1, 2)
+
+        # Perform mixing
+        alpha_s = alpha_s.repeat((n_pos, n_dim, 1))
+        mixed_neg = torch.mul(alpha_s, hard_neg_is) + torch.mul(
+            1 - alpha_s, hard_neg_js
+        )
+
+        # Normalize new samples
+        mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
+
+        # compute new logits
+        l_new = torch.einsum("nc,nck->nk", [pos_features, mixed_neg])
+        return l_new
 
     def loss_fn_mixing(self, batch, output):
         max_pos = 4092

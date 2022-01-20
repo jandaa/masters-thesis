@@ -84,8 +84,6 @@ class NCELossMoco(nn.Module):
             l_neg = values[:, : 3 * 4092]
         else:  # mixing
 
-            # TODO: Don't do it on logits!!
-
             # Select hard examples to mix
             values, indicies = torch.sort(l_neg, dim=1, descending=True)
             cut_off = 4092
