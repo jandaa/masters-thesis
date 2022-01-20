@@ -543,8 +543,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
     def loss_fn_select_difficulty(self, batch, output):
         initial_max_pos = 10 * 4092
         max_pos = 4092
-        # initial_max_pos = 10 * 5
-        # max_pos = 5
         tau = 0.4
 
         # Get all positive and negative pairs
@@ -568,6 +566,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         q = q / torch.norm(q, p=2, dim=1, keepdim=True)
         k = k / torch.norm(k, p=2, dim=1, keepdim=True)
 
+        k = k.detach()
+
         # limit max number of query points
         k_pos = k
         if q.shape[0] > max_pos:
@@ -575,6 +575,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             q = q[inds]
             k_pos = k_pos[inds]
 
+        # Negative keys should not have a gradient
         k_neg = k
         if k.shape[0] > initial_max_pos:
             inds = np.random.choice(k.shape[0], initial_max_pos, replace=False)
@@ -603,7 +604,12 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             l_neg = torch.cat((l_neg, l_neg_new), 1)
         else:
             # Just use other positive ks as before
-            l_neg = torch.einsum("nc,ck->nk", [q, k_pos.T])
+            logits = torch.einsum("nc,ck->nk", [q, k_pos.T])
+
+            npos = q.shape[0]
+            labels = torch.arange(npos).to(batch.device).long()
+
+            return self.criterion(logits, labels)
 
         # logits: Nx(1+K)
         logits = torch.cat([l_pos, l_neg], dim=1)
