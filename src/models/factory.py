@@ -2,7 +2,7 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
-from models.pointgroup.trainer import PointgroupTrainer
+# from models.pointgroup.trainer import PointgroupTrainer
 from models.pointgroup.dataset import SpconvDataset
 from models.minkowski.trainer import MinkowskiTrainer, MinkowskiBackboneTrainer
 from models.minkowski.dataset import (
@@ -31,9 +31,10 @@ class ModelFactory:
 
     def get_model(self):
         if self.model_name == pointgroup_name:
-            return PointgroupTrainer(
-                self.cfg, data_interface=self.data_interface, backbone=self.backbone
-            )
+            raise NotImplementedError("No pointgroup")
+            # return PointgroupTrainer(
+            #     self.cfg, data_interface=self.data_interface, backbone=self.backbone
+            # )
         elif self.model_name == minkowski_name:
             return MinkowskiTrainer(
                 self.cfg, self.data_interface, backbone=self.backbone
@@ -50,19 +51,19 @@ class ModelFactory:
     def load_from_checkpoint(self, checkpoint_path: Path):
 
         if self.model_name == pointgroup_name:
+            raise NotImplementedError("No pointgroup")
+            # # Set the epoch to that loaded in the module
+            # loaded_checkpoint = torch.load(checkpoint_path)
+            # do_instance_segmentation = False
+            # if loaded_checkpoint["epoch"] >= self.cfg.model.train.prepare_epochs:
+            #     do_instance_segmentation = True
 
-            # Set the epoch to that loaded in the module
-            loaded_checkpoint = torch.load(checkpoint_path)
-            do_instance_segmentation = False
-            if loaded_checkpoint["epoch"] >= self.cfg.model.train.prepare_epochs:
-                do_instance_segmentation = True
-
-            return PointgroupTrainer.load_from_checkpoint(
-                cfg=self.cfg,
-                data_interface=self.data_interface,
-                checkpoint_path=checkpoint_path,
-                do_instance_segmentation=do_instance_segmentation,
-            )
+            # return PointgroupTrainer.load_from_checkpoint(
+            #     cfg=self.cfg,
+            #     data_interface=self.data_interface,
+            #     checkpoint_path=checkpoint_path,
+            #     do_instance_segmentation=do_instance_segmentation,
+            # )
 
         elif self.model_name == minkowski_name:
             return MinkowskiTrainer.load_from_checkpoint(
@@ -76,7 +77,8 @@ class ModelFactory:
 
     def get_dataset_type(self):
         if self.model_name == pointgroup_name:
-            return SpconvDataset
+            raise NotImplementedError("No pointgroup")
+            # return SpconvDataset
         elif self.model_name == minkowski_name:
             return MinkowskiDataset
         else:
