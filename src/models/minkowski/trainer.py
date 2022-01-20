@@ -543,8 +543,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
     def loss_fn_select_difficulty(self, batch, output):
         initial_max_pos = 10 * 4092
         max_pos = 4092
-        # initial_max_pos = 10 * 5
-        # max_pos = 5
         tau = 0.4
 
         # Get all positive and negative pairs
@@ -591,8 +589,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             l_neg = values[:, :max_pos]
         elif self.difficulty == "medium":
             values, _ = torch.sort(l_neg, dim=1, descending=True)
-            min_ind = int(l_neg.shape[1] * 1 / 3)
-            max_ind = int(l_neg.shape[1] * 2 / 3)
+            min_ind = int(l_neg.shape[1] * 3 / 8)
+            max_ind = int(l_neg.shape[1] * 5 / 8)
             l_neg = values[:, min_ind:max_ind]
         elif self.difficulty == "easy":
             values, _ = torch.sort(l_neg, dim=1, descending=False)
