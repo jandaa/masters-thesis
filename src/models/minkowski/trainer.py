@@ -589,7 +589,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             l_neg = values[:, :max_pos]
         elif self.difficulty == "medium":
             values, _ = torch.sort(l_neg, dim=1, descending=True)
-            l_neg = values[:, 3 * max_pos : 6 * max_pos]
+            min_ind = int(l_neg.shape[1] * 1 / 3)
+            max_ind = int(l_neg.shape[1] * 2 / 3)
+            l_neg = values[:, min_ind:max_ind]
         elif self.difficulty == "easy":
             values, _ = torch.sort(l_neg, dim=1, descending=False)
             l_neg = values[:, :max_pos]
