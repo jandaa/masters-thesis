@@ -1,5 +1,5 @@
 export SCANNET_DIR=/media/starslab/datasets/scannet
-export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster
+export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images
 export HYDRA_FULL_ERROR=1
 
 preprocess() {
@@ -10,6 +10,7 @@ preprocess() {
         output_dir=$OUTPUT_DIR \
         dataset=scannet \
         dataset.voxel_size=0.02 \
+        dataset.name=scannetv2_pretrain \
         sens_file=$filename
 }
 
