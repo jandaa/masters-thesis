@@ -616,12 +616,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         return self.criterion(logits, labels)
 
-    # def get_mixed_negatives_verify(self, pos_features, neg_features, l_neg, cut_off):
-
-    #     _, indicies = torch.sort(l_neg, dim=1, descending=True)
-    #     n_dim = neg_features.shape[0]
-    #     hard_indices = indicies[:, :cut_off]
-
     def get_mixed_negatives(self, pos_features, neg_features, l_neg, cut_off):
 
         # Select hard examples to mix
@@ -636,6 +630,29 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         alpha_s = torch.rand((n_neg,), device=l_neg.device)
         i_s = torch.randint(n_neg, (n_neg,))
         j_s = torch.randint(n_neg, (n_neg,))
+
+        # # indices
+        # _hard_indices_is = hard_indices[:, i_s]
+        # _hard_indices_js = hard_indices[:, j_s]
+
+        # # CHECK whole thing
+        # l_is = []
+        # for pos_ind in range(n_pos):
+        #     neg_features_is = neg_features[:, _hard_indices_is[pos_ind]]
+        #     neg_features_js = neg_features[:, _hard_indices_js[pos_ind]]
+
+        #     mixed_features = torch.mul(alpha_s, neg_features_is) + torch.mul(
+        #         1 - alpha_s, neg_features_js
+        #     )
+
+        #     mixed_features = nn.functional.normalize(mixed_features, dim=0, p=2)
+
+        #     # compute new logits
+
+        #     l_i = torch.mm(pos_features[pos_ind].unsqueeze(0), mixed_features)
+        #     l_is.append(l_i)
+
+        # l_neg_new_check = torch.cat(l_is, 0)
 
         # indices
         hard_indices_is = hard_indices[:, i_s].reshape(-1)
@@ -658,6 +675,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # compute new logits
         l_new = torch.einsum("nc,nck->nk", [pos_features, mixed_neg])
+
         return l_new
 
     def loss_fn_mixing(self, batch, output):
