@@ -678,6 +678,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # Normalize new samples
         mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
+        mixed_neg = mixed_neg.detach()
 
         # compute new logits
         l_new = torch.einsum("nc,nck->nk", [pos_features, mixed_neg])
