@@ -2,9 +2,14 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 import torch
+
 # from models.pointgroup.trainer import PointgroupTrainer
 from models.pointgroup.dataset import SpconvDataset
-from models.minkowski.trainer import MinkowskiTrainer, MinkowskiBackboneTrainer
+from models.minkowski.trainer import (
+    MinkowskiTrainer,
+    MinkowskiBackboneTrainer,
+    MinkowskiMocoBackboneTrainer,
+)
 from models.minkowski.dataset import (
     MinkowskiDataset,
     MinkowskiPretrainDataset,
@@ -14,7 +19,8 @@ from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
 minkowski_name = "minkowski"
-supported_models = [pointgroup_name, minkowski_name]
+moco_name = "minkowski_moco"
+supported_models = [pointgroup_name, minkowski_name, moco_name]
 
 
 class ModelFactory:
@@ -35,7 +41,7 @@ class ModelFactory:
             # return PointgroupTrainer(
             #     self.cfg, data_interface=self.data_interface, backbone=self.backbone
             # )
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiTrainer(
                 self.cfg, self.data_interface, backbone=self.backbone
             )
@@ -45,6 +51,8 @@ class ModelFactory:
     def get_backbone_wrapper_type(self):
         if self.model_name == minkowski_name:
             return MinkowskiBackboneTrainer
+        if self.model_name == moco_name:
+            return MinkowskiMocoBackboneTrainer
         else:
             raise RuntimeError(self.error_msg)
 
@@ -87,7 +95,7 @@ class ModelFactory:
     def get_backbone_dataset_type(self):
         if self.model_name == pointgroup_name:
             raise RuntimeError(self.error_msg)
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiEntropyPretrainDataset
         else:
             raise RuntimeError(self.error_msg)
