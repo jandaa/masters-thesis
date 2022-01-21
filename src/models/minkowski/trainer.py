@@ -76,6 +76,143 @@ class MinkovskiSemantic(nn.Module):
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
 
+class MinkowskiMocoBackboneTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(MinkowskiMocoBackboneTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+        self.difficulty = cfg.model.pretrain.loss.difficulty
+        self.m = cfg.model.pretrain.loss.momentum
+        self.K = (
+            cfg.model.pretrain.loss.num_neg_points
+            * cfg.model.pretrain.loss.queue_multiple
+        )
+
+        # queue
+        self.register_buffer("queue", torch.randn(self.feature_dim, self.K))
+        self.queue = nn.functional.normalize(self.queue, dim=0)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
+        self.criterion = nn.CrossEntropyLoss()
+
+        # Encoders
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.model2 = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        # initalize encoder 2 with parameters of encoder 1
+        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
+            param_k.data.copy_(param_q.data)  # initialize
+            param_k.requires_grad = False  # not update by gradient
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output1 = self.model(model_input)
+
+        # no gradient to keys
+        with torch.no_grad():
+
+            # update the key encoder
+            self._momentum_update_key_encoder()
+
+            # get output of second encoder
+            output2 = self.model2(model_input)
+
+        loss = self.loss_fn(batch, output1, output2)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output1 = self.model(model_input)
+        output2 = self.model2(model_input)
+        loss = self.loss_fn(batch, output1, output2, is_val=True)
+        self.log("val_loss", loss, sync_dist=True)
+
+    @torch.no_grad()
+    def _momentum_update_key_encoder(self):
+        """
+        Momentum update of the key encoder
+        """
+        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
+            param_k.data = param_k.data * self.m + param_q.data * (1.0 - self.m)
+
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys):
+        # gather keys before updating queue
+        # keys = concat_all_gather(keys)
+
+        batch_size = keys.shape[0]
+
+        ptr = int(self.queue_ptr)
+        assert self.K % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        self.queue[:, ptr : ptr + batch_size] = torch.transpose(keys, 0, 1)
+        ptr = (ptr + batch_size) % self.K  # move pointer
+
+        self.queue_ptr[0] = ptr
+
+    def loss_fn(self, batch, output1, output2, is_val=False):
+        max_pos = 4092
+        tau = 0.4
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output1.features_at(2 * i)
+            output_batch_2 = output2.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = nn.functional.normalize(q, dim=1, p=2)
+        k = nn.functional.normalize(k, dim=1, p=2)
+        k = k.detach()
+
+        # limit max number of query points
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        # return self.criterion(logits, labels)
+        l_pos = torch.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
+
+        # negative logits: NxK
+        neg_features = self.queue.clone().detach()
+        l_neg = torch.einsum("nc,ck->nk", [q, neg_features])
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits /= tau
+
+        if not is_val:
+            self._dequeue_and_enqueue(k)
+
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.criterion(torch.squeeze(logits), labels)
+
+
 class MinkowskiBackboneTrainer(BackboneTrainer):
     def __init__(
         self,
@@ -605,6 +742,8 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         else:
             # Just use other positive ks as before
             logits = torch.einsum("nc,ck->nk", [q, k_pos.T])
+            logits = torch.div(logits, tau)
+            logits = logits.squeeze().contiguous()
 
             npos = q.shape[0]
             labels = torch.arange(npos).to(batch.device).long()
