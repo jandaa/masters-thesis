@@ -68,45 +68,8 @@ class NCELossMoco(nn.Module):
         ).unsqueeze(-1)
 
         # negative logits: NxK
-        l_neg = torch.einsum(
-            "nc,ck->nk", [normalized_output1, self.queue.clone().detach()]
-        )
-
-        # sort based off of hardness to each positive sample
-        # select based off of hardest indices
-        if self.difficulty == "hard":
-            values, indices = torch.sort(l_neg, dim=1, descending=True)
-            l_neg = values[:, : 3 * 4092]
-        elif self.difficulty == "medium":
-            values, indices = torch.sort(l_neg, dim=1, descending=True)
-            l_neg = values[:, 3 * 4092 : 6 * 4092]
-        elif self.difficulty == "easy":
-            values, indices = torch.sort(l_neg, dim=1, descending=False)
-            l_neg = values[:, : 3 * 4092]
-        else:  # mixing
-
-            # TODO: Don't do it on logits!!
-
-            # Select hard examples to mix
-            values, indicies = torch.sort(l_neg, dim=1, descending=True)
-            hard_neg = values[:, : 2 * 4092]
-
-            # Select mixing coefficients and random i,j values
-            # note that these are same across all positive samples
-            alpha_s = torch.rand((hard_neg.shape[1],), device=l_neg.device)
-            i_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
-            j_s = torch.randint(hard_neg.shape[1], (hard_neg.shape[1],))
-
-            # Perform mixing
-            mixed_neg = torch.mul(alpha_s, hard_neg[:, i_s]) + torch.mul(
-                1 - alpha_s, hard_neg[:, j_s]
-            )
-
-            # Normalize new samples
-            mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
-
-            # Add mixed samples to negatives samples
-            l_neg = torch.cat((l_neg, mixed_neg), 1)
+        neg_features = self.queue.clone().detach()
+        l_neg = torch.einsum("nc,ck->nk", [normalized_output1, neg_features])
 
         # logits: Nx(1+K)
         logits = torch.cat([l_pos, l_neg], dim=1)
@@ -120,34 +83,6 @@ class NCELossMoco(nn.Module):
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
 
         return self.xe_criterion(torch.squeeze(logits), labels)
-
-    # def forward(self, output):
-
-    #     normalized_output1 = nn.functional.normalize(output[0], dim=1, p=2)
-    #     normalized_output2 = nn.functional.normalize(output[1], dim=1, p=2)
-
-    #     # positive logits: Nx1
-    #     l_pos = torch.einsum(
-    #         "nc,nc->n", [normalized_output1, normalized_output2]
-    #     ).unsqueeze(-1)
-
-    #     # negative logits: NxK
-    #     l_neg = torch.einsum(
-    #         "nc,ck->nk", [normalized_output1, self.queue.clone().detach()]
-    #     )
-
-    #     # logits: Nx(1+K)
-    #     logits = torch.cat([l_pos, l_neg], dim=1)
-
-    #     # apply temperature
-    #     logits /= self.T
-
-    #     # Why do this at the end?
-    #     self._dequeue_and_enqueue(normalized_output2)
-
-    #     labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
-
-    #     return self.xe_criterion(torch.squeeze(logits), labels)
 
     def __repr__(self):
         repr_dict = {

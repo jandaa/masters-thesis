@@ -76,6 +76,143 @@ class MinkovskiSemantic(nn.Module):
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
 
+class MinkowskiMocoBackboneTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(MinkowskiMocoBackboneTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+        self.difficulty = cfg.model.pretrain.loss.difficulty
+        self.m = cfg.model.pretrain.loss.momentum
+        self.K = (
+            cfg.model.pretrain.loss.num_neg_points
+            * cfg.model.pretrain.loss.queue_multiple
+        )
+
+        # queue
+        self.register_buffer("queue", torch.randn(self.feature_dim, self.K))
+        self.queue = nn.functional.normalize(self.queue, dim=0)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
+        self.criterion = nn.CrossEntropyLoss()
+
+        # Encoders
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.model2 = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        # initalize encoder 2 with parameters of encoder 1
+        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
+            param_k.data.copy_(param_q.data)  # initialize
+            param_k.requires_grad = False  # not update by gradient
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output1 = self.model(model_input)
+
+        # no gradient to keys
+        with torch.no_grad():
+
+            # update the key encoder
+            self._momentum_update_key_encoder()
+
+            # get output of second encoder
+            output2 = self.model2(model_input)
+
+        loss = self.loss_fn(batch, output1, output2)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output1 = self.model(model_input)
+        output2 = self.model2(model_input)
+        loss = self.loss_fn(batch, output1, output2, is_val=True)
+        self.log("val_loss", loss, sync_dist=True)
+
+    @torch.no_grad()
+    def _momentum_update_key_encoder(self):
+        """
+        Momentum update of the key encoder
+        """
+        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
+            param_k.data = param_k.data * self.m + param_q.data * (1.0 - self.m)
+
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys):
+        # gather keys before updating queue
+        # keys = concat_all_gather(keys)
+
+        batch_size = keys.shape[0]
+
+        ptr = int(self.queue_ptr)
+        assert self.K % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        self.queue[:, ptr : ptr + batch_size] = torch.transpose(keys, 0, 1)
+        ptr = (ptr + batch_size) % self.K  # move pointer
+
+        self.queue_ptr[0] = ptr
+
+    def loss_fn(self, batch, output1, output2, is_val=False):
+        max_pos = 4092
+        tau = 0.4
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output1.features_at(2 * i)
+            output_batch_2 = output2.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = nn.functional.normalize(q, dim=1, p=2)
+        k = nn.functional.normalize(k, dim=1, p=2)
+        k = k.detach()
+
+        # limit max number of query points
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k = k[inds]
+
+        # return self.criterion(logits, labels)
+        l_pos = torch.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
+
+        # negative logits: NxK
+        neg_features = self.queue.clone().detach()
+        l_neg = torch.einsum("nc,ck->nk", [q, neg_features])
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits /= tau
+
+        if not is_val:
+            self._dequeue_and_enqueue(k)
+
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.criterion(torch.squeeze(logits), labels)
+
+
 class MinkowskiBackboneTrainer(BackboneTrainer):
     def __init__(
         self,
@@ -83,7 +220,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
     ):
         super(MinkowskiBackboneTrainer, self).__init__(cfg)
 
+        # config
         self.feature_dim = cfg.model.net.model_n_out
+        self.difficulty = cfg.model.pretrain.loss.difficulty
+
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
         # self.model = MinkovskiSemantic(cfg)
 
@@ -98,8 +238,10 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
             self.loss_fn = self.loss_fn_cluster
         elif cfg.model.net.loss == "debiased":
             self.loss_fn = self.loss_fn_debiased
-        elif cfg.model.net.loss == "hard":
+        elif cfg.model.net.loss == "hard":  # TODO: rename this
             self.loss_fn = self.loss_fn_hard
+        elif cfg.model.net.loss == "select_difficulty":
+            self.loss_fn = self.loss_fn_select_difficulty
         elif cfg.model.net.loss == "mixing":
             self.criterion = NCELossMoco(cfg.model)
             self.loss_fn = self.loss_fn_mixing
@@ -534,6 +676,153 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         loss = (-torch.log(pos / (pos + Ng))).mean()
 
         return loss
+
+    def loss_fn_select_difficulty(self, batch, output):
+        initial_max_pos = 10 * 4092
+        max_pos = 4092
+        tau = 0.4
+
+        # Get all positive and negative pairs
+        qs, ks = [], []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_batch_1 = output.features_at(2 * i)
+            output_batch_2 = output.features_at(2 * i + 1)
+            q = output_batch_1[voxel_indices_1]
+            k = output_batch_2[voxel_indices_2]
+
+            qs.append(q)
+            ks.append(k)
+
+        q = torch.cat(qs, 0)
+        k = torch.cat(ks, 0)
+
+        # normalize to unit vectors
+        q = q / torch.norm(q, p=2, dim=1, keepdim=True)
+        k = k / torch.norm(k, p=2, dim=1, keepdim=True)
+
+        k = k.detach()
+
+        # limit max number of query points
+        k_pos = k
+        if q.shape[0] > max_pos:
+            inds = np.random.choice(q.shape[0], max_pos, replace=False)
+            q = q[inds]
+            k_pos = k_pos[inds]
+
+        # Negative keys should not have a gradient
+        k_neg = k
+        if k.shape[0] > initial_max_pos:
+            inds = np.random.choice(k.shape[0], initial_max_pos, replace=False)
+            k_neg = k_neg[inds]
+
+        l_pos = torch.einsum("nc,nc->n", [q, k_pos]).unsqueeze(-1)
+
+        # negative logits: NxK
+        l_neg = torch.einsum("nc,ck->nk", [q, k_neg.T])
+
+        # select difficulty
+        if self.difficulty == "hard":
+            values, _ = torch.sort(l_neg, dim=1, descending=True)
+            l_neg = values[:, :max_pos]
+        elif self.difficulty == "medium":
+            values, _ = torch.sort(l_neg, dim=1, descending=True)
+            min_ind = int(l_neg.shape[1] * 1 / 8)
+            max_ind = int(l_neg.shape[1] * 2 / 8)
+            l_neg = values[:, min_ind:max_ind]
+        elif self.difficulty == "easy":
+            values, _ = torch.sort(l_neg, dim=1, descending=False)
+            l_neg = values[:, :max_pos]
+        elif self.difficulty == "mixing":
+            l_neg_new = self.get_mixed_negatives(q, k_neg.T, l_neg, max_pos)
+            l_neg = torch.einsum("nc,ck->nk", [q, k_pos.T])
+            l_neg = torch.cat((l_neg, l_neg_new), 1)
+        else:
+            # Just use other positive ks as before
+            logits = torch.einsum("nc,ck->nk", [q, k_pos.T])
+            logits = torch.div(logits, tau)
+            logits = logits.squeeze().contiguous()
+
+            npos = q.shape[0]
+            labels = torch.arange(npos).to(batch.device).long()
+
+            return self.criterion(logits, labels)
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits = torch.div(logits, tau).squeeze().contiguous()
+
+        # Labels
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.criterion(logits, labels)
+
+    def get_mixed_negatives(self, pos_features, neg_features, l_neg, cut_off):
+
+        # Select hard examples to mix
+        _, indicies = torch.sort(l_neg, dim=1, descending=True)
+        n_dim = neg_features.shape[0]
+        hard_indices = indicies[:, :cut_off]
+
+        # Select mixing coefficients and random i,j values
+        # note that these are same across all positive samples
+        n_pos = hard_indices.shape[0]
+        n_neg = hard_indices.shape[1]
+        alpha_s = torch.rand((n_neg,), device=l_neg.device)
+        i_s = torch.randint(n_neg, (n_neg,))
+        j_s = torch.randint(n_neg, (n_neg,))
+
+        # # indices
+        # _hard_indices_is = hard_indices[:, i_s]
+        # _hard_indices_js = hard_indices[:, j_s]
+
+        # # CHECK whole thing
+        # l_is = []
+        # for pos_ind in range(n_pos):
+        #     neg_features_is = neg_features[:, _hard_indices_is[pos_ind]]
+        #     neg_features_js = neg_features[:, _hard_indices_js[pos_ind]]
+
+        #     mixed_features = torch.mul(alpha_s, neg_features_is) + torch.mul(
+        #         1 - alpha_s, neg_features_js
+        #     )
+
+        #     mixed_features = nn.functional.normalize(mixed_features, dim=0, p=2)
+
+        #     # compute new logits
+
+        #     l_i = torch.mm(pos_features[pos_ind].unsqueeze(0), mixed_features)
+        #     l_is.append(l_i)
+
+        # l_neg_new_check = torch.cat(l_is, 0)
+
+        # indices
+        hard_indices_is = hard_indices[:, i_s].reshape(-1)
+        hard_indices_js = hard_indices[:, j_s].reshape(-1)
+
+        hard_neg_is = neg_features[:, hard_indices_is].T.reshape(n_pos, cut_off, -1)
+        hard_neg_js = neg_features[:, hard_indices_js].T.reshape(n_pos, cut_off, -1)
+
+        hard_neg_is = hard_neg_is.transpose(1, 2)
+        hard_neg_js = hard_neg_js.transpose(1, 2)
+
+        # Perform mixing
+        alpha_s = alpha_s.repeat((n_pos, n_dim, 1))
+        mixed_neg = torch.mul(alpha_s, hard_neg_is) + torch.mul(
+            1 - alpha_s, hard_neg_js
+        )
+
+        # Normalize new samples
+        mixed_neg = nn.functional.normalize(mixed_neg, dim=1, p=2)
+        mixed_neg = mixed_neg.detach()
+
+        # compute new logits
+        l_new = torch.einsum("nc,nck->nk", [pos_features, mixed_neg])
+
+        return l_new
 
     def loss_fn_mixing(self, batch, output):
         max_pos = 4092
