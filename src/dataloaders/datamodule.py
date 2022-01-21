@@ -21,7 +21,7 @@ class DataModule(pl.LightningDataModule):
         data_interface: DataInterface,
         cfg: DictConfig,
         dataset_type: SegmentationDataset,
-        is_pretrain: bool = False
+        is_pretrain: bool = False,
     ):
         super().__init__()
 
@@ -111,14 +111,14 @@ class DataModule(pl.LightningDataModule):
         )
 
     def val_dataloader(self):
-        dataset = self.dataset_type(self.val_data, self.cfg, is_test=False)
+        dataset = self.dataset_type(self.val_data, self.cfg, is_test=True)
         return DataLoader(
             dataset,
-            batch_size=self.batch_size,
+            batch_size=1,
             collate_fn=dataset.collate,
             num_workers=self.num_workers,
             shuffle=False,
-            drop_last=False,
+            drop_last=True,
             pin_memory=True,
         )
 
