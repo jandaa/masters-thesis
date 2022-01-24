@@ -2,6 +2,7 @@ python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=s3dis \
     model=minkowski \
+    model.name=minkowski_moco \
     tasks=["train","eval"] \
     hydra.run.dir=outputs/pretrain/moco \
     gpus=[0] \
@@ -20,5 +21,4 @@ python src/main.py \
     max_steps=4000 \
     check_val_every_n_epoch=20 \
     model.train.train_workers=10 \
-    model.net.loss=mixing \
-    pretrain_checkpoint=\"moco.ckpt\"
+    pretrain_checkpoint=\"last.ckpt\"

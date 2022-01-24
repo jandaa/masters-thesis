@@ -6,7 +6,7 @@ python src/main.py \
     model.name=minkowski_moco \
     tasks=["pretrain"] \
     hydra.run.dir=outputs/pretrain/moco \
-    gpus=[1] \
+    gpus=[0] \
     max_time="01:00:00:00" \
     dataset.pretrain.batch_size=4 \
     dataset.pretrain.accumulate_grad_batches=4 \
