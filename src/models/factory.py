@@ -91,7 +91,7 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise NotImplementedError("No pointgroup")
             # return SpconvDataset
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiDataset
         else:
             raise RuntimeError(self.error_msg)
