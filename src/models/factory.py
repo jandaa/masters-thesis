@@ -9,6 +9,7 @@ from models.minkowski.trainer import (
     MinkowskiTrainer,
     MinkowskiBackboneTrainer,
     MinkowskiMocoBackboneTrainer,
+    MinkowskiBOYLBackboneTrainer,
 )
 from models.minkowski.dataset import (
     MinkowskiDataset,
@@ -20,7 +21,8 @@ from util.types import DataInterface
 pointgroup_name = "pointgroup"
 minkowski_name = "minkowski"
 moco_name = "minkowski_moco"
-supported_models = [pointgroup_name, minkowski_name, moco_name]
+byol_name = "minkowski_byol"
+supported_models = [pointgroup_name, minkowski_name, moco_name, byol_name]
 
 
 class ModelFactory:
@@ -51,8 +53,10 @@ class ModelFactory:
     def get_backbone_wrapper_type(self):
         if self.model_name == minkowski_name:
             return MinkowskiBackboneTrainer
-        if self.model_name == moco_name:
+        elif self.model_name == moco_name:
             return MinkowskiMocoBackboneTrainer
+        elif self.model_name == byol_name:
+            return MinkowskiBOYLBackboneTrainer
         else:
             raise RuntimeError(self.error_msg)
 
@@ -87,7 +91,7 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise NotImplementedError("No pointgroup")
             # return SpconvDataset
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiDataset
         else:
             raise RuntimeError(self.error_msg)

@@ -46,17 +46,6 @@ class MinkovskiSemantic(nn.Module):
         self.linear = ME.MinkowskiLinear(
             self.feature_dim, self.dataset_cfg.classes, bias=True
         )
-        # self.bn1 = get_norm(
-        #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
-        # )
-
-        # self.linear2 = ME.MinkowskiLinear(
-        #     self.dataset_cfg.classes,
-        #     self.dataset_cfg.classes,
-        # )
-        # self.bn2 = get_norm(
-        #     self.norm_type, self.dataset_cfg.classes, 3, bn_momentum=self.bn_momentum
-        # )
         self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
@@ -65,15 +54,197 @@ class MinkovskiSemantic(nn.Module):
         # Get backbone features
         output = self.backbone(input)
 
-        # # Run features through 2-layer non-linear projection head
+        # Linear projection head
         output = self.linear(output)
-        # output = self.bn1(output)
-        # output = self.relu(output)
-        # output = self.linear2(output)
-        # output = self.bn2(output)
         output = self.relu(output)
 
         return MinkowskiOutput(output=output, semantic_scores=output.F)
+
+
+class MinkowskiMLP(nn.Module):
+    def __init__(self, cfg: DictConfig, input_size, hidden_size, output_size):
+        nn.Module.__init__(self)
+
+        self.dataset_cfg = cfg.dataset
+        self.input_size = input_size
+        self.hidden_dim = hidden_size
+        self.output_size = output_size
+        self.bn_momentum = cfg.model.net.bn_momentum
+        self.norm_type = NormType.BATCH_NORM
+
+        self.linear1 = ME.MinkowskiLinear(input_size, hidden_size, bias=True)
+        self.bn1 = get_norm(
+            self.norm_type, hidden_size, 3, bn_momentum=self.bn_momentum
+        )
+        self.relu = ME.MinkowskiReLU(inplace=True)
+        self.linear2 = ME.MinkowskiLinear(hidden_size, output_size, bias=False)
+
+    def forward(self, input):
+        output = self.linear1(input)
+        output = self.bn1(output)
+        output = self.relu(output)
+        output = self.linear2(output)
+
+        return output
+
+
+class MinkowskiBYOL(nn.Module):
+    def __init__(self, cfg: DictConfig, use_predictor=False):
+        nn.Module.__init__(self)
+
+        self.dataset_cfg = cfg.dataset
+        self.use_predictor = use_predictor
+        self.feature_dim = cfg.model.net.model_n_out
+        self.bn_momentum = cfg.model.net.bn_momentum
+        self.norm_type = NormType.BATCH_NORM
+
+        # Backbone
+        self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        # Projection head
+        self.projector = MinkowskiMLP(
+            cfg,
+            self.feature_dim,
+            cfg.model.pretrain.loss.projector_hidden_size,
+            cfg.model.pretrain.loss.projector_output_size,
+        )
+
+        if use_predictor:
+            self.predictor = MinkowskiMLP(
+                cfg,
+                cfg.model.pretrain.loss.projector_output_size,
+                cfg.model.pretrain.loss.predictor_hidden_size,
+                cfg.model.pretrain.loss.projector_output_size,
+            )
+
+    def forward(self, input):
+        """Extract features and predict semantic class."""
+
+        # Get embedding
+        output = self.backbone(input)
+
+        # Get projected features
+        output = self.projector(output)
+
+        # Get predicted features if requested
+        if self.use_predictor:
+            output = self.predictor(output)
+
+        return output
+
+
+class MinkowskiBOYLBackboneTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(MinkowskiBOYLBackboneTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+        self.tau = cfg.model.pretrain.loss.byol_tau
+
+        # Loss type
+        self.criterion = nn.MSELoss()
+
+        # Encoders
+        self.model_online = MinkowskiBYOL(cfg, use_predictor=True)
+        self.model_target = MinkowskiBYOL(cfg, use_predictor=False)
+
+    @property
+    def model(self):
+        return self.model_online.backbone
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+
+        # Get outputs
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output_online = self.model_online(model_input)
+        output_target = self.model_target(model_input)
+
+        # Compute loss function
+        loss = self.loss_fn(batch, output_online, output_target)
+
+        # update target parameters
+        self._update_target_parameters()
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    @torch.no_grad()
+    def _update_target_parameters(self):
+        for param_online, param_target in zip(
+            self.model_online.parameters(), self.model_target.parameters()
+        ):
+            param_target.data = (
+                self.tau * param_target.data + (1.0 - self.tau) * param_online.data
+            )
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+
+        # Get outputs
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output_online = self.model_online(model_input)
+        output_target = self.model_target(model_input)
+
+        # Compute loss function
+        loss = self.loss_fn(batch, output_online, output_target)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def loss_fn(self, batch, output_online, output_target):
+        max_pos = 4092
+
+        # Get all samples
+        online_view_1 = []
+        online_view_2 = []
+        target_view_1 = []
+        target_view_2 = []
+        for i, matches in enumerate(batch.correspondences):
+            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+
+            output_online_1 = output_online.features_at(2 * i)
+            output_online_2 = output_online.features_at(2 * i + 1)
+            online_view_1.append(output_online_1[voxel_indices_1])
+            online_view_2.append(output_online_2[voxel_indices_2])
+
+            output_target_1 = output_target.features_at(2 * i)
+            output_target_2 = output_target.features_at(2 * i + 1)
+            target_view_1.append(output_target_1[voxel_indices_1])
+            target_view_2.append(output_target_2[voxel_indices_2])
+
+        # Create tensors
+        online_view_1 = torch.cat(online_view_1, 0)
+        online_view_2 = torch.cat(online_view_2, 0)
+        target_view_1 = torch.cat(target_view_1, 0)
+        target_view_2 = torch.cat(target_view_2, 0)
+
+        # Apply stop gradient to target network outputs
+        target_view_1 = target_view_1.detach()
+        target_view_2 = target_view_2.detach()
+
+        # normalize to unit vectors
+        online_view_1 = nn.functional.normalize(online_view_1, dim=1, p=2)
+        online_view_2 = nn.functional.normalize(online_view_2, dim=1, p=2)
+        target_view_1 = nn.functional.normalize(target_view_1, dim=1, p=2)
+        target_view_2 = nn.functional.normalize(target_view_2, dim=1, p=2)
+
+        # limit max number of query points
+        if online_view_1.shape[0] > max_pos:
+            inds = np.random.choice(online_view_1.shape[0], max_pos, replace=False)
+            online_view_1 = online_view_1[inds]
+            online_view_2 = online_view_2[inds]
+            target_view_1 = target_view_1[inds]
+            target_view_2 = target_view_2[inds]
+
+        # Compute regression loss (symmetrically)
+        loss = self.criterion(online_view_1, target_view_2)
+        loss += self.criterion(online_view_2, target_view_1)
+
+        return loss / 2.0
 
 
 class MinkowskiMocoBackboneTrainer(BackboneTrainer):

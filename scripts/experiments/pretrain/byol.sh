@@ -3,9 +3,9 @@ python src/main.py \
     dataset=scannet \
     dataset.name=scannetv2_pretrain \
     model=minkowski \
-    model.name=minkowski_moco \
+    model.name=minkowski_byol \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/pretrain/moco \
+    hydra.run.dir=outputs/pretrain/byol \
     gpus=[0] \
     max_time="01:00:00:00" \
     dataset.pretrain.batch_size=4 \
@@ -13,4 +13,5 @@ python src/main.py \
     model.train.train_workers=8 \
     check_val_every_n_epoch=10 \
     model.optimizer.type=SGD \
-    model.optimizer.lr=0.1
+    model.optimizer.lr=0.1 \
+    model.net.model_n_out=64
