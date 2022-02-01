@@ -77,7 +77,7 @@ class ModelFactory:
             #     do_instance_segmentation=do_instance_segmentation,
             # )
 
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiTrainer.load_from_checkpoint(
                 cfg=self.cfg,
                 data_interface=self.data_interface,
@@ -91,7 +91,7 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise NotImplementedError("No pointgroup")
             # return SpconvDataset
-        elif self.model_name == minkowski_name:
+        elif minkowski_name in self.model_name:
             return MinkowskiDataset
         else:
             raise RuntimeError(self.error_msg)
