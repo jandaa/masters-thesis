@@ -222,16 +222,6 @@ class MinkowskiBOYLBackboneTrainer(BackboneTrainer):
         target_view_1 = torch.cat(target_view_1, 0)
         target_view_2 = torch.cat(target_view_2, 0)
 
-        # Apply stop gradient to target network outputs
-        target_view_1 = target_view_1.detach()
-        target_view_2 = target_view_2.detach()
-
-        # normalize to unit vectors
-        online_view_1 = nn.functional.normalize(online_view_1, dim=1, p=2)
-        online_view_2 = nn.functional.normalize(online_view_2, dim=1, p=2)
-        target_view_1 = nn.functional.normalize(target_view_1, dim=1, p=2)
-        target_view_2 = nn.functional.normalize(target_view_2, dim=1, p=2)
-
         # limit max number of query points
         if online_view_1.shape[0] > max_pos:
             inds = np.random.choice(online_view_1.shape[0], max_pos, replace=False)
@@ -240,11 +230,21 @@ class MinkowskiBOYLBackboneTrainer(BackboneTrainer):
             target_view_1 = target_view_1[inds]
             target_view_2 = target_view_2[inds]
 
+        # normalize to unit vectors
+        online_view_1 = nn.functional.normalize(online_view_1, dim=1, p=2)
+        online_view_2 = nn.functional.normalize(online_view_2, dim=1, p=2)
+        target_view_1 = nn.functional.normalize(target_view_1, dim=1, p=2)
+        target_view_2 = nn.functional.normalize(target_view_2, dim=1, p=2)
+
+        # Apply stop gradient to target network outputs
+        target_view_1 = target_view_1.detach()
+        target_view_2 = target_view_2.detach()
+
         # Compute regression loss (symmetrically)
         loss = self.criterion(online_view_1, target_view_2)
         loss += self.criterion(online_view_2, target_view_1)
 
-        return loss / 2.0
+        return loss * 100
 
 
 class MinkowskiMocoBackboneTrainer(BackboneTrainer):
