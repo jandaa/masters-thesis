@@ -4,7 +4,6 @@ import random
 
 import hydra
 from omegaconf import DictConfig
-from pytorch_lightning.trainer import data_loading
 import numpy as np
 
 import torch
@@ -29,17 +28,6 @@ def get_pretrain_checkpoint_callback():
         mode="min",
         save_top_k=-1,
     )
-
-
-# def get_checkpoint_callback():
-#     return ModelCheckpoint(
-#         dirpath="checkpoints",
-#         filename="{epoch}-{step}-{val_loss:.2f}",
-#         save_last=True,
-#         monitor="val_loss",
-#         mode="min",
-#         save_top_k=-1,
-#     )
 
 
 def get_checkpoint_callback():
@@ -259,7 +247,7 @@ class Trainer:
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig) -> None:
-    
+
     # Set random seeds for reproductability
     seed = 42
     torch.manual_seed(seed)

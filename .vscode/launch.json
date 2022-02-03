@@ -196,12 +196,10 @@
                 "model.name=minkowski",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
-                "gpus=[1]",
-                "dataset.pretrain.batch_size=4",
+                "gpus=[0]",
+                "dataset.pretrain.batch_size=2",
                 "dataset.pretrain.accumulate_grad_batches=1",
-                "model.train.train_workers=1",
-                "model.net.loss=select_difficulty",
-                "model.pretrain.loss.difficulty=medium"
+                "model.train.train_workers=1"
             ]
         },
         {
@@ -218,7 +216,7 @@
                 "model.name=minkowski_byol",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
-                "gpus=[1]",
+                "gpus=[0]",
                 "dataset.pretrain.batch_size=4",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1",
@@ -239,7 +237,7 @@
                 "model=minkowski",
                 "hydra.run.dir=outputs/s3dis/debug",
                 "check_val_every_n_epoch=1",
-                "gpus=[1]",
+                "gpus=[0]",
                 "model.train.train_workers=1",
                 // "pretrain_checkpoint=\"epoch=199-step=14799-val_loss=6.47.ckpt\"",
                 "model.optimizer.type=SGD",

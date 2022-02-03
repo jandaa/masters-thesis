@@ -5,7 +5,6 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import cv2
-from math import log, e
 
 from scipy.spatial import KDTree
 

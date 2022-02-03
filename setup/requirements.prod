@@ -2,7 +2,7 @@ wheel
 hydra-core
 numpy
 ninja
-pytorch-lightning==1.3.4
+pytorch-lightning
 opencv-python
 plyfile
 scipy
