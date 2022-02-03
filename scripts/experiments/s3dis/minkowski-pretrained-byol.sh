@@ -21,5 +21,4 @@ python src/main.py \
     max_steps=4000 \
     check_val_every_n_epoch=20 \
     model.train.train_workers=6 \
-    model.net.model_n_out=64 \
     pretrain_checkpoint=\"last.ckpt\"
