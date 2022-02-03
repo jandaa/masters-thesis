@@ -12,7 +12,7 @@ source ~/.bashrc
 source .venv/bin/activate
 
 # Install pytorch with CUDA version 11.1
-# pip3 install torch==1.10.+cu111 -f https://download.pytorch.org/whl/torch_stable.html
+# pip3 install torch==1.10+cu111 -f https://download.pytorch.org/whl/torch_stable.html
 pip3 install torch==1.7.1+cu110 -f https://download.pytorch.org/whl/torch_stable.html
 
 # Install all other dependencies

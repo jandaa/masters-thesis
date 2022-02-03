@@ -1,10 +1,10 @@
 from pathlib import Path
 from omegaconf import DictConfig
 
-import torch
+# import torch
 
 # from models.pointgroup.trainer import PointgroupTrainer
-from models.pointgroup.dataset import SpconvDataset
+# from models.pointgroup.dataset import SpconvDataset
 from models.minkowski.trainer import (
     MinkowskiTrainer,
     MinkowskiBackboneTrainer,
