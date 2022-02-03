@@ -1,21 +1,13 @@
 from pathlib import Path
 from omegaconf import DictConfig
 
-# import torch
-
-# from models.pointgroup.trainer import PointgroupTrainer
-# from models.pointgroup.dataset import SpconvDataset
 from models.minkowski.trainer import (
     MinkowskiTrainer,
     MinkowskiBackboneTrainer,
     MinkowskiMocoBackboneTrainer,
     MinkowskiBOYLBackboneTrainer,
 )
-from models.minkowski.dataset import (
-    MinkowskiDataset,
-    MinkowskiPretrainDataset,
-    MinkowskiEntropyPretrainDataset,
-)
+from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
 from util.types import DataInterface
 
 pointgroup_name = "pointgroup"
@@ -100,6 +92,6 @@ class ModelFactory:
         if self.model_name == pointgroup_name:
             raise RuntimeError(self.error_msg)
         elif minkowski_name in self.model_name:
-            return MinkowskiEntropyPretrainDataset
+            return MinkowskiPretrainDataset
         else:
             raise RuntimeError(self.error_msg)
