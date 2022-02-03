@@ -22,7 +22,6 @@ class Res16UNetBase(ResNetBase):
 
     def __init__(self, in_channels, out_channels, config, D=3):
         super(Res16UNetBase, self).__init__(in_channels, out_channels, config, D)
-        self.normalize_feature = config.net.normalize_feature
 
     def network_initialization(self, in_channels, out_channels, config, D):
         dilations = self.DILATIONS
