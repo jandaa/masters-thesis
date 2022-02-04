@@ -12,10 +12,10 @@ tasks:
 # Trainer configuration
 gpus: 1
 accelerator: "ddp"
-max_epochs: 384
+max_epochs: 2000
 max_steps:
 max_time: # Format DD:HH:MM:SS
-check_val_every_n_epoch: 10
+check_val_every_n_epoch: 20
 precision: 32
 
 # Fraction of training set to use during training

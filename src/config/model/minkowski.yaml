@@ -10,18 +10,18 @@ net:
   loss:
 
 optimizer:
-  type: Adam # Adam or SGD
-  lr: 1e-3
+  type: SGD # Adam or SGD
+  lr: 0.2
   momentum: 0.9
   weight_decay: 1e-4
 
 scheduler:
-  type:
+  type: PolyLR
   exp_gamma:
-  poly_power:
-  max_iter:
-  interval:
-  frequency:
+  poly_power: 0.9
+  max_iter: 10000
+  interval: step
+  frequency: 10
 
 pretrain:
   optimizer:
@@ -47,13 +47,10 @@ pretrain:
     projector_hidden_size: 16
     projector_output_size: 32
     predictor_hidden_size: 16
-    # projector_hidden_size: 128
-    # projector_output_size: 32
-    # predictor_hidden_size: 64
 
 train:
   epochs: 384
-  train_workers: 8 # data loader workers
+  train_workers: 12 # data loader workers
   multiplier: 0.5
   prepare_epochs: 10000
 
