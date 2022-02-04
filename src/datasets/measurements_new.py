@@ -6,7 +6,7 @@ import numpy as np
 import open3d as o3d
 import cv2
 
-from util.types import SceneWithLabels
+from util.types import Scene, SceneWithLabels
 
 measurements_dir_name = "measurements"
 colour_image_extension = ".color.jpg"
@@ -65,9 +65,6 @@ class SceneMeasurement:
         self.colour_intrinsics = np.fromstring(
             info["m_calibrationColorIntrinsic"], sep=" "
         ).reshape(4, 4)
-        self.depth_intrinsics = np.fromstring(
-            info["m_calibrationDepthIntrinsic"], sep=" "
-        ).reshape(4, 4)
 
         # load raw data
         self.color_image = cv2.imread(str(color_image_name))
@@ -78,64 +75,69 @@ class SceneMeasurement:
         self.color_image = cv2.resize(self.color_image, depth_resolution)
 
         # Get points visible in camera frame
-        # first project points into camera frame
-        T_world_to_camera = np.linalg.inv(self.pose)
-        points = np.concatenate(
-            (scene.points, np.ones((scene.points.shape[0], 1))), axis=1
-        )
-        points_camera_frame = T_world_to_camera @ points.T
-        points_infront = points_camera_frame[2, :] > 0
-        pixels = self.colour_intrinsics @ points_camera_frame
-        pixels = pixels / pixels[2]
-
-        valid_points = np.ones(pixels.shape[1], dtype=np.bool8)
-        valid_points = np.logical_and(valid_points, pixels[0, :] > 0)
-        valid_points = np.logical_and(
-            valid_points, pixels[0, :] < float(info["m_colorWidth"])
-        )
-        valid_points = np.logical_and(valid_points, pixels[1, :] > 0)
-        valid_points = np.logical_and(
-            valid_points, pixels[1, :] < float(info["m_colorHeight"])
-        )
-        valid_points = np.logical_and(valid_points, points_infront)
+        frame = self.get_projected_scene(info, scene)
 
         # Get point cloud for camera view
         pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(
-            points_camera_frame[0:3, :].T[valid_points]
-        )
-        pcd.colors = o3d.utility.Vector3dVector((scene.features[valid_points] + 0.5))
+        pcd.points = o3d.utility.Vector3dVector(frame.points)
+        pcd.colors = o3d.utility.Vector3dVector(frame.features)
+
+        # Downsample point cloud according to specified voxel size
+        pcd = pcd.voxel_down_sample(info["voxel_size"])
+
+        # # Visualize
         # o3d.visualization.draw_geometries([pcd])
+        # self.show_colour_image()
 
-        # pcd.points = o3d.utility.Vector3dVector(pcd.points - pcd.get_center())
-        diameter = np.linalg.norm(
-            np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound())
-        )
-        camera = [0, 0, -diameter]
-        radius = diameter * 1000
-        _, pt_map = pcd.hidden_point_removal(camera, radius)
-        pcd_new = pcd.select_by_index(pt_map)
-        o3d.visualization.draw_geometries([pcd_new])
-
-        self.show_colour_image()
-
-        # # Convert depth map into point cloud
-        # self.points = get_point_cloud(self.depth_image, self.depth_intrinsics)
-        # self.points = np.dot(self.points, np.transpose(self.pose))
-
-        # # Get colours of points in depth map
-        # mask = self.depth_image != 0
-        # self.point_colors = np.reshape(self.color_image_for_point_cloud[mask], [-1, 3])
-        # self.point_colors = self.point_colors / 127.5 - 1
-
-        # # Downsample point cloud according to specified voxel size
-        # pcd = self.get_open3d_point_cloud()
-        # pcd = pcd.voxel_down_sample(info["voxel_size"])
-        # self.points = np.asarray(pcd.points)v
-        # self.point_colors = np.asarray(pcd.colors)
+        # Store both projection and full scene
+        self.points = np.asarray(pcd.points)
+        self.point_colors = np.asarray(pcd.colors)
 
         # save all processed data to file
         self.save_to_file(output_dir)
+
+    def get_points_in_camera_frame(self, points):
+        T_world_to_camera = np.linalg.inv(self.pose)
+        points = np.concatenate((points, np.ones((points.shape[0], 1))), axis=1)
+
+        # Convert to camera frame and remove points behind camera
+        return T_world_to_camera @ points.T
+
+    def get_projected_scene(self, info, scene):
+        """Get array of points that project into image plane."""
+
+        points_in_camera_frame = self.get_points_in_camera_frame(scene.points)
+
+        # Image plane projection
+        pixels = self.colour_intrinsics @ points_in_camera_frame
+        pixels = pixels / pixels[2]
+
+        # Get all points that fit inside the image
+        valid = [
+            pixels[0, :] > 0,
+            pixels[0] < float(info["m_colorWidth"]),
+            pixels[1, :] > 0,
+            pixels[1] < float(info["m_colorHeight"]),
+            points_in_camera_frame[2, :] > 0,
+        ]
+        valid_points = np.ones(pixels.shape[1], dtype=np.bool8)
+        for condition in valid:
+            valid_points = np.logical_and(valid_points, condition)
+
+        return Scene(
+            "",
+            points_in_camera_frame[0:3].T[valid_points],
+            scene.features[valid_points],
+        )
+
+    @classmethod
+    def remove_hidden_points(pcd):
+        diameter = np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound())
+        diameter = np.linalg.norm(diameter)
+        camera = [0, 0, -diameter]
+        radius = diameter * 10000
+        _, pt_map = pcd.hidden_point_removal(camera, radius)
+        return pcd.select_by_index(pt_map)
 
     @property
     def color_image_for_point_cloud(self):
