@@ -101,14 +101,21 @@ class SceneMeasurement:
 
         # Get point cloud for camera view
         pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(scene.points[valid_points])
+        pcd.points = o3d.utility.Vector3dVector(
+            points_camera_frame[0:3, :].T[valid_points]
+        )
         pcd.colors = o3d.utility.Vector3dVector((scene.features[valid_points] + 0.5))
         # o3d.visualization.draw_geometries([pcd])
-        # mesh, pt_map = pcd.hidden_point_removal(-np.linalg.inv(self.pose)[0:3, 3], 50.0)
-        # o3d.visualization.draw_geometries([mesh])
 
-        # pcd_new = pcd.select_by_index(valid_points)
-        o3d.visualization.draw_geometries([pcd])
+        # pcd.points = o3d.utility.Vector3dVector(pcd.points - pcd.get_center())
+        diameter = np.linalg.norm(
+            np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound())
+        )
+        camera = [0, 0, -diameter]
+        radius = diameter * 1000
+        _, pt_map = pcd.hidden_point_removal(camera, radius)
+        pcd_new = pcd.select_by_index(pt_map)
+        o3d.visualization.draw_geometries([pcd_new])
 
         self.show_colour_image()
 
