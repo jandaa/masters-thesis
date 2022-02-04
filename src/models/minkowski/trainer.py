@@ -392,7 +392,6 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # config
         self.feature_dim = cfg.model.net.model_n_out
-        self.difficulty = cfg.model.pretrain.loss.difficulty
 
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 

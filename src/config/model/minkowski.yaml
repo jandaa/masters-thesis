@@ -41,7 +41,6 @@ pretrain:
     num_neg_points: 4092 # Number negatives to select
     queue_multiple: 10  # Multiple of batchsize
     temperature: 0.4
-    difficulty: hard
     momentum: 0.999
     byol_tau: 0.99
     projector_hidden_size: 16
@@ -52,11 +51,10 @@ train:
   epochs: 384
   train_workers: 12 # data loader workers
   multiplier: 0.5
-  prepare_epochs: 10000
 
 test:
-  split: val
-  test_workers: 4
+  # split: val
+  # test_workers: 4
 
   eval: True
   save_point_cloud: True
