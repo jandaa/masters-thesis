@@ -15,7 +15,7 @@ max_npoint: 500000
 mode: 4 # 4=mean
 
 pretrain:
-  frame_skip: 25
+  frame_skip: 75
   batch_size: 16
   max_steps: 40000
   accumulate_grad_batches: 1
