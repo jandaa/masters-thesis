@@ -5,7 +5,7 @@ python src/main.py \
     model=minkowski \
     model.name=minkowski_moco \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/pretrain/moco \
+    hydra.run.dir=$output_dir/pretrain/moco \
     gpus=[0] \
     max_time="01:00:00:00" \
     dataset.pretrain.batch_size=4 \

@@ -4,7 +4,7 @@ python src/main.py \
     model=minkowski \
     model.name=minkowski_moco \
     tasks=["train","eval"] \
-    hydra.run.dir=outputs/pretrain/moco \
+    hydra.run.dir=$output_dir/pretrain/moco \
     gpus=[0] \
     dataset.batch_size=6 \
     dataset.accumulate_grad_batches=8 \

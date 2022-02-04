@@ -3,7 +3,7 @@ python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/scannetv2/pretrained-2cm \
+    hydra.run.dir=$output_dir/scannetv2/pretrained-2cm \
     gpus=[0] \
     dataset.pretrain.batch_size=32 \
     model.structure.m=32 \

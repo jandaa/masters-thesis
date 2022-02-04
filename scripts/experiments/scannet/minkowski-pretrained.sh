@@ -3,7 +3,7 @@ python src/main.py \
     dataset=scannet \
     model=minkowski \
     tasks=["train","eval"] \
-    hydra.run.dir=outputs/scannetv2/minkowski-2cm-pretrained \
+    hydra.run.dir=$output_dir/scannetv2/minkowski-2cm-pretrained \
     gpus=1 \
     max_epochs=180 \
     check_val_every_n_epoch=10 \

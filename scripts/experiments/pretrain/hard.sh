@@ -3,7 +3,7 @@ python src/main.py \
     dataset=scannet \
     model=minkowski \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/pretrain/hard \
+    hydra.run.dir=$output_dir/pretrain/hard \
     gpus=[1] \
     max_time="03:00:00:00" \
     dataset.pretrain.batch_size=4 \

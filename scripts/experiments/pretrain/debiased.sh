@@ -3,7 +3,7 @@ python src/main.py \
     dataset=scannet \
     model=minkowski \
     tasks=["pretrain"] \
-    hydra.run.dir=outputs/pretrain/debiased \
+    hydra.run.dir=$output_dir/pretrain/debiased \
     gpus=[0] \
     max_time="03:00:00:00" \
     dataset.pretrain.batch_size=4 \

@@ -3,7 +3,7 @@ python src/main.py \
     dataset=s3dis \
     model=minkowski \
     tasks=["train","eval"] \
-    hydra.run.dir=outputs/pretrain/5cm-extra-slow \
+    hydra.run.dir=$output_dir/pretrain/5cm-extra-slow \
     gpus=1 \
     dataset.batch_size=16 \
     dataset.accumulate_grad_batches=3 \
