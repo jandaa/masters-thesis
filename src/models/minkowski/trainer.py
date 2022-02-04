@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 
 class MinkovskiSemantic(nn.Module):
-    def __init__(self, cfg: DictConfig, backbone=None):
+    def __init__(self, cfg: DictConfig, backbone=None, freeze_backbone=False):
         nn.Module.__init__(self)
 
         self.dataset_cfg = cfg.dataset
@@ -42,21 +42,20 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        # Projection head
-        self.linear = ME.MinkowskiLinear(
-            self.feature_dim, self.dataset_cfg.classes, bias=True
+        if freeze_backbone:
+            for param in self.backbone.parameters():
+                param.requires_grad = False
+
+        self.head = MinkowskiMLP(
+            cfg, self.feature_dim, self.feature_dim, self.dataset_cfg.classes
         )
-        self.relu = ME.MinkowskiReLU(inplace=True)
 
     def forward(self, input):
         """Extract features and predict semantic class."""
 
         # Get backbone features
         output = self.backbone(input)
-
-        # Linear projection head
-        output = self.linear(output)
-        output = self.relu(output)
+        output = self.head(output)
 
         return MinkowskiOutput(output=output, semantic_scores=output.F)
 
@@ -73,11 +72,11 @@ class MinkowskiMLP(nn.Module):
         self.norm_type = NormType.BATCH_NORM
 
         self.linear1 = ME.MinkowskiLinear(input_size, hidden_size, bias=True)
-        self.bn1 = get_norm(
-            self.norm_type, hidden_size, 3, bn_momentum=self.bn_momentum
+        self.bn1 = ME.MinkowskiBatchNorm(
+            hidden_size, eps=1e-5, momentum=self.bn_momentum
         )
         self.relu = ME.MinkowskiReLU(inplace=True)
-        self.linear2 = ME.MinkowskiLinear(hidden_size, output_size, bias=False)
+        self.linear2 = ME.MinkowskiLinear(hidden_size, output_size, bias=True)
 
     def forward(self, input):
         output = self.linear1(input)

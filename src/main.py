@@ -124,7 +124,6 @@ class Trainer:
             logger=tb_logger,
             gpus=self.cfg.gpus,
             accelerator=self.cfg.accelerator,
-            resume_from_checkpoint=self.checkpoint_path,
             max_epochs=self.cfg.max_epochs,
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
@@ -151,6 +150,7 @@ class Trainer:
             accumulate_grad_batches=self.cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
             max_time=self.cfg.max_time,
+            sync_batchnorm=True,
         )
 
     def get_datamodule(self):
@@ -202,6 +202,10 @@ class Trainer:
         """Train on superivised data."""
 
         data_loader = self.get_datamodule()
+
+        # if self.checkpoint_path:
+        #     checkpoint = torch.load(self.checkpoint_path)
+        #     self.model.load_state_dict(checkpoint["state_dict"])
 
         log.info("starting training")
         self.trainer.fit(
