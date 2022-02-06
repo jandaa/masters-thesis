@@ -42,7 +42,7 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        if freeze_backbone:
+        if cfg.model.net.freeze_backbone:
             for param in self.backbone.parameters():
                 param.requires_grad = False
 
@@ -410,6 +410,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         log("train_loss", loss)
 
         return loss
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        torch.cuda.empty_cache()
 
     def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)

@@ -132,7 +132,6 @@ class MinkowskiPretrainDataset(PretrainDataset):
         #     correspondences,
         # )
 
-        # visualize_correspondances(quantized_frames, correspondences)
         return {
             "correspondences": correspondences,
             "quantized_frames": quantized_frames,

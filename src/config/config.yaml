@@ -16,6 +16,7 @@ max_epochs: 2000
 max_steps:
 max_time: # Format DD:HH:MM:SS
 check_val_every_n_epoch: 20
+val_check_interval: 1.0
 precision: 32
 
 # Fraction of training set to use during training

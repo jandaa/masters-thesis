@@ -15,7 +15,6 @@ from models.factory import ModelFactory
 from dataloaders.datamodule import DataModule
 from datasets.interface import DataInterfaceFactory
 
-
 log = logging.getLogger("main")
 
 
@@ -83,9 +82,17 @@ class Trainer:
         if self.pretrain_checkpoint:
             log.info("Continuing pretraining from checkpoint.")
             backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
-            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
-                cfg=self.cfg,
-                checkpoint_path=self.pretrain_checkpoint,
+
+            # Load backbone parameters only
+            checkpoint = torch.load(self.pretrain_checkpoint)
+            head_params = [
+                key for key in checkpoint["state_dict"] if "_model.head" in key
+            ]
+            for key in head_params:
+                del checkpoint["state_dict"][key]
+
+            backbonewraper = backbone_wrapper_type._load_model_state(
+                cfg=self.cfg, checkpoint=checkpoint, strict=False
             )
             self.model_factory = ModelFactory(
                 cfg, self.data_interface, backbone=backbonewraper.model
@@ -150,7 +157,8 @@ class Trainer:
             accumulate_grad_batches=self.cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
             max_time=self.cfg.max_time,
-            sync_batchnorm=True,
+            # sync_batchnorm=True,
+            val_check_interval=self.cfg.val_check_interval,
         )
 
     def get_datamodule(self):
