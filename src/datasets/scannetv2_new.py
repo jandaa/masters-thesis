@@ -8,6 +8,7 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
 import subprocess
+import pickle
 
 import torch
 import numpy as np
@@ -16,9 +17,21 @@ from hydra.utils import get_original_cwd
 from plyfile import PlyData
 
 from util.types import DataInterface, DataPoint, SceneWithLabels
-from datasets.measurements_new import SceneMeasurements, measurements_dir_name
+from datasets.measurements_new import (
+    SceneMeasurements,
+    SceneMeasurement,
+    measurements_dir_name,
+)
 
 log = logging.getLogger(__name__)
+
+
+# @dataclass
+# class ScannetFrame:
+#     path: Path
+
+#     def load(self):
+#         return pickle.load(self.path)
 
 
 @dataclass
@@ -196,16 +209,21 @@ class NewScannetPretrainDataInterface(DataInterface):
             datapoint for datapoint in datapoints if datapoint.is_scene_preprocessed()
         ]
 
-    def load_pretrain(self, scenes: list):
-        datapoints = self.get_datapoints(scenes)
-        return [
-            datapoint
-            for datapoint in datapoints
-            if datapoint.are_scene_frames_preprocessed()
-        ]
+    # def load_pretrain(self, scenes: list):
+    #     datapoints = self.get_datapoints(scenes)
+    #     return [
+    #         datapoint
+    #         for datapoint in datapoints
+    #         if datapoint.are_scene_frames_preprocessed()
+    #     ]
 
     def get_datapoints(self, scenes: list):
         return [self.get_datapoint(self.scans_dir / scene) for scene in scenes]
+
+    def load_pretrain(self, scenes: list):
+        scenes = [self.scans_dir / scene / "frames" for scene in scenes]
+        scenes = [scene for scene in scenes if scene.exists()]
+        return [frame for scene in scenes for frame in scene.iterdir()]
 
     def get_datapoint(self, scene_path):
         return ScannetDataPoint(

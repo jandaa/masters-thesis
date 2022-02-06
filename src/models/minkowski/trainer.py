@@ -393,16 +393,16 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         # config
         self.feature_dim = cfg.model.net.model_n_out
 
-        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self._model = MinkovskiSemantic(cfg)
 
-    def forward(self, batch: MinkowskiInput):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self.model(model_input)
-        return output
+    @property
+    def model(self):
+        return self._model.backbone
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self.model(model_input)
+        output = self._model(model_input).output
         loss = self.loss_fn(batch, output)
 
         # Log losses
@@ -413,7 +413,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
     def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
-        output = self.model(model_input)
+        output = self._model(model_input).output
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 

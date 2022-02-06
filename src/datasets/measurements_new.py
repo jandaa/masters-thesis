@@ -131,7 +131,7 @@ class SceneMeasurement:
         )
 
     @classmethod
-    def remove_hidden_points(pcd):
+    def remove_hidden_points(self, pcd):
         diameter = np.asarray(pcd.get_max_bound()) - np.asarray(pcd.get_min_bound())
         diameter = np.linalg.norm(diameter)
         camera = [0, 0, -diameter]

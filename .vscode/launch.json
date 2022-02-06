@@ -15,7 +15,7 @@
                 "dataset=scannet",
                 "tasks=['train','eval']",
                 "hydra.run.dir=outputs/scannetv2/debug",
-                "gpus=[1]",
+                "gpus=[0]",
                 "check_val_every_n_epoch=20",
                 "model.train.train_workers=1"
                 // "limit_train_batches=0.01",
@@ -176,6 +176,7 @@
             "args": [
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
                 "sens_file=/media/starslab/datasets/scannet/scans/scene0241_00",
                 "dataset.voxel_size=0.02",
                 "hydra.run.dir=outputs/preprocess",
@@ -197,7 +198,7 @@
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
                 "gpus=[0]",
-                "dataset.pretrain.batch_size=4",
+                "dataset.pretrain.batch_size=8",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1"
             ]
@@ -209,19 +210,17 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_clean",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain",
+                "dataset.name=scannetv2_pretrain_new",
                 "model=minkowski",
-                "model.name=minkowski_byol",
+                "model.name=minkowski",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
                 "gpus=[0]",
                 "dataset.pretrain.batch_size=4",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1",
-                "model.net.loss=select_difficulty",
-                "model.pretrain.loss.difficulty=medium"
             ]
         },
         {

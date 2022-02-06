@@ -1,5 +1,6 @@
 import random
-
+import copy
+import pickle
 import torch
 import numpy as np
 import MinkowskiEngine as ME
@@ -9,6 +10,7 @@ import open3d as o3d
 from math import log, e
 
 import dataloaders.transforms as transforms
+from datasets.measurements_new import SceneMeasurement
 from models.minkowski.types import MinkowskiInput, MinkowskiPretrainInput
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
 
@@ -58,20 +60,18 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
     def __getitem__(self, index):
 
-        scene = self.scenes[index].load_measurements()
+        scene = self.scenes[index]
 
-        # pick matching scenes at random
-        frame1 = random.choice(list(scene.matching_frames_map.keys()))
-        frame2 = random.choice(scene.matching_frames_map[frame1])
+        with scene.open("rb") as scene_pickle:
+            scene = pickle.load(scene_pickle)
 
-        correspondences = scene.correspondance_map[frame1][frame2]
-
-        frame1 = scene.get_measurement(frame1)
-        frame2 = scene.get_measurement(frame2)
+        if scene.points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes))
+            return self[new_ind]
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
-        for frame in [frame1, frame2]:
+        for frame in [scene, scene]:
 
             # Extract data
             xyz = np.ascontiguousarray(frame.points)
@@ -106,21 +106,31 @@ class MinkowskiPretrainDataset(PretrainDataset):
                 }
             )
 
+        # Randomly pick points as correspondances
+        max_pos = min(2024, scene.points.shape[0])
+        point_indices = np.random.choice(scene.points.shape[0], max_pos, replace=False)
+
         # Remap the correspondances into voxel world
         mapping1 = quantized_frames[0]["mapping"]
         mapping2 = quantized_frames[1]["mapping"]
         correspondences = [
             {
                 "frame1": {
-                    "voxel_inds": mapping1[k],
+                    "voxel_inds": mapping1[point_ind],
                 },
                 "frame2": {
-                    "voxel_inds": mapping2[v],
+                    "voxel_inds": mapping2[point_ind],
                 },
             }
-            for k, v in correspondences.items()
-            if k in mapping1.keys() and v in mapping2.keys()
+            for point_ind in point_indices
+            if point_ind in mapping1.keys() and point_ind in mapping2.keys()
         ]
+
+        # visualize_mapping(
+        #     quantized_frames[0]["discrete_coords"],
+        #     quantized_frames[1]["discrete_coords"],
+        #     correspondences,
+        # )
 
         # visualize_correspondances(quantized_frames, correspondences)
         return {
@@ -138,19 +148,29 @@ def get_color_map(x):
     return colours[:, :3]
 
 
-def visualize_mapping(points1, entropies):
-    # points1 = points1.detach().cpu().numpy()
+def visualize_mapping(points1, points2, correspondences):
+    points1 = points1.detach().cpu().numpy()
+    points2 = points2.detach().cpu().numpy()
+
+    # offset points1
+    points1 += np.array([0, 0, 100])
 
     pcd1 = o3d.geometry.PointCloud()
     pcd1.points = o3d.utility.Vector3dVector(points1)
 
-    colors = get_color_map(entropies)
+    pcd2 = o3d.geometry.PointCloud()
+    pcd2.points = o3d.utility.Vector3dVector(points2)
 
-    # colors = np.ones(points1.shape) * np.array([0, 0.4, 0.4])
-    # colors[voxel_indices_1] = np.array([0, 0, 0])
-    pcd1.colors = o3d.utility.Vector3dVector(colors)
+    point_correspondances = [
+        (match["frame1"]["voxel_inds"], match["frame2"]["voxel_inds"])
+        for match in correspondences
+    ]
 
-    o3d.visualization.draw_geometries([pcd1])
+    lines = o3d.geometry.LineSet.create_from_point_cloud_correspondences(
+        pcd1, pcd2, point_correspondances
+    )
+
+    o3d.visualization.draw_geometries([pcd1, pcd2, lines])
 
 
 class MinkowskiDataset(SegmentationDataset):
