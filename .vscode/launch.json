@@ -221,6 +221,7 @@
                 "dataset.pretrain.batch_size=4",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1",
+                "val_check_interval=100"
             ]
         },
         {
@@ -234,21 +235,12 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "hydra.run.dir=outputs/s3dis/debug",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/old-loss",
                 "check_val_every_n_epoch=1",
-                "gpus=[0]",
+                "gpus=[1]",
                 "model.train.train_workers=1",
-                // "pretrain_checkpoint=\"epoch=199-step=14799-val_loss=6.47.ckpt\"",
-                "model.optimizer.type=SGD",
-                "model.optimizer.lr=0.1",
-                "model.scheduler.type=PolyLR",
-                "model.scheduler.poly_power=0.9",
-                "model.scheduler.max_iter=10000",
-                "model.scheduler.interval=step",
-                "model.scheduler.frequency=10",
-                "limit_train_batches=0.02",
-                "max_epochs=1",
-                "model.net.loss=delta"
+                "model.net.freeze_backbone=True",
+                "pretrain_checkpoint=\"epoch=4-step=5691-val_loss=6.15.ckpt\""
             ]
         },
         {

@@ -3,20 +3,14 @@ python src/main.py \
     dataset=s3dis \
     model=minkowski \
     tasks=["train","eval"] \
-    hydra.run.dir=$output_dir/pretrain/5cm-extra-slow \
+    hydra.run.dir=$output_dir/pretrain/old-loss \
     gpus=[0] \
     dataset.batch_size=6 \
     dataset.accumulate_grad_batches=8 \
     dataset.voxel_size=0.05 \
-    model.optimizer.type=SGD \
-    model.optimizer.lr=0.2 \
-    model.scheduler.type=PolyLR \
-    model.scheduler.poly_power=0.9 \
-    model.scheduler.max_iter=20000 \
-    model.scheduler.interval=step \
-    model.scheduler.frequency=10 \
     max_time="02:00:00:00" \
     max_epochs=2000 \
-    check_val_every_n_epoch=20 \
+    check_val_every_n_epoch=4 \
     model.train.train_workers=10 \
-    pretrain_checkpoint=\"old_loss.ckpt\"
+    model.net.freeze_backbone=True \
+    pretrain_checkpoint=\"epoch=5-step=6364-val_loss=6.14.ckpt\"
