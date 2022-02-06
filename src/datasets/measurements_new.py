@@ -77,21 +77,23 @@ class SceneMeasurement:
         # Get points visible in camera frame
         frame = self.get_projected_scene(info, scene)
 
-        # Get point cloud for camera view
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(frame.points)
-        pcd.colors = o3d.utility.Vector3dVector(frame.features)
+        # # Get point cloud for camera view
+        # pcd = o3d.geometry.PointCloud()
+        # pcd.points = o3d.utility.Vector3dVector(frame.points)
+        # pcd.colors = o3d.utility.Vector3dVector(frame.features + 0.5)
 
-        # Downsample point cloud according to specified voxel size
-        pcd = pcd.voxel_down_sample(info["voxel_size"])
+        # # Downsample point cloud according to specified voxel size
+        # pcd = pcd.voxel_down_sample(info["voxel_size"])
 
         # # Visualize
         # o3d.visualization.draw_geometries([pcd])
         # self.show_colour_image()
 
-        # Store both projection and full scene
-        self.points = np.asarray(pcd.points)
-        self.point_colors = np.asarray(pcd.colors)
+        # Store scene
+        self.points = frame.points
+        self.point_colors = frame.features
+        self.semantic_labels = frame.semantic_labels
+        self.instance_labels = frame.instance_labels
 
         # save all processed data to file
         self.save_to_file(output_dir)
@@ -124,10 +126,12 @@ class SceneMeasurement:
         for condition in valid:
             valid_points = np.logical_and(valid_points, condition)
 
-        return Scene(
-            "",
-            points_in_camera_frame[0:3].T[valid_points],
-            scene.features[valid_points],
+        return SceneWithLabels(
+            name="",
+            points=points_in_camera_frame[0:3].T[valid_points],
+            features=scene.features[valid_points],
+            semantic_labels=scene.semantic_labels[valid_points],
+            instance_labels=scene.instance_labels[valid_points],
         )
 
     @classmethod
