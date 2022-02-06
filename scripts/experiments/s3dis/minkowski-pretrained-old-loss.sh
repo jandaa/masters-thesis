@@ -12,5 +12,4 @@ python src/main.py \
     max_epochs=2000 \
     check_val_every_n_epoch=4 \
     model.train.train_workers=10 \
-    model.net.freeze_backbone=True \
     pretrain_checkpoint=\"epoch=5-step=6364-val_loss=6.14.ckpt\"
