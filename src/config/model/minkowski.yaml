@@ -7,7 +7,7 @@ net:
   normalize_feature: True
   dist_type: L2
   bn_momentum: 0.05
-  freeze_backbone: True
+  freeze_backbone: False
   loss:
 
 optimizer:
