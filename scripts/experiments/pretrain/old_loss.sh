@@ -5,7 +5,7 @@ python src/main.py \
     dataset.name=scannetv2_pretrain_new \
     tasks=["pretrain"] \
     hydra.run.dir=$output_dir/pretrain/old-loss \
-    gpus=[0] \
+    gpus=[1] \
     max_time="01:00:00:00" \
     dataset.pretrain.batch_size=16 \
     dataset.pretrain.accumulate_grad_batches=4 \
@@ -13,4 +13,5 @@ python src/main.py \
     check_val_every_n_epoch=-1 \
     model.optimizer.type=SGD \
     model.optimizer.lr=0.1 \
-    val_check_interval=1000
+    val_check_interval=1000 \
+    pretrain_checkpoint=\"epoch=5-step=6364-val_loss=6.14.ckpt\"

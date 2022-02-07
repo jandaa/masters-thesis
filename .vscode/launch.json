@@ -177,7 +177,7 @@
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
-                "sens_file=/media/starslab/datasets/scannet/scans/scene0241_00",
+                "sens_file=/media/starslab/datasets/scannet/scans/scene0353_01",
                 "dataset.voxel_size=0.02",
                 "hydra.run.dir=outputs/preprocess",
                 "output_dir=/media/starslab/datasets/scannet_preprocessed_test"
