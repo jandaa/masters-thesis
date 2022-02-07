@@ -1,16 +1,14 @@
 import random
-import copy
 import pickle
 import torch
 import numpy as np
 import MinkowskiEngine as ME
+from torchvision import transforms as T
 
 # Sampling
 import open3d as o3d
-from math import log, e
 
 import dataloaders.transforms as transforms
-from datasets.measurements_new import SceneMeasurement
 from models.minkowski.types import MinkowskiInput, MinkowskiPretrainInput
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
 
@@ -25,6 +23,13 @@ class MinkowskiPretrainDataset(PretrainDataset):
             [
                 transforms.ChromaticJitter(color_jitter_std),
                 transforms.RandomRotateZ(),
+            ]
+        )
+
+        self.image_transforms = T.Compose(
+            [
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
 
@@ -49,9 +54,18 @@ class MinkowskiPretrainDataset(PretrainDataset):
             coords_list, features_list
         )
 
+        # Collate images
+        images = [
+            frame["image"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+        ]
+        images = torch.cat(images, 0)
+
         pretrain_input = MinkowskiPretrainInput(
             points=coordinates_batch,
             features=features_batch.float(),
+            images=images,
             correspondences=correspondences,
             batch_size=2 * len(batch),
         )
@@ -72,6 +86,9 @@ class MinkowskiPretrainDataset(PretrainDataset):
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
         for frame in [scene, scene]:
+
+            image = frame.color_image / 255.0
+            image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
 
             # Extract data
             xyz = np.ascontiguousarray(frame.points)
@@ -103,6 +120,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
                     "mapping": mapping,
+                    "image": image,
                 }
             )
 

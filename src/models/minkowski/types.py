@@ -35,6 +35,7 @@ class MinkowskiPretrainInput:
 
     points: torch.Tensor
     features: torch.Tensor
+    images: torch.Tensor
     correspondences: list
     batch_size: int
 
