@@ -1,21 +1,21 @@
 import logging
 from omegaconf import DictConfig
 import functools
-import itertools
-import pickle
 
 import torch
 import torch.nn as nn
 import MinkowskiEngine as ME
 import numpy as np
-from scipy.stats import wasserstein_distance
+
+# 2D
+from torchvision import models
+from torchvision.models.detection.mask_rcnn import MaskRCNN
+from torchvision.models.feature_extraction import create_feature_extractor
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
-from models.minkowski.modules.resnet import get_norm
 from models.minkowski.modules.common import NormType
 
-from util.utils import NCELossMoco
 from util.types import DataInterface
 from models.minkowski.types import (
     MinkowskiInput,
@@ -28,9 +28,12 @@ log = logging.getLogger(__name__)
 
 
 class MinkovskiSemantic(nn.Module):
-    def __init__(self, cfg: DictConfig, backbone=None, freeze_backbone=False):
+    def __init__(
+        self, cfg: DictConfig, encoding_only=False, backbone=None, freeze_backbone=False
+    ):
         nn.Module.__init__(self)
 
+        self.encoding_only = encoding_only
         self.dataset_cfg = cfg.dataset
         self.feature_dim = cfg.model.net.model_n_out
         self.bn_momentum = cfg.model.net.bn_momentum
@@ -42,6 +45,7 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
+        # Freeze backbone if required
         if cfg.model.net.freeze_backbone:
             for param in self.backbone.parameters():
                 param.requires_grad = False
@@ -53,11 +57,14 @@ class MinkovskiSemantic(nn.Module):
     def forward(self, input):
         """Extract features and predict semantic class."""
 
-        # Get backbone features
-        output = self.backbone(input)
-        output = self.head(output)
+        if self.encoding_only:
+            return self.backbone.encoder(input)
+        else:
+            # Get backbone features
+            output = self.backbone(input)
+            output = self.head(output)
 
-        return MinkowskiOutput(output=output, semantic_scores=output.F)
+            return MinkowskiOutput(output=output, semantic_scores=output.F)
 
 
 class MinkowskiMLP(nn.Module):
@@ -381,6 +388,72 @@ class MinkowskiMocoBackboneTrainer(BackboneTrainer):
         labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
 
         return self.criterion(torch.squeeze(logits), labels)
+
+
+# Cross modal expert trainer
+class CMEBackboneTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(CMEBackboneTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+
+        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self._model = MinkovskiSemantic(cfg, encoding_only=True)
+
+        # 2D feature extraction
+        self.image_feature_extractor = models.resnet50(pretrained=True).eval()
+
+    @property
+    def model(self):
+        return self._model.backbone
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self._model(model_input).F
+
+        # Get 2D output & apply stop gradient
+        with torch.no_grad():
+            features_2d = self.image_feature_extractor(batch.images)
+            features_2d.detach()
+
+        loss = self.loss_fn(output, features_2d)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        torch.cuda.empty_cache()
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features, batch.points)
+        output = self._model(model_input).F
+
+        # Get 2D output & apply stop gradient
+        with torch.no_grad():
+            features_2d = self.image_feature_extractor(batch.images)
+            features_2d.detach()
+
+        loss = self.loss_fn(output, features_2d)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def _loss_fn(self, output_online, output_target):
+        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
+        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
+        return 2 - 2 * (output_online * output_target).sum(dim=-1)
+
+    def loss_fn(self, output_online, output_target):
+        # indices_one = [i for i in range(0, output_online.shape[0], 2)]
+        # indices_two = [i for i in range(1, output_online.shape[0], 2)]
+
+        # For now don't make it symmetric
+        return self._loss_fn(output_online, output_target).mean()
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):

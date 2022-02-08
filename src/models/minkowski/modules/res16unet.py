@@ -6,6 +6,13 @@ from models.minkowski.modules.resnet_block import BasicBlock
 
 from MinkowskiEngine import MinkowskiReLU
 from MinkowskiEngine import SparseTensor
+from MinkowskiEngine import (
+    MinkowskiGlobalAvgPooling,
+    MinkowskiGlobalMaxPooling,
+    MinkowskiAvgPooling,
+    MinkowskiMaxPooling,
+    MinkowskiLinear,
+)
 import MinkowskiEngine.MinkowskiOps as me
 
 
@@ -218,6 +225,43 @@ class Res16UNetBase(ResNetBase):
         self.final = conv(
             self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D
         )
+
+        # Global encoded vector
+        # self.avgpool = MinkowskiAvgPooling(kernel_size=1, stride=2)
+        # self.avgpool = MinkowskiGlobalAvgPooling()
+        self.pooling = MinkowskiGlobalAvgPooling()
+        # self.pooling = MinkowskiAvgPooling(kernel_size=2, stride=2, dimension=3)
+        self.fc = MinkowskiLinear(256, 1000, bias=False)
+
+    def encoder(self, x):
+        out = self.conv0p1s1(x)
+        out = self.bn0(out)
+        out_p1 = self.relu(out)
+
+        out = self.conv1p1s2(out_p1)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out_b1p2 = self.block1(out)
+
+        out = self.conv2p2s2(out_b1p2)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out_b2p4 = self.block2(out)
+
+        out = self.conv3p4s2(out_b2p4)
+        out = self.bn3(out)
+        out = self.relu(out)
+        out_b3p8 = self.block3(out)
+
+        out = self.conv4p8s2(out_b3p8)
+        out = self.bn4(out)
+        out = self.relu(out)
+        encoder_out = self.block4(out)
+
+        projection = self.pooling(encoder_out)
+        projection = self.fc(projection)
+
+        return projection
 
     def forward(self, x):
         out = self.conv0p1s1(x)

@@ -6,6 +6,7 @@ from models.minkowski.trainer import (
     MinkowskiBackboneTrainer,
     MinkowskiMocoBackboneTrainer,
     MinkowskiBOYLBackboneTrainer,
+    CMEBackboneTrainer,
 )
 from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
 from util.types import DataInterface
@@ -13,7 +14,8 @@ from util.types import DataInterface
 minkowski_name = "minkowski"
 moco_name = "minkowski_moco"
 byol_name = "minkowski_byol"
-supported_models = [minkowski_name, moco_name, byol_name]
+cme_name = "minkowski_cme"
+supported_models = [minkowski_name, moco_name, byol_name, cme_name]
 
 
 class ModelFactory:
@@ -43,6 +45,8 @@ class ModelFactory:
             return MinkowskiMocoBackboneTrainer
         elif self.model_name == byol_name:
             return MinkowskiBOYLBackboneTrainer
+        elif self.model_name == cme_name:
+            return CMEBackboneTrainer
         else:
             raise RuntimeError(self.error_msg)
 

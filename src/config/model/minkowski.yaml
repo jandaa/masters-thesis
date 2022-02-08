@@ -50,7 +50,7 @@ pretrain:
 
 train:
   epochs: 384
-  train_workers: 12 # data loader workers
+  train_workers: 6 # data loader workers
   multiplier: 0.5
 
 test:

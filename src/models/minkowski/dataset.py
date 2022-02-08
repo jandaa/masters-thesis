@@ -85,7 +85,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
-        for frame in [scene, scene]:
+        for frame in [scene]:
 
             image = frame.color_image / 255.0
             image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
@@ -124,25 +124,25 @@ class MinkowskiPretrainDataset(PretrainDataset):
                 }
             )
 
-        # Randomly pick points as correspondances
-        max_pos = min(2024, scene.points.shape[0])
-        point_indices = np.random.choice(scene.points.shape[0], max_pos, replace=False)
+        # # Randomly pick points as correspondances
+        # max_pos = min(2024, scene.points.shape[0])
+        # point_indices = np.random.choice(scene.points.shape[0], max_pos, replace=False)
 
-        # Remap the correspondances into voxel world
-        mapping1 = quantized_frames[0]["mapping"]
-        mapping2 = quantized_frames[1]["mapping"]
-        correspondences = [
-            {
-                "frame1": {
-                    "voxel_inds": mapping1[point_ind],
-                },
-                "frame2": {
-                    "voxel_inds": mapping2[point_ind],
-                },
-            }
-            for point_ind in point_indices
-            if point_ind in mapping1.keys() and point_ind in mapping2.keys()
-        ]
+        # # Remap the correspondances into voxel world
+        # mapping1 = quantized_frames[0]["mapping"]
+        # mapping2 = quantized_frames[1]["mapping"]
+        # correspondences = [
+        #     {
+        #         "frame1": {
+        #             "voxel_inds": mapping1[point_ind],
+        #         },
+        #         "frame2": {
+        #             "voxel_inds": mapping2[point_ind],
+        #         },
+        #     }
+        #     for point_ind in point_indices
+        #     if point_ind in mapping1.keys() and point_ind in mapping2.keys()
+        # ]
 
         # visualize_mapping(
         #     quantized_frames[0]["discrete_coords"],
@@ -151,7 +151,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
         # )
 
         return {
-            "correspondences": correspondences,
+            "correspondences": None,
             "quantized_frames": quantized_frames,
         }
 

@@ -1,5 +1,5 @@
 # Initalize environment
-dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images
+dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels
 source .venv/bin/activate
 
 # Set output folder

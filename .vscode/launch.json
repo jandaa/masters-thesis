@@ -210,15 +210,15 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_clean",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
                 "model=minkowski",
-                "model.name=minkowski",
+                "model.name=minkowski_cme",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
                 "gpus=[0]",
-                "dataset.pretrain.batch_size=4",
+                "dataset.pretrain.batch_size=16",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1",
                 "val_check_interval=100"
