@@ -26,6 +26,23 @@ from util.utils import NCESoftmaxLoss
 
 log = logging.getLogger(__name__)
 
+encoder_parameters = [
+    "conv0p1s1",
+    "bn0",
+    "conv1p1s2",
+    "bn1",
+    "block1",
+    "conv2p2s2",
+    "bn2",
+    "block2",
+    "conv3p4s2",
+    "bn3",
+    "block3",
+    "conv4p8s2",
+    "bn4",
+    "block4",
+]
+
 
 class MinkovskiSemantic(nn.Module):
     def __init__(
@@ -44,6 +61,16 @@ class MinkovskiSemantic(nn.Module):
             self.backbone = backbone
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        if cfg.model.net.freeze_encoder:
+            print("Freezing encoder...")
+            for encoder_param in encoder_parameters:
+                param = getattr(self.backbone, encoder_param)
+                param.requires_grad_ = False
+            for name, param in self.backbone.named_parameters():
+                root_name = name.split(".")[0]
+                if root_name in encoder_parameters:
+                    param.requires_grad = False
 
         # Freeze backbone if required
         if cfg.model.net.freeze_backbone:

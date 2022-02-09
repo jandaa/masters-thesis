@@ -8,6 +8,7 @@ net:
   dist_type: L2
   bn_momentum: 0.05
   freeze_backbone: False
+  freeze_encoder: False
   loss:
 
 optimizer:

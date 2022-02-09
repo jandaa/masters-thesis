@@ -227,10 +227,7 @@ class Res16UNetBase(ResNetBase):
         )
 
         # Global encoded vector
-        # self.avgpool = MinkowskiAvgPooling(kernel_size=1, stride=2)
-        # self.avgpool = MinkowskiGlobalAvgPooling()
         self.pooling = MinkowskiGlobalAvgPooling()
-        # self.pooling = MinkowskiAvgPooling(kernel_size=2, stride=2, dimension=3)
         self.fc = MinkowskiLinear(256, 1000, bias=False)
 
     def encoder(self, x):
