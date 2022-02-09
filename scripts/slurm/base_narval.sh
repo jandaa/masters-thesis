@@ -11,13 +11,13 @@ module load cudnn/8.2.0
 
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-pip3 install torch==1.10 --no-index
-pip3 install  dist/*.tar.gz --no-index
-pip3 install  dist/*.whl --no-index
+pip install --no-index --upgrade pip
+pip install torch==1.10 torchvision==0.11.1 --no-index
+pip install  dist/*.tar.gz --no-index
+pip install  dist/*.whl --no-index
 
 # install each requirement individually incase some are unavailable
-cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
-cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
+cat setup/requirements.slurm | xargs -n 1 pip install --no-index 
 
 # Run from the root of repository (e.g. sbatch scripts/slurm.sh)
 base_dir=$PWD
