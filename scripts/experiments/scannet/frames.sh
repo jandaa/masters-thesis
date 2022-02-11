@@ -12,7 +12,7 @@ python src/main.py \
     dataset.voxel_size=0.05 \
     limit_val_batches=0.05 \
     limit_test_batches=0.2 \
-    max_time="02:00:00:00" \
+    max_time="01:00:00:00" \
     max_epochs=2000 \
-    val_check_interval=1000 \
+    check_val_every_n_epoch=2 \
     model.train.train_workers=10
