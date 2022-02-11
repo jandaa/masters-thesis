@@ -243,7 +243,7 @@ class MinkowskiFrameDataset(SegmentationDataset):
             scene = pickle.load(scene_pickle)
 
         if scene.points.shape[0] == 0:
-            new_ind = random.randint(0, len(self.scenes))
+            new_ind = random.randint(0, len(self.scenes) - 1)
             return self[new_ind]
 
         xyz = np.ascontiguousarray(scene.points)
