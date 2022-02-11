@@ -211,6 +211,7 @@ class MinkowskiFrameDataset(SegmentationDataset):
             ]
         )
 
+        self.is_test = is_test
         self.test_augmentations = transforms.Compose(
             [
                 transforms.Crop(self.max_pointcloud_size, self.ignore_label),
