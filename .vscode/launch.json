@@ -235,12 +235,38 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/old-loss-verify",
                 "check_val_every_n_epoch=1",
                 "gpus=[0]",
                 "model.train.train_workers=8",
                 "model.net.freeze_encoder=True",
-                "pretrain_checkpoint=\"epoch=33-step=39465-val_loss=0.63.ckpt\""
+                "pretrain_checkpoint=\"epoch=229-step=17019-val_loss=6.43.ckpt\""
+            ]
+        },
+        {
+            "name": "Minkowski Scannet Frames",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['train','eval']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
+                "dataset=scannetv2_pretrain_new",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.batch_size=32",
+                "dataset.accumulate_grad_batches=2",
+                "dataset.voxel_size=0.05",
+                "model=minkowski",
+                "model.name=minkowski_cme",
+                "val_check_interval=10",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/scannet/frames",
+                "check_val_every_n_epoch=1",
+                "gpus=[0]",
+                "model.train.train_workers=8",
+                "limit_val_batches=0.05",
+                "limit_test_batches=0.20"
             ]
         },
         {

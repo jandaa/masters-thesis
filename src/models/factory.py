@@ -8,7 +8,11 @@ from models.minkowski.trainer import (
     MinkowskiBOYLBackboneTrainer,
     CMEBackboneTrainer,
 )
-from models.minkowski.dataset import MinkowskiDataset, MinkowskiPretrainDataset
+from models.minkowski.dataset import (
+    MinkowskiDataset,
+    MinkowskiPretrainDataset,
+    MinkowskiFrameDataset,
+)
 from util.types import DataInterface
 
 minkowski_name = "minkowski"
@@ -62,6 +66,8 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_dataset_type(self):
+        if cme_name in self.model_name:
+            return MinkowskiFrameDataset
         if minkowski_name in self.model_name:
             return MinkowskiDataset
         else:

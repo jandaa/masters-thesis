@@ -459,7 +459,7 @@ class CMEBackboneTrainer(BackboneTrainer):
         torch.cuda.empty_cache()
 
     def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features, batch.points)
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
         output = self._model(model_input).F
 
         # Get 2D output & apply stop gradient

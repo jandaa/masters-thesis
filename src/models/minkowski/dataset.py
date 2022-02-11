@@ -190,6 +190,87 @@ def visualize_mapping(points1, points2, correspondences):
     o3d.visualization.draw_geometries([pcd1, pcd2, lines])
 
 
+class MinkowskiFrameDataset(SegmentationDataset):
+    def __init__(self, scenes, cfg, is_test=False):
+        super(MinkowskiFrameDataset, self).__init__(scenes, cfg, is_test=True)
+
+        color_jitter_std = 0.05
+        color_trans_ratio = 0.1
+        scale_range = (0.8, 1.2)
+        elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
+        self.augmentations = transforms.Compose(
+            [
+                transforms.Crop(self.max_npoint, self.ignore_label),
+                transforms.RandomDropout(0.2),
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomScale(scale_range),
+                transforms.RandomRotate(),
+                transforms.ElasticDistortion(elastic_distortion_params),
+            ]
+        )
+
+        self.test_augmentations = transforms.Compose(
+            [
+                transforms.Crop(self.max_pointcloud_size, self.ignore_label),
+            ]
+        )
+
+    def collate(self, batch):
+        coords_list = [datapoint.points for datapoint in batch]
+        features_list = [datapoint.features for datapoint in batch]
+        labels_list = [datapoint.labels for datapoint in batch]
+
+        coordinates_batch, features_batch, labels_batch = ME.utils.sparse_collate(
+            coords_list, features_list, labels_list
+        )
+
+        return MinkowskiInput(
+            points=coordinates_batch,
+            features=features_batch.float(),
+            labels=labels_batch.int(),
+            batch_size=len(batch),
+            test_filename=batch[0].test_filename,
+        )
+
+    def __getitem__(self, index):
+
+        # Limit absolute max size of point cloud
+        scene = self.scenes[index]
+
+        with scene.open("rb") as scene_pickle:
+            scene = pickle.load(scene_pickle)
+
+        if scene.points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes))
+            return self[new_ind]
+
+        xyz = np.ascontiguousarray(scene.points)
+        features = torch.from_numpy(scene.point_colors)
+        labels = np.array([scene.semantic_labels, scene.instance_labels]).T
+
+        if self.is_test:
+            xyz, features, labels = self.test_augmentations(xyz, features, labels)
+        else:
+            xyz, features, labels = self.augmentations(xyz, features, labels)
+
+        coords, feats, labels = ME.utils.sparse_quantize(
+            xyz,
+            features=features,
+            labels=labels[:, 0],
+            quantization_size=self.voxel_size,
+        )
+
+        return MinkowskiInput(
+            points=coords,
+            features=feats,
+            labels=labels,
+            batch_size=1,
+            test_filename="frame" + str(index),
+        )
+
+
 class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
