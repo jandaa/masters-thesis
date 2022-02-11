@@ -21,6 +21,8 @@ precision: 32
 
 # Fraction of training set to use during training
 limit_train_batches: 1.0
+limit_val_batches: 1.0
+limit_test_batches: 1.0
 
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint

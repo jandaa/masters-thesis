@@ -135,10 +135,13 @@ class Trainer:
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
             limit_train_batches=self.cfg.limit_train_batches,
+            limit_val_batches=self.cfg.limit_val_batches,
+            limit_test_batches=self.cfg.limit_test_batches,
             accumulate_grad_batches=self.cfg.dataset.accumulate_grad_batches,
             deterministic=True,
             precision=self.cfg.precision,
             max_time=self.cfg.max_time,
+            val_check_interval=self.cfg.val_check_interval,
         )
 
     def get_pretrainer(self):
@@ -154,6 +157,8 @@ class Trainer:
             check_val_every_n_epoch=self.cfg.check_val_every_n_epoch,
             callbacks=[get_pretrain_checkpoint_callback(), lr_monitor],
             limit_train_batches=self.cfg.limit_train_batches,
+            limit_val_batches=self.cfg.limit_val_batches,
+            limit_test_batches=self.cfg.limit_test_batches,
             accumulate_grad_batches=self.cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
             max_time=self.cfg.max_time,
