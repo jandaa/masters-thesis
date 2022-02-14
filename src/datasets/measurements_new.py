@@ -23,6 +23,37 @@ D = np.array(
 )
 
 
+def get_point_cloud(depth, intrinsics):
+    """
+    Convert the depth image into points in the camera's reference frame.
+    Apply pose transformation if supplied
+    """
+
+    cx = intrinsics[0, 2]
+    cy = intrinsics[1, 2]
+    fx = intrinsics[0, 0]
+    fy = intrinsics[1, 1]
+
+    x_coords = np.linspace(0, depth.shape[1] - 1, depth.shape[1])
+    y_coords = np.linspace(0, depth.shape[0] - 1, depth.shape[0])
+    x, y = np.meshgrid(x_coords, y_coords)
+
+    mask = np.where(depth != 0)
+    x = x[mask]
+    y = y[mask]
+    depth = depth[mask]
+
+    n = depth.shape[0]
+    points = np.ones((n, 4))
+    points[:, 0] = (x - cx) * depth / fx
+    points[:, 1] = (y - cy) * depth / fy
+    points[:, 2] = np.copy(depth)
+
+    pixels = [(int(x_coord), int(y_coord)) for x_coord, y_coord in zip(x, y)]
+
+    return points, pixels
+
+
 class SceneMeasurement:
     """Stores sensor measurements for a single frame"""
 
@@ -59,20 +90,42 @@ class SceneMeasurement:
         color_image_name = measurements_dir / (
             f"frame-{frame_id}" + colour_image_extension
         )
+        depth_image_name = measurements_dir / (
+            f"frame-{frame_id}" + depth_image_extension
+        )
         pose_info_name = measurements_dir / (f"frame-{frame_id}" + pose_extension)
 
         # load calibrations
         self.colour_intrinsics = np.fromstring(
             info["m_calibrationColorIntrinsic"], sep=" "
         ).reshape(4, 4)
+        self.depth_intrinsics = np.fromstring(
+            info["m_calibrationDepthIntrinsic"], sep=" "
+        ).reshape(4, 4)
 
         # load raw data
         self.color_image = cv2.imread(str(color_image_name))
+        depth_image = cv2.imread(str(depth_image_name), -1)
+        depth_image = depth_image.astype(np.float32) / float(info["m_depthShift"])
         self.pose = np.loadtxt(str(pose_info_name), delimiter=" ").astype(np.float32)
 
         # Resize colour image to be same as depth image
         depth_resolution = (int(info["m_depthWidth"]), int(info["m_depthHeight"]))
         self.color_image = cv2.resize(self.color_image, depth_resolution)
+
+        # Convert depth map into point cloud
+        self.scan_points, self.point_to_pixel_map = get_point_cloud(
+            depth_image, self.depth_intrinsics
+        )
+        self.scan_points = np.dot(self.scan_points, np.transpose(self.pose))
+
+        # Point cloud uses a different ordering of RGB
+        color_image = self.color_image[:, :, [2, 1, 0]]
+
+        # Get colours of points in depth map
+        mask = depth_image != 0
+        self.scan_point_colors = np.reshape(color_image[mask], [-1, 3])
+        self.scan_point_colors = self.scan_point_colors / 127.5 - 1
 
         # Get points visible in camera frame
         frame = self.get_projected_scene(info, scene)
