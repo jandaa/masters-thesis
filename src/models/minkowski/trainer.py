@@ -16,6 +16,7 @@ from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
 from models.minkowski.modules.common import NormType
 
+from models.minkowski.decoder import FeatureDecoder
 from util.types import DataInterface
 from models.minkowski.types import (
     MinkowskiInput,
@@ -433,6 +434,7 @@ class CMEBackboneTrainer(BackboneTrainer):
 
         # 2D feature extraction
         self.image_feature_extractor = models.resnet50(pretrained=True).eval()
+        self.feature_decoder = FeatureDecoder()
 
     @property
     def model(self):
@@ -445,6 +447,9 @@ class CMEBackboneTrainer(BackboneTrainer):
         # Get 2D output & apply stop gradient
         with torch.no_grad():
             features_2d = self.image_feature_extractor(batch.images)
+            features_2d.detach()
+
+            features_2d = self.feature_decoder(batch.images)
             features_2d.detach()
 
         loss = self.loss_fn(output, features_2d)
