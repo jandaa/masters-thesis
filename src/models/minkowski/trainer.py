@@ -519,12 +519,9 @@ class ImageTrainer(BackboneTrainer):
 
         # Compute a symmetric loss
         loss = 0.5 * (
-            self.regression_loss(p1, z2, batch.coords1, batch.coords2)
-            + self.regression_loss(p2, z1, batch.coords1, batch.coords2)
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
         )
-
-        loss = 0.0
-        # loss = self.loss_fn(output, features_2d)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -546,8 +543,11 @@ class ImageTrainer(BackboneTrainer):
         z1.detach()
         z2.detach()
 
-        loss = 0.0
-        # loss = self.loss_fn(output, features_2d)
+        loss = 0.5 * (
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
+        )
+
         self.log("val_loss", loss, sync_dist=True)
 
     def _loss_fn(self, output_online, output_target):
@@ -555,76 +555,32 @@ class ImageTrainer(BackboneTrainer):
         output_target = nn.functional.normalize(output_target, dim=-1, p=2)
         return 2 - 2 * (output_online * output_target).sum(dim=-1)
 
-    def loss_fn(self, output_online, output_target):
-        # indices_one = [i for i in range(0, output_online.shape[0], 2)]
-        # indices_two = [i for i in range(1, output_online.shape[0], 2)]
+    def loss_fn(self, p, z, correspondances, backwards=False):
 
-        # For now don't make it symmetric
-        return self._loss_fn(output_online, output_target).mean()
+        N, C, H, W = p.shape
 
-    def regression_loss(self, q, k, coord_q, coord_k, pos_ratio=0.5):
-        """q, k: N * C * H * W
-        coord_q, coord_k: N * 4 (x_upper_left, y_upper_left, x_lower_right, y_lower_right)
-        """
+        # [bs, feat_dim, 224x224]
+        p = p.view(N, C, -1)
+        z = z.view(N, C, -1)
 
-        N, C, H, W = q.shape
+        loss = 0
+        for batch_ind, matches in enumerate(correspondances):
+            if len(matches) == 0:
+                continue
+            if not backwards:
+                online = p[batch_ind, :, matches[:, 0]]
+                target = z[batch_ind, :, matches[:, 1]]
+            else:
+                online = p[batch_ind, :, matches[:, 1]]
+                target = z[batch_ind, :, matches[:, 0]]
 
-        # [bs, feat_dim, 49]
-        q = q.view(N, C, -1)
-        k = k.view(N, C, -1)
+            # limit max size per image
+            online = online[:, :2000]
+            target = target[:, :2000]
 
-        # generate center_coord, width, height
-        # [1, 7, 7]
-        x_array = (
-            torch.arange(0.0, float(W), dtype=coord_q.dtype, device=coord_q.device)
-            .view(1, 1, -1)
-            .repeat(1, H, 1)
-        )
-        y_array = (
-            torch.arange(0.0, float(H), dtype=coord_q.dtype, device=coord_q.device)
-            .view(1, -1, 1)
-            .repeat(1, 1, W)
-        )
+            loss += self._loss_fn(online.T, target.T).mean()
 
-        # [bs, 1, 1]
-        q_bin_width = ((coord_q[:, 2] - coord_q[:, 0]) / W).view(-1, 1, 1)
-        q_bin_height = ((coord_q[:, 3] - coord_q[:, 1]) / H).view(-1, 1, 1)
-        k_bin_width = ((coord_k[:, 2] - coord_k[:, 0]) / W).view(-1, 1, 1)
-        k_bin_height = ((coord_k[:, 3] - coord_k[:, 1]) / H).view(-1, 1, 1)
-
-        # [bs, 1, 1]
-        q_start_x = coord_q[:, 0].view(-1, 1, 1)
-        q_start_y = coord_q[:, 1].view(-1, 1, 1)
-        k_start_x = coord_k[:, 0].view(-1, 1, 1)
-        k_start_y = coord_k[:, 1].view(-1, 1, 1)
-
-        # [bs, 1, 1]
-        q_bin_diag = torch.sqrt(q_bin_width**2 + q_bin_height**2)
-        k_bin_diag = torch.sqrt(k_bin_width**2 + k_bin_height**2)
-        max_bin_diag = torch.max(q_bin_diag, k_bin_diag)
-
-        # [bs, 7, 7]
-        center_q_x = (x_array + 0.5) * q_bin_width + q_start_x
-        center_q_y = (y_array + 0.5) * q_bin_height + q_start_y
-        center_k_x = (x_array + 0.5) * k_bin_width + k_start_x
-        center_k_y = (y_array + 0.5) * k_bin_height + k_start_y
-
-        # [bs, 49, 49]
-        dist_center = (
-            torch.sqrt(
-                (center_q_x.view(-1, H * W, 1) - center_k_x.view(-1, 1, H * W)) ** 2
-                + (center_q_y.view(-1, H * W, 1) - center_k_y.view(-1, 1, H * W)) ** 2
-            )
-            / max_bin_diag
-        )
-        pos_mask = (dist_center < pos_ratio).float().detach()
-
-        # [bs, 49, 49]
-        logit = torch.bmm(q.transpose(1, 2), k)
-
-        loss = (logit * pos_mask).sum(-1).sum(-1) / (pos_mask.sum(-1).sum(-1) + 1e-6)
-
-        return -2 * loss.mean()
+        return loss / len(correspondances)
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):

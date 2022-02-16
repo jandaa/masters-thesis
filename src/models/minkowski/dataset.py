@@ -14,6 +14,7 @@ from torchvision import transforms as T
 from dataloaders import transform_coord
 from dataloaders import transforms
 
+from scipy.spatial import KDTree
 
 from models.minkowski.types import (
     MinkowskiInput,
@@ -50,11 +51,17 @@ class ImagePretrainDataset(Dataset):
         coords1 = torch.vstack([datapoint["coords1"] for datapoint in batch])
         coords2 = torch.vstack([datapoint["coords2"] for datapoint in batch])
 
+        # correspondences = torch.cat([datapoint["correspondences"] for datapoint in batch], 0)
+        correspondences = [
+            datapoint["correspondences"] for datapoint in batch if datapoint
+        ]
+
         pretrain_input = ImagePretrainInput(
             images1=images1,
             images2=images2,
             coords1=coords1,
             coords2=coords2,
+            correspondences=correspondences,
             batch_size=len(images1),
         )
 
@@ -72,18 +79,70 @@ class ImagePretrainDataset(Dataset):
 
         # Normalize image
         image = PIL.Image.fromarray(scene.color_image)
-        # image = scene.color_image / 255.0
 
         # Do two sets of augmentations
         # self.image_augmentations(image).unsqueeze(dim=0).to(torch.float32)
         image1, coords1 = self.image_augmentations(image)
         image2, coords2 = self.image_augmentations(image)
+
+        # Generate a mapping
+        coords1 = coords1.view(2, -1).T.detach().numpy()
+        coords2 = coords2.view(2, -1).T.detach().numpy()
+
+        kdtree_1 = KDTree(coords1)
+        kdtree_2 = KDTree(coords2)
+
+        correspondences = kdtree_1.query_ball_tree(kdtree_2, 1.5, p=2)
+        correspondences = [
+            [ind, matches[0]] for ind, matches in enumerate(correspondences) if matches
+        ]
+        correspondences = torch.tensor(correspondences, dtype=torch.long)
+
         return {
             "image1": image1.unsqueeze(dim=0),
             "image2": image2.unsqueeze(dim=0),
-            "coords1": coords1,
-            "coords2": coords2,
+            "coords1": torch.from_numpy(coords1).unsqueeze(dim=0),
+            "coords2": torch.from_numpy(coords2).unsqueeze(dim=0),
+            "correspondences": correspondences,
         }
+
+
+def visualize_mapping(image, image1, image2, coords1, coords2, correspondances):
+    import math
+
+    image = np.array(image)
+    image = np.zeros(image.shape, dtype=np.uint8)
+
+    # Verify the correspondances
+    # by swapping raw pixel values and see if image makes sense
+    for ind, matches in enumerate(correspondances):
+        if matches:
+
+            # Get rgb in cropped image
+            pixel = matches[0]
+            y = pixel % 224
+            x = math.floor(pixel / 224)
+
+            pixel = coords2[pixel].astype("int")
+            image[pixel[1], pixel[0], :] = image2[:, x, y] * 255
+
+            pixel = ind
+            y = pixel % 224
+            x = math.floor(pixel / 224)
+
+            pixel = coords1[pixel].astype("int")
+            image[pixel[1], pixel[0], :] = image1[:, x, y] * 255
+
+    # # # Visualize image
+    # image2 = image2.transpose(2, 0) * 255.0
+    # image2 = image2.transpose(1, 0)
+    # image2 = image2.to(torch.uint8)
+    # vis = PIL.Image.fromarray(image2.detach().cpu().numpy())
+    # vis.show()
+
+    # Visualize image
+    vis = PIL.Image.fromarray(image)
+    vis.show()
 
 
 class MinkowskiPretrainDataset(PretrainDataset):

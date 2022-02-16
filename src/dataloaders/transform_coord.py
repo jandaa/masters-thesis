@@ -87,10 +87,7 @@ class RandomHorizontalFlipCoord(object):
             PIL Image: Randomly flipped image.
         """
         if random.random() < self.p:
-            coord_new = coord.clone()
-            coord_new[0] = coord[2]
-            coord_new[2] = coord[0]
-            return F.hflip(img), coord_new
+            return F.hflip(img), F.hflip(coord)
         return img, coord
 
     def __repr__(self):
@@ -116,10 +113,7 @@ class RandomVerticalFlipCoord(object):
             PIL Image: Randomly flipped image.
         """
         if random.random() < self.p:
-            coord_new = coord.clone()
-            coord_new[1] = coord[3]
-            coord_new[3] = coord[1]
-            return F.vflip(img), coord_new
+            return F.vflip(img), F.vflip(coord)
         return img, coord
 
     def __repr__(self):
@@ -212,24 +206,19 @@ class RandomResizedCropCoord(object):
             PIL Image: Randomly cropped and resized image.
         """
         i, j, h, w, height, width = self.get_params(img, self.scale, self.ratio)
-        coord = torch.Tensor(
-            [
-                float(j) / (width - 1),
-                float(i) / (height - 1),
-                float(j + w - 1) / (width - 1),
-                float(i + h - 1) / (height - 1),
-            ]
-        )
 
-        # test_x = np.linspace(0, width - 1, width).reshape(1, 1, -1)
-        # test_x = np.repeat(test_x, height, axis=1)
-        # test_y = np.linspace(0, height - 1, height).reshape(1, -1, 1)
-        # test_y = np.repeat(test_y, width, axis=2)
+        # Create coordinate image
+        # dims are (2, W, H)
+        # where the first axis holds the (x,y) coordinates
+        coord_x = np.linspace(0, width - 1, width).reshape(1, 1, -1)
+        coord_x = np.repeat(coord_x, height, axis=1)
+        coord_y = np.linspace(0, height - 1, height).reshape(1, -1, 1)
+        coord_y = np.repeat(coord_y, width, axis=2)
 
-        # test = np.concatenate([test_x, test_y], axis=0)
-        # test = torch.from_numpy(test)
+        coord = np.concatenate([coord_x, coord_y], axis=0)
+        coord = torch.from_numpy(coord)
 
-        # test = F.resized_crop(test, i, j, h, w, self.size, self.interpolation)
+        coord = F.resized_crop(coord, i, j, h, w, self.size, self.interpolation)
 
         return F.resized_crop(img, i, j, h, w, self.size, self.interpolation), coord
 
