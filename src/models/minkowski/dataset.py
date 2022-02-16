@@ -3,14 +3,87 @@ import pickle
 import torch
 import numpy as np
 import MinkowskiEngine as ME
-from torchvision import transforms as T
+from torch.utils.data.dataset import Dataset
+import PIL
 
 # Sampling
 import open3d as o3d
 
-import dataloaders.transforms as transforms
-from models.minkowski.types import MinkowskiInput, MinkowskiPretrainInput
+# Transforms
+from torchvision import transforms as T
+from dataloaders import transform_coord
+from dataloaders import transforms
+
+
+from models.minkowski.types import (
+    MinkowskiInput,
+    MinkowskiPretrainInput,
+    ImagePretrainInput,
+)
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
+
+
+class ImagePretrainDataset(Dataset):
+    def __init__(self, scenes, cfg):
+        super(ImagePretrainDataset, self).__init__()
+
+        self.scenes = scenes
+        image_size = 224
+        crop = 0.2
+        self.image_augmentations = transform_coord.Compose(
+            [
+                transform_coord.RandomResizedCropCoord(image_size, scale=(crop, 1.0)),
+                transform_coord.RandomHorizontalFlipCoord(),
+                T.RandomApply([T.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+                T.RandomGrayscale(p=0.2),
+                T.RandomApply([transforms.GaussianBlur([0.1, 2.0])], p=0.5),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+
+    def collate(self, batch):
+
+        # Collate images
+        images1 = torch.cat([datapoint["image1"] for datapoint in batch], 0)
+        images2 = torch.cat([datapoint["image2"] for datapoint in batch], 0)
+        coords1 = torch.vstack([datapoint["coords1"] for datapoint in batch])
+        coords2 = torch.vstack([datapoint["coords2"] for datapoint in batch])
+
+        pretrain_input = ImagePretrainInput(
+            images1=images1,
+            images2=images2,
+            coords1=coords1,
+            coords2=coords2,
+            batch_size=len(images1),
+        )
+
+        return pretrain_input
+
+    def __len__(self):
+        return len(self.scenes)
+
+    def __getitem__(self, index):
+
+        scene = self.scenes[index]
+
+        with scene.open("rb") as scene_pickle:
+            scene = pickle.load(scene_pickle)
+
+        # Normalize image
+        image = PIL.Image.fromarray(scene.color_image)
+        # image = scene.color_image / 255.0
+
+        # Do two sets of augmentations
+        # self.image_augmentations(image).unsqueeze(dim=0).to(torch.float32)
+        image1, coords1 = self.image_augmentations(image)
+        image2, coords2 = self.image_augmentations(image)
+        return {
+            "image1": image1.unsqueeze(dim=0),
+            "image2": image2.unsqueeze(dim=0),
+            "coords1": coords1,
+            "coords2": coords2,
+        }
 
 
 class MinkowskiPretrainDataset(PretrainDataset):

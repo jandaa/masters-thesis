@@ -7,8 +7,10 @@ from models.minkowski.trainer import (
     MinkowskiMocoBackboneTrainer,
     MinkowskiBOYLBackboneTrainer,
     CMEBackboneTrainer,
+    ImageTrainer,
 )
 from models.minkowski.dataset import (
+    ImagePretrainDataset,
     MinkowskiDataset,
     MinkowskiPretrainDataset,
     MinkowskiFrameDataset,
@@ -19,7 +21,8 @@ minkowski_name = "minkowski"
 moco_name = "minkowski_moco"
 byol_name = "minkowski_byol"
 cme_name = "minkowski_cme"
-supported_models = [minkowski_name, moco_name, byol_name, cme_name]
+image_name = "image_pretrain"
+supported_models = [minkowski_name, moco_name, byol_name, cme_name, image_name]
 
 
 class ModelFactory:
@@ -35,12 +38,13 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_model(self):
-        if minkowski_name in self.model_name:
-            return MinkowskiTrainer(
-                self.cfg, self.data_interface, backbone=self.backbone
-            )
-        else:
-            raise RuntimeError(self.error_msg)
+        return MinkowskiTrainer(self.cfg, self.data_interface, backbone=self.backbone)
+        # if minkowski_name in self.model_name:
+        #     return MinkowskiTrainer(
+        #         self.cfg, self.data_interface, backbone=self.backbone
+        #     )
+        # else:
+        #     raise RuntimeError(self.error_msg)
 
     def get_backbone_wrapper_type(self):
         if self.model_name == minkowski_name:
@@ -51,6 +55,8 @@ class ModelFactory:
             return MinkowskiBOYLBackboneTrainer
         elif self.model_name == cme_name:
             return CMEBackboneTrainer
+        elif self.model_name == image_name:
+            return ImageTrainer
         else:
             raise RuntimeError(self.error_msg)
 
@@ -74,6 +80,8 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_backbone_dataset_type(self):
+        if image_name == self.model_name:
+            return ImagePretrainDataset
         if minkowski_name in self.model_name:
             return MinkowskiPretrainDataset
         else:

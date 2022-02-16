@@ -270,6 +270,30 @@
             ]
         },
         {
+            "name": "Image Pretrain",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['pretrain']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
+                "dataset=scannetv2_pretrain_new",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.pretrain.batch_size=2",
+                "model=minkowski",
+                "model.name=image_pretrain",
+                "val_check_interval=10",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/scannet/images",
+                "check_val_every_n_epoch=1",
+                "gpus=[0]",
+                "model.train.train_workers=1",
+                "limit_val_batches=0.05",
+                "limit_test_batches=0.20"
+            ]
+        },
+        {
             "name": "Preprocess S3DIS",
             "type": "python",
             "request": "launch",

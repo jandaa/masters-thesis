@@ -9,19 +9,18 @@ import numpy as np
 
 # 2D
 from torchvision import models
-from torchvision.models.detection.mask_rcnn import MaskRCNN
-from torchvision.models.feature_extraction import create_feature_extractor
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
 from models.minkowski.modules.common import NormType
 
-from models.minkowski.decoder import FeatureDecoder
+from models.minkowski.decoder import FeatureDecoder, MLP2d
 from util.types import DataInterface
 from models.minkowski.types import (
     MinkowskiInput,
     MinkowskiOutput,
     MinkowskiPretrainInput,
+    ImagePretrainInput,
 )
 from util.utils import NCESoftmaxLoss
 
@@ -486,6 +485,146 @@ class CMEBackboneTrainer(BackboneTrainer):
 
         # For now don't make it symmetric
         return self._loss_fn(output_online, output_target).mean()
+
+
+class ImageTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(ImageTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+
+        # 2D feature extraction
+        self.model = FeatureDecoder()
+
+        # Projection head
+        self.projection_head = MLP2d(32, inner_dim=64, out_dim=32)
+
+    def training_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        # Compute a symmetric loss
+        loss = 0.5 * (
+            self.regression_loss(p1, z2, batch.coords1, batch.coords2)
+            + self.regression_loss(p2, z1, batch.coords1, batch.coords2)
+        )
+
+        loss = 0.0
+        # loss = self.loss_fn(output, features_2d)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        loss = 0.0
+        # loss = self.loss_fn(output, features_2d)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def _loss_fn(self, output_online, output_target):
+        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
+        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
+        return 2 - 2 * (output_online * output_target).sum(dim=-1)
+
+    def loss_fn(self, output_online, output_target):
+        # indices_one = [i for i in range(0, output_online.shape[0], 2)]
+        # indices_two = [i for i in range(1, output_online.shape[0], 2)]
+
+        # For now don't make it symmetric
+        return self._loss_fn(output_online, output_target).mean()
+
+    def regression_loss(self, q, k, coord_q, coord_k, pos_ratio=0.5):
+        """q, k: N * C * H * W
+        coord_q, coord_k: N * 4 (x_upper_left, y_upper_left, x_lower_right, y_lower_right)
+        """
+
+        N, C, H, W = q.shape
+
+        # [bs, feat_dim, 49]
+        q = q.view(N, C, -1)
+        k = k.view(N, C, -1)
+
+        # generate center_coord, width, height
+        # [1, 7, 7]
+        x_array = (
+            torch.arange(0.0, float(W), dtype=coord_q.dtype, device=coord_q.device)
+            .view(1, 1, -1)
+            .repeat(1, H, 1)
+        )
+        y_array = (
+            torch.arange(0.0, float(H), dtype=coord_q.dtype, device=coord_q.device)
+            .view(1, -1, 1)
+            .repeat(1, 1, W)
+        )
+
+        # [bs, 1, 1]
+        q_bin_width = ((coord_q[:, 2] - coord_q[:, 0]) / W).view(-1, 1, 1)
+        q_bin_height = ((coord_q[:, 3] - coord_q[:, 1]) / H).view(-1, 1, 1)
+        k_bin_width = ((coord_k[:, 2] - coord_k[:, 0]) / W).view(-1, 1, 1)
+        k_bin_height = ((coord_k[:, 3] - coord_k[:, 1]) / H).view(-1, 1, 1)
+
+        # [bs, 1, 1]
+        q_start_x = coord_q[:, 0].view(-1, 1, 1)
+        q_start_y = coord_q[:, 1].view(-1, 1, 1)
+        k_start_x = coord_k[:, 0].view(-1, 1, 1)
+        k_start_y = coord_k[:, 1].view(-1, 1, 1)
+
+        # [bs, 1, 1]
+        q_bin_diag = torch.sqrt(q_bin_width**2 + q_bin_height**2)
+        k_bin_diag = torch.sqrt(k_bin_width**2 + k_bin_height**2)
+        max_bin_diag = torch.max(q_bin_diag, k_bin_diag)
+
+        # [bs, 7, 7]
+        center_q_x = (x_array + 0.5) * q_bin_width + q_start_x
+        center_q_y = (y_array + 0.5) * q_bin_height + q_start_y
+        center_k_x = (x_array + 0.5) * k_bin_width + k_start_x
+        center_k_y = (y_array + 0.5) * k_bin_height + k_start_y
+
+        # [bs, 49, 49]
+        dist_center = (
+            torch.sqrt(
+                (center_q_x.view(-1, H * W, 1) - center_k_x.view(-1, 1, H * W)) ** 2
+                + (center_q_y.view(-1, H * W, 1) - center_k_y.view(-1, 1, H * W)) ** 2
+            )
+            / max_bin_diag
+        )
+        pos_mask = (dist_center < pos_ratio).float().detach()
+
+        # [bs, 49, 49]
+        logit = torch.bmm(q.transpose(1, 2), k)
+
+        loss = (logit * pos_mask).sum(-1).sum(-1) / (pos_mask.sum(-1).sum(-1) + 1e-6)
+
+        return -2 * loss.mean()
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):
