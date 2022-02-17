@@ -74,9 +74,9 @@ class FeatureDecoder(nn.Module):
         ).eval()
 
         # Freeze encoder if desired
-        if self.freeze_encoder:
-            for param in self.encoder.parameters():
-                param.requires_grad = False
+        # if self.freeze_encoder:
+        for param in self.encoder.parameters():
+            param.requires_grad = False
 
         self.planes = np.array([512, 256, 128, 64, 32, 16])
         self.skip_planes = np.array([0, 256, 128, 64, 0, 0])
@@ -101,6 +101,10 @@ class FeatureDecoder(nn.Module):
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
+
+    def unfreeze_encoder(self):
+        for param in self.encoder.parameters():
+            param.requires_grad = True
 
     def forward(self, x):
 

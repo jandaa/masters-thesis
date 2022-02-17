@@ -85,6 +85,8 @@ class ImagePretrainDataset(Dataset):
         image1, coords1 = self.image_augmentations(image)
         image2, coords2 = self.image_augmentations(image)
 
+        # visualize_image(image1)
+
         # Generate a mapping
         coords1 = coords1.view(2, -1).T.detach().numpy()
         coords2 = coords2.view(2, -1).T.detach().numpy()
@@ -142,6 +144,16 @@ def visualize_mapping(image, image1, image2, coords1, coords2, correspondances):
 
     # Visualize image
     vis = PIL.Image.fromarray(image)
+    vis.show()
+
+
+def visualize_image(image):
+
+    # Visualize image
+    image = image.transpose(2, 0) * 255.0
+    image = image.transpose(1, 0)
+    image = image.to(torch.uint8)
+    vis = PIL.Image.fromarray(image.detach().cpu().numpy())
     vis.show()
 
 
