@@ -17,7 +17,7 @@ class ConvBlock(nn.Module):
             in_planes,
             out_planes,
         )
-        self.nonlin = nn.ReLU(inplace=True)
+        self.nonlin = nn.ELU(inplace=True)
 
     def forward(self, x):
         out = self.conv(x)
@@ -44,14 +44,14 @@ class MLP2d(nn.Module):
 
         self.linear1 = conv1x1(in_dim, inner_dim)
         self.bn1 = nn.BatchNorm2d(inner_dim)
-        self.relu1 = nn.ReLU(inplace=True)
+        self.nonlinearity = nn.ELU(inplace=True)
 
         self.linear2 = conv1x1(inner_dim, out_dim)
 
     def forward(self, x):
         x = self.linear1(x)
         x = self.bn1(x)
-        x = self.relu1(x)
+        x = self.nonlinearity(x)
 
         x = self.linear2(x)
 
@@ -66,7 +66,6 @@ class FeatureDecoder(nn.Module):
         self.encoder = create_feature_extractor(
             resnet34(pretrained=True),
             return_nodes={
-                "relu": "relu",
                 "layer1": "layer1",
                 "layer2": "layer2",
                 "layer3": "layer3",
@@ -79,7 +78,7 @@ class FeatureDecoder(nn.Module):
             for param in self.encoder.parameters():
                 param.requires_grad = False
 
-        self.planes = np.array([512, 256, 128, 64, 32, 32])
+        self.planes = np.array([512, 256, 128, 64, 32, 16])
         self.skip_planes = np.array([0, 256, 128, 64, 0, 0])
         self.conv = OrderedDict()
         self.encoder_order = ["layer4", "layer3", "layer2", "layer1"]
@@ -95,20 +94,20 @@ class FeatureDecoder(nn.Module):
 
         self.decoder = nn.ModuleList(list(self.conv.values()))
 
+        # Initalize network
+        for m in self.decoder.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
     def forward(self, x):
 
-        # Different ways to ensure encoder is frozen
-        # TODO: Need to check
-        # if self.freeze_encoder:
-        #     with torch.no_grad:
-        #         encoder_features = self.encoder(x)
-        # else:
+        # Get encoder features
         encoder_features = self.encoder(x)
 
-        if self.freeze_encoder:
-            for feature in encoder_features.values():
-                feature.requires_grad_ = False
-
+        # Compute decoded features per pixel
         out = encoder_features[self.encoder_order[0]]
         for i in range(self.planes.size - 1):
             out = self.conv[(i, 0)](out)
