@@ -200,14 +200,15 @@ class MinkowskiFrameDataset(SegmentationDataset):
         elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
         self.augmentations = transforms.Compose(
             [
-                transforms.Crop(self.max_npoint, self.ignore_label),
-                transforms.RandomDropout(0.2),
+                # transforms.Crop(self.max_npoint, self.ignore_label),
+                # transforms.RandomDropout(0.2),
+                transforms.RandomDropout(0.1),
                 transforms.RandomHorizontalFlip("z", False),
                 transforms.ChromaticTranslation(color_trans_ratio),
                 transforms.ChromaticJitter(color_jitter_std),
                 transforms.RandomScale(scale_range),
                 transforms.RandomRotate(),
-                transforms.ElasticDistortion(elastic_distortion_params),
+                # transforms.ElasticDistortion(elastic_distortion_params),
             ]
         )
 
