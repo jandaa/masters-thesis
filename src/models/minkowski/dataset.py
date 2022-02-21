@@ -170,14 +170,36 @@ class MinkowskiPretrainDataset(PretrainDataset):
             ]
         )
 
-        self.image_transforms = T.Compose(
+        self.coord_transforms = T.Compose(
             [
                 T.ToTensor(),
                 T.Resize(256),
                 T.CenterCrop(224),
+            ]
+        )
+
+        self.image_transforms = T.Compose(
+            [
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
+
+    def get_coords(self, image):
+        height = image.shape[0]
+        width = image.shape[1]
+
+        # Create coordinate image
+        # dims are (2, W, H)
+        # where the first axis holds the (x,y) coordinates
+        coord_x = np.linspace(0, width - 1, width).reshape(1, 1, -1)
+        coord_x = np.repeat(coord_x, height, axis=1)
+        coord_y = np.linspace(0, height - 1, height).reshape(1, -1, 1)
+        coord_y = np.repeat(coord_y, width, axis=2)
+
+        coord = np.concatenate([coord_x, coord_y], axis=0)
+        coord = np.transpose(coord, (1, 2, 0))
+
+        return coord
 
     def collate(self, batch):
         correspondences = [
@@ -218,6 +240,38 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
         return pretrain_input
 
+    def bilinear_interpret(self, coords, features):
+        coords = coords.detach().cpu().numpy()
+        interp_image = np.zeros((480, 640, 3))
+        x_0 = int(coords[0, 0, 0])
+        y_0 = int(coords[1, 0, 0])
+        dx = coords[0, 0, 1] - coords[0, 0, 0]
+        dy = coords[1, 1, 0] - coords[1, 0, 0]
+        x_n = int(x_0 + coords.shape[2] * dx)
+        y_n = int(y_0 + coords.shape[1] * dy)
+        for p_x in range(x_0, x_n - 1):
+            for p_y in range(y_0, y_n - 1):
+
+                # Get indices in the transformed image
+                i = int((p_x - x_0) / dx)
+                j = int((p_y - y_0) / dy)
+
+                dx1 = p_x - coords[0, 0, i]
+                dx2 = coords[0, 0, i + 1] - p_x
+                dy1 = p_y - coords[1, j, 0]
+                dy2 = coords[1, j + 1, 0] - p_y
+
+                # perform bi-linear interpolation
+                interp_image[p_y, p_x, :] = (
+                    dx2 * dy2 * features[:, j, i]
+                    + dx1 * dy2 * features[:, j, i + 1]
+                    + dx2 * dy1 * features[:, j + 1, i]
+                    + dx1 * dy1 * features[:, j + 1, i + 1]
+                )
+
+        interp_image = interp_image / (dx * dy) * 255
+        return interp_image.astype(np.uint8)
+
     def __getitem__(self, index):
 
         scene = self.scenes[index]
@@ -233,8 +287,19 @@ class MinkowskiPretrainDataset(PretrainDataset):
         random_scale = np.random.uniform(*self.scale_range)
         for frame in [scene]:
 
+            # Get image coordinates
+            coords = self.get_coords(frame.color_image)
+            coords = self.coord_transforms(coords)
+
             image = frame.color_image / 255.0
-            image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+            image = self.coord_transforms(image)
+            # image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+
+            interp_image = self.bilinear_interpret(coords, image)
+
+            # Visualize image
+            vis = PIL.Image.fromarray(interp_image)
+            vis.show()
 
             # Extract data
             xyz = np.ascontiguousarray(frame.points)
@@ -267,34 +332,9 @@ class MinkowskiPretrainDataset(PretrainDataset):
                     "unique_feats": unique_feats,
                     "mapping": mapping,
                     "image": image,
+                    "coords": coords,
                 }
             )
-
-        # # Randomly pick points as correspondances
-        # max_pos = min(2024, scene.points.shape[0])
-        # point_indices = np.random.choice(scene.points.shape[0], max_pos, replace=False)
-
-        # # Remap the correspondances into voxel world
-        # mapping1 = quantized_frames[0]["mapping"]
-        # mapping2 = quantized_frames[1]["mapping"]
-        # correspondences = [
-        #     {
-        #         "frame1": {
-        #             "voxel_inds": mapping1[point_ind],
-        #         },
-        #         "frame2": {
-        #             "voxel_inds": mapping2[point_ind],
-        #         },
-        #     }
-        #     for point_ind in point_indices
-        #     if point_ind in mapping1.keys() and point_ind in mapping2.keys()
-        # ]
-
-        # visualize_mapping(
-        #     quantized_frames[0]["discrete_coords"],
-        #     quantized_frames[1]["discrete_coords"],
-        #     correspondences,
-        # )
 
         return {
             "correspondences": None,
