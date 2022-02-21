@@ -1,5 +1,5 @@
 export SCANNET_DIR=/media/starslab/datasets/scannet
-export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels
+export OUTPUT_DIR=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans
 export HYDRA_FULL_ERROR=1
 
 preprocess() {

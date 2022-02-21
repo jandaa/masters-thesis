@@ -15,6 +15,11 @@ from models.factory import ModelFactory
 from dataloaders.datamodule import DataModule
 from datasets.interface import DataInterfaceFactory
 
+# Visualization
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import PIL
+
 log = logging.getLogger("main")
 
 
@@ -38,6 +43,18 @@ def get_checkpoint_callback():
         mode="max",
         save_top_k=3,
     )
+
+
+def embed_tsne(data):
+    """
+    N x D np.array data
+    """
+    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=300, random_state=0)
+    tsne_results = tsne.fit_transform(data)
+    tsne_results = np.squeeze(tsne_results)
+    tsne_min = np.min(tsne_results)
+    tsne_max = np.max(tsne_results)
+    return (tsne_results - tsne_min) / (tsne_max - tsne_min)
 
 
 lr_monitor = LearningRateMonitor(logging_interval="step")
@@ -251,6 +268,40 @@ class Trainer:
 
         Visualizer = utils.Visualizer(predictions_dir)
         Visualizer.visualize_results()
+
+    def pretrain_vis(self):
+        """Visualize the pretrained feature embeddings."""
+        log.info("Visualizing 2D feature embeddings")
+
+        # Load model
+        backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
+        if self.pretrain_checkpoint:
+            log.info("Continuing pretraining from checkpoint.")
+            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
+                cfg=self.cfg,
+                checkpoint_path=self.pretrain_checkpoint,
+            )
+        else:
+            backbonewraper = backbone_wrapper_type(self.cfg)
+
+        # Get data
+        dataset_type = self.model_factory.get_backbone_dataset_type()
+        dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
+        collate_fn = dataset.collate
+        scene = collate_fn([dataset[2175]])
+
+        # Generate feature embeddings
+        z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
+
+        # TSNE
+        test = z1.reshape(16, -1).T
+        embeddings = embed_tsne(test)
+        embeddings = embeddings.reshape(z1.shape[2], z1.shape[3])
+
+        # Plot TSNE results
+        plt.imshow(embeddings, cmap="autumn", interpolation="nearest")
+        plt.title("2-D Heat Map")
+        plt.show()
 
     def run_tasks(self):
         """Run all the tasks specified in configuration."""

@@ -30,6 +30,30 @@ class MinkowskiInput:
 
 
 @dataclass
+class ImagePretrainInput:
+    """Pretrain input type of Minkowki Networks."""
+
+    images1: torch.Tensor
+    images2: torch.Tensor
+    coords1: torch.Tensor
+    coords2: torch.Tensor
+    correspondences: list
+    batch_size: int
+
+    def to(self, device):
+        """Cast all tensor-type attributes to device"""
+        self.device = device
+        for fieldname, data in self.__dict__.items():
+            if type(data) == torch.Tensor:
+                setattr(self, fieldname, data.to(device))
+
+        return self
+
+    def __len__(self):
+        return self.batch_size
+
+
+@dataclass
 class MinkowskiPretrainInput:
     """Pretrain input type of Minkowki Networks."""
 

@@ -9,18 +9,18 @@ import numpy as np
 
 # 2D
 from torchvision import models
-from torchvision.models.detection.mask_rcnn import MaskRCNN
-from torchvision.models.feature_extraction import create_feature_extractor
 
 from models.trainers import SegmentationTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
 from models.minkowski.modules.common import NormType
 
+from models.minkowski.decoder import FeatureDecoder, MLP2d
 from util.types import DataInterface
 from models.minkowski.types import (
     MinkowskiInput,
     MinkowskiOutput,
     MinkowskiPretrainInput,
+    ImagePretrainInput,
 )
 from util.utils import NCESoftmaxLoss
 
@@ -62,15 +62,15 @@ class MinkovskiSemantic(nn.Module):
         else:
             self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
-        if cfg.model.net.freeze_encoder:
-            print("Freezing encoder...")
-            for encoder_param in encoder_parameters:
-                param = getattr(self.backbone, encoder_param)
-                param.requires_grad_ = False
-            for name, param in self.backbone.named_parameters():
-                root_name = name.split(".")[0]
-                if root_name in encoder_parameters:
-                    param.requires_grad = False
+        # if cfg.model.net.freeze_encoder:
+        #     print("Freezing encoder...")
+        #     for encoder_param in encoder_parameters:
+        #         param = getattr(self.backbone, encoder_param)
+        #         param.requires_grad_ = False
+        #     for name, param in self.backbone.named_parameters():
+        #         root_name = name.split(".")[0]
+        #         if root_name in encoder_parameters:
+        #             param.requires_grad = False
 
         # Freeze backbone if required
         if cfg.model.net.freeze_backbone:
@@ -481,6 +481,141 @@ class CMEBackboneTrainer(BackboneTrainer):
 
         # For now don't make it symmetric
         return self._loss_fn(output_online, output_target).mean()
+
+
+class ImageTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(ImageTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+        self.learning_rate = cfg.model.pretrain.optimizer.lr
+        self.warmup_steps = cfg.model.net.warmup_steps
+
+        # 2D feature extraction
+        self.model = FeatureDecoder()
+
+        # Projection head
+        self.projection_head = MLP2d(16, inner_dim=64, out_dim=16)
+
+    # learning rate warm-up
+    def optimizer_step(
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        optimizer_closure,
+        on_tpu,
+        using_native_amp,
+        using_lbfgs,
+    ):
+        # warm up lr
+        if self.warmup_steps:
+            # if self.trainer.global_step < self.warmup_steps:
+            #     lr_scale = min(
+            #         1.0, float(self.trainer.global_step + 1) / self.warmup_steps
+            #     )
+            #     for pg in optimizer.param_groups:
+            #         pg["lr"] *= lr_scale * self.learning_rate
+
+            # Unfreeze encoder after warmup period
+            if self.trainer.global_step == self.warmup_steps:
+                log.info("Unfreezing encoder!")
+                self.model.unfreeze_encoder()
+        else:
+            log.info("Unfreezing encoder!")
+            self.model.unfreeze_encoder()
+
+        # update params
+        optimizer.step(closure=optimizer_closure)
+
+    def training_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        # Compute a symmetric loss
+        loss = 0.5 * (
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
+        )
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        loss = 0.5 * (
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
+        )
+
+        self.log("val_loss", loss, sync_dist=True)
+
+    def _loss_fn(self, output_online, output_target):
+        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
+        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
+        return 2 - 2 * (output_online * output_target).sum(dim=-1)
+        # return -2.0 * torch.einsum("nc, nc->n", [output_online, output_target]).mean()
+
+    def loss_fn(self, p, z, correspondances, backwards=False):
+
+        max_pos = 2000
+        N, C, H, W = p.shape
+
+        # [bs, feat_dim, 224x224]
+        p = p.view(N, C, -1)
+        z = z.view(N, C, -1)
+
+        loss = 0
+        for batch_ind, matches in enumerate(correspondances):
+            if len(matches) == 0:
+                continue
+
+            # limit max size per image
+            # Randomly select matches
+            if matches.shape[0] > max_pos:
+                inds = np.random.choice(matches.shape[0], max_pos, replace=False)
+                matches = matches[inds, :]
+
+            if not backwards:
+                online = p[batch_ind, :, matches[:, 0]]
+                target = z[batch_ind, :, matches[:, 1]]
+            else:
+                online = p[batch_ind, :, matches[:, 1]]
+                target = z[batch_ind, :, matches[:, 0]]
+
+            loss += self._loss_fn(online.T, target.T).mean()
+
+        return loss / len(correspondances) * 10
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):
