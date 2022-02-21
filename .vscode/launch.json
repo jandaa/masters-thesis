@@ -276,7 +276,7 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['pretrain']",
+                "tasks=['pretrain_vis']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
                 "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
@@ -290,10 +290,34 @@
                 "gpus=[0]",
                 "model.train.train_workers=12",
                 "model.pretrain.optimizer.lr=0.0001",
-                "model.net.warmup_steps=50"
-                // "pretrain_checkpoint=\"epoch=11-step=7079-val_loss=0.00.ckpt\""
+                "model.net.warmup_steps=50",
+                "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
                 // "limit_val_batches=0.05",
                 // "limit_test_batches=0.20"
+            ]
+        },
+        {
+            "name": "Image to Scan Pretrain",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['pretrain_2d_3d']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
+                "dataset=scannetv2_pretrain_new",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.pretrain.batch_size=64",
+                "model=minkowski",
+                "model.name=image_pretrain",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                "check_val_every_n_epoch=2",
+                "gpus=[0]",
+                "model.train.train_workers=12",
+                "model.pretrain.optimizer.lr=0.0001",
+                "model.net.warmup_steps=50",
+                "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
             ]
         },
         {

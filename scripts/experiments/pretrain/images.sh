@@ -5,7 +5,7 @@ python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
     dataset.name=scannetv2_pretrain_new \
-    dataset.pretrain.batch_size=64 \
+    dataset.pretrain.batch_size=128 \
     model=minkowski \
     model.name=image_pretrain \
     model.train.train_workers=12 \

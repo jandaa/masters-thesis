@@ -71,7 +71,7 @@ class FeatureDecoder(nn.Module):
                 "layer3": "layer3",
                 "layer4": "layer4",
             },
-        ).eval()
+        )
 
         # Freeze encoder if desired
         # if self.freeze_encoder:
