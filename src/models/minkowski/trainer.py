@@ -476,11 +476,122 @@ class CMEBackboneTrainer(BackboneTrainer):
         return 2 - 2 * (output_online * output_target).sum(dim=-1)
 
     def loss_fn(self, output_online, output_target):
-        # indices_one = [i for i in range(0, output_online.shape[0], 2)]
-        # indices_two = [i for i in range(1, output_online.shape[0], 2)]
-
         # For now don't make it symmetric
         return self._loss_fn(output_online, output_target).mean()
+
+
+# Cross modal expert trainer
+class CMEBackboneTrainerFull(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(CMEBackboneTrainerFull, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+
+        # 3D feature extractor
+        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+        self.model = MinkovskiSemantic(cfg)
+
+        # 2D feature extraction
+        image_trainer = ImageTrainer.load_from_checkpoint(
+            cfg=cfg, checkpoint_path="pretrain_checkpoints_2d/last.ckpt"
+        )
+        self.image_feature_extractor = image_trainer.model
+
+    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input).output.F
+
+        # Get 2D output & apply stop gradient
+        with torch.no_grad():
+            features_2d = self.image_feature_extractor(batch.images)
+            features_2d.detach()
+
+        loss = self.loss_fn(output, features_2d, batch)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        torch.cuda.empty_cache()
+
+    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
+        model_input = ME.SparseTensor(batch.features.float(), batch.points)
+        output = self.model(model_input).output.F
+
+        # Get 2D output & apply stop gradient
+        with torch.no_grad():
+            features_2d = self.image_feature_extractor(batch.images)
+            features_2d.detach()
+
+        loss = self.loss_fn(output, features_2d, batch)
+        self.log("val_loss", loss, sync_dist=True)
+
+    def bilinear_interpret(self, coords, features, pixels):
+        interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
+
+        x_0 = int(coords[0, 0, 0])
+        y_0 = int(coords[1, 0, 0])
+        dx = coords[0, 0, 1] - coords[0, 0, 0]
+        dy = coords[1, 1, 0] - coords[1, 0, 0]
+
+        for feature_ind, (p_x, p_y) in enumerate(pixels):
+
+            # Get indices in the transformed image
+            i = int((p_x - x_0) / dx)
+            j = int((p_y - y_0) / dy)
+
+            dx1 = p_x - coords[0, 0, i]
+            dx2 = coords[0, 0, i + 1] - p_x
+            dy1 = p_y - coords[1, j, 0]
+            dy2 = coords[1, j + 1, 0] - p_y
+
+            # perform bi-linear interpolation
+            interpolated_features[feature_ind] = (
+                dx2 * dy2 * features[:, j, i]
+                + dx1 * dy2 * features[:, j, i + 1]
+                + dx2 * dy1 * features[:, j + 1, i]
+                + dx1 * dy1 * features[:, j + 1, i + 1]
+            )
+
+        interpolated_features = interpolated_features / (dx * dy)
+        return interpolated_features.to(features.device)
+
+    def _loss_fn(self, output_online, output_target):
+        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
+        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
+        return 2 - 2 * (output_online * output_target).sum(dim=-1)
+
+    def loss_fn(self, output_online, output_target, batch):
+
+        # Find corresponding 2D feature vectors to 3D points
+        online_features = []
+        target_features = []
+        for i in range(len(batch.correspondences)):
+
+            # Get 2D features
+            target_features_i = self.bilinear_interpret(
+                batch.image_coordinates[i],
+                output_target[i],
+                batch.correspondences[i][:, 1:3],
+            )
+            target_features.append(target_features_i)
+
+            # Get 3D features
+            online_features_i = output_online[batch.correspondences[i][:, 0]]
+            online_features.append(online_features_i)
+
+        online_features = torch.vstack(online_features)
+        target_features = torch.vstack(target_features)
+
+        # For now don't make it symmetric
+        return self._loss_fn(online_features, target_features).mean()
 
 
 class ImageTrainer(BackboneTrainer):
@@ -532,6 +643,112 @@ class ImageTrainer(BackboneTrainer):
 
         # update params
         optimizer.step(closure=optimizer_closure)
+
+    def training_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        # Compute a symmetric loss
+        loss = 0.5 * (
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
+        )
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        z2 = self.model(batch.images2)
+
+        # Stop grad on target
+        z1.detach()
+        z2.detach()
+
+        # Get projection values
+        p1 = self.projection_head(z1)
+        p2 = self.projection_head(z2)
+
+        loss = 0.5 * (
+            self.loss_fn(p1, z2, batch.correspondences)
+            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
+        )
+
+        self.log("val_loss", loss, sync_dist=True)
+
+    def _loss_fn(self, output_online, output_target):
+        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
+        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
+        return 2 - 2 * (output_online * output_target).sum(dim=-1)
+        # return -2.0 * torch.einsum("nc, nc->n", [output_online, output_target]).mean()
+
+    def loss_fn(self, p, z, correspondances, backwards=False):
+
+        max_pos = 2000
+        N, C, H, W = p.shape
+
+        # [bs, feat_dim, 224x224]
+        p = p.view(N, C, -1)
+        z = z.view(N, C, -1)
+
+        loss = 0
+        for batch_ind, matches in enumerate(correspondances):
+            if len(matches) == 0:
+                continue
+
+            # limit max size per image
+            # Randomly select matches
+            if matches.shape[0] > max_pos:
+                inds = np.random.choice(matches.shape[0], max_pos, replace=False)
+                matches = matches[inds, :]
+
+            if not backwards:
+                online = p[batch_ind, :, matches[:, 0]]
+                target = z[batch_ind, :, matches[:, 1]]
+            else:
+                online = p[batch_ind, :, matches[:, 1]]
+                target = z[batch_ind, :, matches[:, 0]]
+
+            loss += self._loss_fn(online.T, target.T).mean()
+
+        return loss / len(correspondances) * 10
+
+
+class ImagePointTrainer(BackboneTrainer):
+    def __init__(
+        self,
+        cfg: DictConfig,
+    ):
+        super(ImageTrainer, self).__init__(cfg)
+
+        # config
+        self.feature_dim = cfg.model.net.model_n_out
+        self.learning_rate = cfg.model.pretrain.optimizer.lr
+        self.warmup_steps = cfg.model.net.warmup_steps
+
+        # 2D feature extraction
+        self.model_2d = FeatureDecoder()
+
+        # 3D feature extraction
+        self.model_3d = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        # Projection head
+        self.projection_head = MLP2d(16, inner_dim=64, out_dim=16)
 
     def training_step(self, batch: ImagePretrainInput, batch_idx: int):
 

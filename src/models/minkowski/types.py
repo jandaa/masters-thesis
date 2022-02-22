@@ -63,6 +63,8 @@ class MinkowskiPretrainInput:
     correspondences: list
     batch_size: int
 
+    image_coordinates: torch.Tensor = None
+
     def to(self, device):
         """Cast all tensor-type attributes to device"""
         self.device = device

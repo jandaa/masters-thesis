@@ -7,6 +7,7 @@ from models.minkowski.trainer import (
     MinkowskiMocoBackboneTrainer,
     MinkowskiBOYLBackboneTrainer,
     CMEBackboneTrainer,
+    CMEBackboneTrainerFull,
     ImageTrainer,
 )
 from models.minkowski.dataset import (
@@ -54,7 +55,7 @@ class ModelFactory:
         elif self.model_name == byol_name:
             return MinkowskiBOYLBackboneTrainer
         elif self.model_name == cme_name:
-            return CMEBackboneTrainer
+            return CMEBackboneTrainerFull
         elif self.model_name == image_name:
             return ImageTrainer
         else:

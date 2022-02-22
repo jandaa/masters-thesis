@@ -202,12 +202,30 @@ class MinkowskiPretrainDataset(PretrainDataset):
         return coord
 
     def collate(self, batch):
+
+        # Image stuff
         correspondences = [
             frame["point_to_pixel_map"]
             for datapoint in batch
             for frame in datapoint["quantized_frames"]
             if datapoint
         ]
+        images = [
+            frame["image"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+        ]
+        image_coordinates = [
+            frame["image_coords"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+        images = torch.cat(images, 0)
+        # image_coordinates = torch.cat(image_coordinates, 0)
+        # np.vstack(image_coordinates)
+
+        # Points stuff
         coords_list = [
             frame["discrete_coords"]
             for datapoint in batch
@@ -225,18 +243,11 @@ class MinkowskiPretrainDataset(PretrainDataset):
             coords_list, features_list
         )
 
-        # Collate images
-        images = [
-            frame["image"]
-            for datapoint in batch
-            for frame in datapoint["quantized_frames"]
-        ]
-        images = torch.cat(images, 0)
-
         pretrain_input = MinkowskiPretrainInput(
             points=coordinates_batch,
             features=features_batch.float(),
             images=images,
+            image_coordinates=image_coordinates,
             correspondences=correspondences,
             batch_size=2 * len(batch),
         )
@@ -318,8 +329,11 @@ class MinkowskiPretrainDataset(PretrainDataset):
             xyz, features, _ = self.augmentations(xyz, features, None)
 
             # Voxelize input
-            discrete_coords, mapping = ME.utils.sparse_quantize(
-                coordinates=xyz, quantization_size=self.voxel_size, return_index=True
+            discrete_coords, mapping, inverse_mapping = ME.utils.sparse_quantize(
+                coordinates=xyz,
+                quantization_size=self.voxel_size,
+                return_index=True,
+                return_inverse=True,
             )
 
             unique_feats = features[mapping]
@@ -351,13 +365,16 @@ class MinkowskiPretrainDataset(PretrainDataset):
             )
             point_to_pixel_map = point_to_pixel_map[point_indices]
 
+            # Map point indices to voxel indices
+            point_to_pixel_map[:, 0] = inverse_mapping[point_to_pixel_map[:, 0]]
+
             # Append to quantized frames
             quantized_frames.append(
                 {
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
                     "image": image,
-                    "coords": coords,
+                    "image_coords": coords.detach().cpu().numpy(),
                     "point_to_pixel_map": point_to_pixel_map,
                 }
             )
