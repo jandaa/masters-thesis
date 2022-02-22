@@ -203,7 +203,10 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
     def collate(self, batch):
         correspondences = [
-            datapoint["correspondences"] for datapoint in batch if datapoint
+            frame["point_to_pixel_map"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
         ]
         coords_list = [
             frame["discrete_coords"]
@@ -241,6 +244,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
         return pretrain_input
 
     def bilinear_interpret(self, coords, features):
+
         coords = coords.detach().cpu().numpy()
         interp_image = np.zeros((480, 640, 3))
         x_0 = int(coords[0, 0, 0])
@@ -249,6 +253,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
         dy = coords[1, 1, 0] - coords[1, 0, 0]
         x_n = int(x_0 + coords.shape[2] * dx)
         y_n = int(y_0 + coords.shape[1] * dy)
+
         for p_x in range(x_0, x_n - 1):
             for p_y in range(y_0, y_n - 1):
 
@@ -280,7 +285,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
             scene = pickle.load(scene_pickle)
 
         if scene.points.shape[0] == 0:
-            new_ind = random.randint(0, len(self.scenes))
+            new_ind = random.randint(0, len(self.scenes) - 1)
             return self[new_ind]
 
         quantized_frames = []
@@ -293,17 +298,17 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
             image = frame.color_image / 255.0
             image = self.coord_transforms(image)
-            # image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+            image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
 
-            interp_image = self.bilinear_interpret(coords, image)
+            # interp_image = self.bilinear_interpret(coords, image)
 
-            # Visualize image
-            vis = PIL.Image.fromarray(interp_image)
-            vis.show()
+            # # Visualize image
+            # vis = PIL.Image.fromarray(interp_image)
+            # vis.show()
 
             # Extract data
-            xyz = np.ascontiguousarray(frame.points)
-            features = torch.from_numpy(frame.point_colors)
+            xyz = np.ascontiguousarray(frame.scan_points[:, 0:3])
+            features = torch.from_numpy(frame.scan_point_colors)
 
             # apply a random scalling
             xyz *= random_scale
@@ -319,20 +324,41 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
             unique_feats = features[mapping]
 
-            # Get the point to voxel mapping
-            mapping = {
-                point_ind: voxel_ind
-                for voxel_ind, point_ind in enumerate(mapping.numpy())
-            }
+            # Make sure points fit in range
+            x_0 = int(coords[0, 0, 0]) + 1
+            y_0 = int(coords[1, 0, 0]) + 1
+            x_n = int(coords[0, 0, -1]) - 1
+            y_n = int(coords[1, -1, 0]) - 1
+
+            point_indices = np.arange(xyz.shape[0])
+            point_to_pixel_map = np.array(frame.point_to_pixel_map)
+            point_to_pixel_map = np.concatenate(
+                [point_indices.reshape(-1, 1), point_to_pixel_map], axis=1
+            )
+            select = (
+                (point_to_pixel_map[:, 1] > x_0)
+                & (point_to_pixel_map[:, 1] < x_n)
+                & (point_to_pixel_map[:, 2] > y_0)
+                & (point_to_pixel_map[:, 2] < y_n)
+            )
+
+            point_to_pixel_map = point_to_pixel_map[select]
+
+            # Select random points to be used in training
+            max_pos = 2000
+            point_indices = np.random.choice(
+                point_to_pixel_map.shape[0], max_pos, replace=False
+            )
+            point_to_pixel_map = point_to_pixel_map[point_indices]
 
             # Append to quantized frames
             quantized_frames.append(
                 {
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
-                    "mapping": mapping,
                     "image": image,
                     "coords": coords,
+                    "point_to_pixel_map": point_to_pixel_map,
                 }
             )
 
