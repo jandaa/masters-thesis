@@ -482,10 +482,7 @@ class CMEBackboneTrainer(BackboneTrainer):
 
 # Cross modal expert trainer
 class CMEBackboneTrainerFull(BackboneTrainer):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
+    def __init__(self, cfg: DictConfig, checkpoint_2d_path=None):
         super(CMEBackboneTrainerFull, self).__init__(cfg)
 
         # config
@@ -496,9 +493,12 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         self.model = MinkovskiSemantic(cfg)
 
         # 2D feature extraction
-        image_trainer = ImageTrainer.load_from_checkpoint(
-            cfg=cfg, checkpoint_path="pretrain_checkpoints_2d/last.ckpt"
-        )
+        if checkpoint_2d_path:
+            image_trainer = ImageTrainer.load_from_checkpoint(
+                cfg=cfg, checkpoint_path=checkpoint_2d_path
+            )
+        else:
+            image_trainer = ImageTrainer(cfg)
         self.image_feature_extractor = image_trainer.model
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):

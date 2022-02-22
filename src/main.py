@@ -83,6 +83,13 @@ class Trainer:
                 f"Resuming pretraining checkpoint: {Path(self.pretrain_checkpoint).name}"
             )
 
+        self.checkpoint_2d_path = None
+        if cfg.pretrain_checkpoint_2d:
+            self.checkpoint_2d_path = str(
+                Path.cwd() / "pretrain_checkpoints_2d" / cfg.pretrain_checkpoint_2d
+            )
+            log.info(f"Resuming 2D checkpoint: {Path(self.checkpoint_2d_path).name}")
+
         self.supervised_pretrain_checkpoint = None
         if cfg.supervised_pretrain_checkpoint:
             self.supervised_pretrain_checkpoint = str(
@@ -147,7 +154,7 @@ class Trainer:
         return pl.Trainer(
             logger=tb_logger,
             gpus=self.cfg.gpus,
-            accelerator=self.cfg.accelerator,
+            strategy=self.cfg.accelerator,
             max_epochs=self.cfg.max_epochs,
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
@@ -168,7 +175,7 @@ class Trainer:
         return pl.Trainer(
             logger=tb_logger,
             gpus=self.cfg.gpus,
-            accelerator=self.cfg.accelerator,
+            strategy=self.cfg.accelerator,
             resume_from_checkpoint=self.pretrain_checkpoint,
             max_steps=self.cfg.dataset.pretrain.max_steps,
             check_val_every_n_epoch=self.cfg.check_val_every_n_epoch,
@@ -211,6 +218,11 @@ class Trainer:
             backbonewraper = backbone_wrapper_type.load_from_checkpoint(
                 cfg=self.cfg,
                 checkpoint_path=self.pretrain_checkpoint,
+            )
+        elif self.checkpoint_2d_path:
+            log.info("Loading pretrained 2D network")
+            backbonewraper = backbone_wrapper_type(
+                self.cfg, checkpoint_2d_path=self.checkpoint_2d_path
             )
         else:
             backbonewraper = backbone_wrapper_type(self.cfg)

@@ -315,7 +315,8 @@
                 "check_val_every_n_epoch=2",
                 "gpus=[0]",
                 "model.train.train_workers=12",
-                "dataset.classes=16"
+                "dataset.classes=16",
+                "pretrain_checkpoint_2d=last.ckpt"
                 // "model.pretrain.optimizer.lr=0.0001",
                 // "model.net.warmup_steps=50",
                 // "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""

@@ -29,6 +29,7 @@ limit_test_batches: 1.0
 checkpoint:
 pretrain_checkpoint:
 supervised_pretrain_checkpoint:
+pretrain_checkpoint_2d:
 
 # whether to run the evaluation on the checkpoint with
 # lowest validation loss (otherwise use latest checkpoint)
