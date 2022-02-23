@@ -375,6 +375,8 @@ hyper-parameters:
 
 \subsection{Semantic Segmentation Negative Sampling}
 
+\subsection{Semantic Segmentation Negative Sampling}
+
 \begin{center}
     \begin{table}[h!]
         \resizebox{\textwidth}{!}{
@@ -392,10 +394,11 @@ hyper-parameters:
                 Debiased++ \cite{robinson_contrastive_2021}     & 0.901          & 0.961          & 0.815          & \textbf{0.008} & 0.286          & 0.586          & 0.683          & 0.745          & 0.855          & 0.599          & 0.716          & 0.779          & 0.554          & 0.653          \\
                 \hline
                 Sampling - Hard                                 & 0.904          & 0.959          & 0.824          & 0              & 0.361          & 0.579          & 0.659          & 0.731          & 0.837          & 0.505          & 0.697          & 0.711          & 0.557          & 0.640          \\
-                Sampling - Easy                                 & 0.666          & 0.952          & 0.779          & 0              & 0.201          & 0              & 0              & 0.740          & 0              & 0              & 0.690          & 0.784          & 0.526          & 0.411          \\
+                Sampling - Easy                                 & \: 0.666       & 0.952          & 0.779          & 0              & 0.201          & 0              & 0              & 0.740          & 0              & 0              & 0.690          & 0.784          & 0.526          & 0.411          \\
                 Sampling - Mixing \cite{kalantidis_hard_nodate} & 0.895          & 0.962          & \textbf{0.820} & 0              & 0.277          & 0.576          & \textbf{0.706} & 0.747          & 0.849          & 0.567          & 0.724          & 0.769          & 0.562          & 0.650          \\
                 \hline
                 Moco \cite{he_momentum_2020}                    & 0.888          & 0.941          & \textbf{0.831} & \textbf{0.001} & \textbf{0.369} & \textbf{0.582} & 0.610          & \textbf{0.752} & \textbf{0.863} & 0.578          & \textbf{0.749} & 0.758          & 0.565          & 0.653          \\
+                BYOL \cite{grill_bootstrap_nodate}              & \textbf{0.907} & 0.958          & \textbf{8.25}  & 0              & 0.291          & 0.523          & \textbf{0.644} & 0.719          & 0.809          & 0.464          & \textbf{0.740} & 0.733          & 0.525          & 0.626          \\
             \end{tabular}
         }
         \caption{S3DIS pretraining results on Semantic Segmentation}
