@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
+import random
 
 import hydra
 from omegaconf import DictConfig
 from pytorch_lightning.trainer import data_loading
+import numpy as np
 
 import torch
 import pytorch_lightning as pl
@@ -257,9 +259,14 @@ class Trainer:
 
 @hydra.main(config_path="config", config_name="config")
 def main(cfg: DictConfig) -> None:
-
+    
     # Set random seeds for reproductability
-    pl.seed_everything(42, workers=True)
+    seed = 42
+    torch.manual_seed(seed)
+    random.seed(0)
+    np.random.seed(0)
+    # torch.use_deterministic_algorithms(True)
+    pl.seed_everything(seed, workers=True)
 
     # Create trainer and go through all desired tasks
     trainer = Trainer(cfg)

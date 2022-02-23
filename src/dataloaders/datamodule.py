@@ -5,6 +5,9 @@ import math
 import logging
 from omegaconf import DictConfig, listconfig
 
+import torch
+import numpy
+import random
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
@@ -14,6 +17,13 @@ from dataloaders.datasets import SegmentationDataset
 
 log = logging.getLogger(__name__)
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+g = torch.Generator()
+g.manual_seed(0)
 
 class DataModule(pl.LightningDataModule):
     def __init__(
@@ -83,6 +93,8 @@ class DataModule(pl.LightningDataModule):
             sampler=None,
             drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def pretrain_val_dataloader(self):
@@ -95,6 +107,8 @@ class DataModule(pl.LightningDataModule):
             shuffle=False,
             drop_last=False,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def train_dataloader(self):
@@ -108,6 +122,8 @@ class DataModule(pl.LightningDataModule):
             sampler=None,
             drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def val_dataloader(self):
@@ -120,6 +136,8 @@ class DataModule(pl.LightningDataModule):
             shuffle=False,
             drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def test_dataloader(self):
@@ -132,4 +150,6 @@ class DataModule(pl.LightningDataModule):
             shuffle=False,
             drop_last=False,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )

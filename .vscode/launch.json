@@ -30,14 +30,15 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=~/datasets/scannet_mini",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh",
                 "dataset=scannet",
                 "model=minkowski",
                 "tasks=['train','eval']",
-                "hydra.run.dir=outputs/scannetv2/minkovski",
+                "hydra.run.dir=outputs/s3dis/minkovski",
                 "gpus=[0]",
                 "dataset.pretrain.batch_size=2",
                 "check_val_every_n_epoch=20",
+                "pretrain_checkpoint="
             ]
         },
         {
@@ -176,7 +177,8 @@
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
                 "sens_file=/media/starslab/datasets/scannet/scans/scene0241_00",
-                "dataset.pretrain.voxel_size=0.02",
+                "dataset.voxel_size=0.02",
+                "hydra.run.dir=outputs/preprocess",
                 "output_dir=/media/starslab/datasets/scannet_preprocessed_test"
             ]
         },
@@ -187,15 +189,41 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=~/datasets/scannet_mini",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images",
                 "dataset=scannet",
+                "dataset.name=scannetv2_pretrain",
                 "model=minkowski",
+                "model.name=minkowski",
                 "tasks=['pretrain']",
-                "hydra.run.dir=outputs/scannetv2/minkowski-pretrained-2cm",
-                "gpus=[0]",
-                "dataset.pretrain.batch_size=2",
+                "hydra.run.dir=outputs/pretrain/debug",
+                "gpus=[1]",
+                "dataset.pretrain.batch_size=4",
                 "dataset.pretrain.accumulate_grad_batches=1",
                 "model.train.train_workers=1",
+                "model.net.loss=select_difficulty",
+                "model.pretrain.loss.difficulty=medium"
+            ]
+        },
+        {
+            "name": "Minkowski Pretrain2",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain",
+                "model=minkowski",
+                "model.name=minkowski_byol",
+                "tasks=['pretrain']",
+                "hydra.run.dir=outputs/pretrain/debug",
+                "gpus=[1]",
+                "dataset.pretrain.batch_size=4",
+                "dataset.pretrain.accumulate_grad_batches=1",
+                "model.train.train_workers=1",
+                "model.net.loss=select_difficulty",
+                "model.pretrain.loss.difficulty=medium"
             ]
         },
         {
@@ -209,13 +237,21 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "hydra.run.dir=outputs/s3dis/minkowski",
-                "check_val_every_n_epoch=20",
+                "hydra.run.dir=outputs/s3dis/debug",
+                "check_val_every_n_epoch=1",
                 "gpus=[1]",
                 "model.train.train_workers=1",
-                "supervised_pretrain_checkpoint=last.ckpt",
-                // "limit_train_batches=0.02",
-                // "max_epochs=1"
+                // "pretrain_checkpoint=\"epoch=199-step=14799-val_loss=6.47.ckpt\"",
+                "model.optimizer.type=SGD",
+                "model.optimizer.lr=0.1",
+                "model.scheduler.type=PolyLR",
+                "model.scheduler.poly_power=0.9",
+                "model.scheduler.max_iter=10000",
+                "model.scheduler.interval=step",
+                "model.scheduler.frequency=10",
+                "limit_train_batches=0.02",
+                "max_epochs=1",
+                "model.net.loss=delta"
             ]
         },
         {

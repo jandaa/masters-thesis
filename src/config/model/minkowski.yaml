@@ -44,9 +44,12 @@ pretrain:
     difficulty: hard
     momentum: 0.999
     byol_tau: 0.99
-    projector_hidden_size: 128
+    projector_hidden_size: 16
     projector_output_size: 32
-    predictor_hidden_size: 64
+    predictor_hidden_size: 16
+    # projector_hidden_size: 128
+    # projector_output_size: 32
+    # predictor_hidden_size: 64
 
 train:
   epochs: 384
