@@ -371,11 +371,7 @@ hyper-parameters:
     \item iterations: 4000
 \end{itemize}
 
-
-
-\subsection{Semantic Segmentation Negative Sampling}
-
-\subsection{Semantic Segmentation Negative Sampling}
+\subsection{Semantic Segmentation Pretraining}
 
 \begin{center}
     \begin{table}[h!]
@@ -401,12 +397,20 @@ hyper-parameters:
                 BYOL \cite{grill_bootstrap_nodate}              & \textbf{0.907} & 0.958          & \textbf{8.25}  & 0              & 0.291          & 0.523          & \textbf{0.644} & 0.719          & 0.809          & 0.464          & \textbf{0.740} & 0.733          & 0.525          & 0.626          \\
                 \hline
                 CME - Encoder only                              & \textbf{0.911} & \textbf{0.963} & \textbf{0.818} & \textbf{0.002} & 0.278          & 0.541          & 0.521          & 0.733          & \textbf{0.883} & 0.524          & 0.705          & 0.756          & 0.559          & 0.630          \\
+                CME - Full, SimSiam                             & 0.882          & 0.958          & 0.812          & 0              & 0.355          & 0.525          & 0.474          & \textbf{0.759} & \textbf{0.869} & 0.458          & 0.723          & 0.767          & 0.533          & 0.624          \\
             \end{tabular}
         }
         \caption{S3DIS pretraining results on Semantic Segmentation}
     \end{table}
 \end{center}
 
+\subsection{Experiments}
+
+\subsubsection{24.02.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Ran 2D pre-training with SimSiam loss (which went to zero very quickly), then ran the same loss but between 2D to 3D using bi-linear interpolation to get the target feature vectors. Then finally ran full training on that.
+
+\textbf{Results:} The error for 2D and 2D-3D went down way too quickly and became super small. However, on the final output of the pre-training it seems to have helped somewhat (0.608 to 0.624) but could certainly be better. Seeing as the embedding only got to 0.63 I think there's more performance to be had and it also validates the approach somewhat.
 
 \pagebreak
 
