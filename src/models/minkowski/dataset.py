@@ -19,16 +19,18 @@ from scipy.spatial import KDTree
 from models.minkowski.types import (
     MinkowskiInput,
     MinkowskiPretrainInput,
+    MinkowskiPretrainInputNew,
     ImagePretrainInput,
 )
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
 
 
-class ImagePretrainDataset(Dataset):
+class ImagePretrainDataset(PretrainDataset):
     def __init__(self, scenes, cfg):
-        super(ImagePretrainDataset, self).__init__()
+        super(ImagePretrainDataset, self).__init__(scenes, cfg)
 
         self.scenes = scenes
+
         image_size = 224
         crop = 0.2
         self.image_augmentations = transform_coord.Compose(
@@ -51,7 +53,6 @@ class ImagePretrainDataset(Dataset):
         coords1 = torch.vstack([datapoint["coords1"] for datapoint in batch])
         coords2 = torch.vstack([datapoint["coords2"] for datapoint in batch])
 
-        # correspondences = torch.cat([datapoint["correspondences"] for datapoint in batch], 0)
         correspondences = [
             datapoint["correspondences"] for datapoint in batch if datapoint
         ]
@@ -77,15 +78,23 @@ class ImagePretrainDataset(Dataset):
         with scene.open("rb") as scene_pickle:
             scene = pickle.load(scene_pickle)
 
+        if scene.points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes) - 1)
+            return self[new_ind]
+
         # Normalize image
         image = PIL.Image.fromarray(scene.color_image)
 
-        # Do two sets of augmentations
-        # self.image_augmentations(image).unsqueeze(dim=0).to(torch.float32)
+        # Do two sets of augmentations for 2D training
         image1, coords1 = self.image_augmentations(image)
         image2, coords2 = self.image_augmentations(image)
 
-        # visualize_image(image1)
+        # # Visualize image
+        # image1 = image1.transpose(2, 0) * 255.0
+        # image1 = image1.transpose(1, 0)
+        # image1 = image1.to(torch.uint8)
+        # vis = PIL.Image.fromarray(image1.detach().cpu().numpy())
+        # vis.show()
 
         # Generate a mapping
         coords1 = coords1.view(2, -1).T.detach().numpy()
@@ -204,89 +213,67 @@ class MinkowskiPretrainDataset(PretrainDataset):
     def collate(self, batch):
 
         # Image stuff
-        correspondences = [
-            frame["point_to_pixel_map"]
+        point_to_pixel_maps1 = [
+            datapoint["quantized_frames"][0]["point_to_pixel_map"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
             if datapoint
         ]
-        images = [
-            frame["image"]
+        point_to_pixel_maps2 = [
+            datapoint["quantized_frames"][1]["point_to_pixel_map"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
+            if datapoint
         ]
+        images = [datapoint["image"] for datapoint in batch if datapoint]
         image_coordinates = [
-            frame["image_coords"]
-            for datapoint in batch
-            for frame in datapoint["quantized_frames"]
-            if datapoint
+            datapoint["image_coords"] for datapoint in batch if datapoint
         ]
         images = torch.cat(images, 0)
-        # image_coordinates = torch.cat(image_coordinates, 0)
-        # np.vstack(image_coordinates)
 
         # Points stuff
-        coords_list = [
-            frame["discrete_coords"]
+        coords1_list = [
+            datapoint["quantized_frames"][0]["discrete_coords"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
             if datapoint
         ]
-        features_list = [
-            frame["unique_feats"]
+        features1_list = [
+            datapoint["quantized_frames"][0]["unique_feats"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+        coords2_list = [
+            datapoint["quantized_frames"][1]["discrete_coords"]
+            for datapoint in batch
+            if datapoint
+        ]
+        features2_list = [
+            datapoint["quantized_frames"][1]["unique_feats"]
+            for datapoint in batch
             if datapoint
         ]
 
-        coordinates_batch, features_batch = ME.utils.sparse_collate(
-            coords_list, features_list
-        )
+        points1, features1 = ME.utils.sparse_collate(coords1_list, features1_list)
 
-        pretrain_input = MinkowskiPretrainInput(
-            points=coordinates_batch,
-            features=features_batch.float(),
+        points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
+
+        # Point to Point map
+        point_to_point_map = [
+            datapoint["point_to_point_map"] for datapoint in batch if datapoint
+        ]
+
+        pretrain_input = MinkowskiPretrainInputNew(
+            points1=points1,
+            features1=features1.float(),
+            points2=points2,
+            features2=features2.float(),
+            point_to_pixel_maps1=point_to_pixel_maps1,
+            point_to_pixel_maps2=point_to_pixel_maps2,
             images=images,
             image_coordinates=image_coordinates,
-            correspondences=correspondences,
-            batch_size=2 * len(batch),
+            point_to_point_map=point_to_point_map,
+            batch_size=len(batch),
         )
 
         return pretrain_input
-
-    def bilinear_interpret(self, coords, features):
-
-        coords = coords.detach().cpu().numpy()
-        interp_image = np.zeros((480, 640, 3))
-        x_0 = int(coords[0, 0, 0])
-        y_0 = int(coords[1, 0, 0])
-        dx = coords[0, 0, 1] - coords[0, 0, 0]
-        dy = coords[1, 1, 0] - coords[1, 0, 0]
-        x_n = int(x_0 + coords.shape[2] * dx)
-        y_n = int(y_0 + coords.shape[1] * dy)
-
-        for p_x in range(x_0, x_n - 1):
-            for p_y in range(y_0, y_n - 1):
-
-                # Get indices in the transformed image
-                i = int((p_x - x_0) / dx)
-                j = int((p_y - y_0) / dy)
-
-                dx1 = p_x - coords[0, 0, i]
-                dx2 = coords[0, 0, i + 1] - p_x
-                dy1 = p_y - coords[1, j, 0]
-                dy2 = coords[1, j + 1, 0] - p_y
-
-                # perform bi-linear interpolation
-                interp_image[p_y, p_x, :] = (
-                    dx2 * dy2 * features[:, j, i]
-                    + dx1 * dy2 * features[:, j, i + 1]
-                    + dx2 * dy1 * features[:, j + 1, i]
-                    + dx1 * dy1 * features[:, j + 1, i + 1]
-                )
-
-        interp_image = interp_image / (dx * dy) * 255
-        return interp_image.astype(np.uint8)
 
     def __getitem__(self, index):
 
@@ -299,23 +286,38 @@ class MinkowskiPretrainDataset(PretrainDataset):
             new_ind = random.randint(0, len(self.scenes) - 1)
             return self[new_ind]
 
+        # Get image coordinates
+        coords = self.get_coords(scene.color_image)
+        coords = self.coord_transforms(coords)
+
+        # Transform image
+        image = scene.color_image / 255.0
+        image = self.coord_transforms(image)
+        image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+
+        # Make sure points fit in range
+        x_0 = int(coords[0, 0, 0]) + 1
+        y_0 = int(coords[1, 0, 0]) + 1
+        x_n = int(coords[0, 0, -1]) - 1
+        y_n = int(coords[1, -1, 0]) - 1
+
+        point_indices = np.arange(scene.scan_points.shape[0])
+        point_to_pixel_map = np.array(scene.point_to_pixel_map)
+        point_to_pixel_map = np.concatenate(
+            [point_indices.reshape(-1, 1), point_to_pixel_map], axis=1
+        )
+        select = (
+            (point_to_pixel_map[:, 1] > x_0)
+            & (point_to_pixel_map[:, 1] < x_n)
+            & (point_to_pixel_map[:, 2] > y_0)
+            & (point_to_pixel_map[:, 2] < y_n)
+        )
+
+        point_to_pixel_map = point_to_pixel_map[select]
+
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
-        for frame in [scene]:
-
-            # Get image coordinates
-            coords = self.get_coords(frame.color_image)
-            coords = self.coord_transforms(coords)
-
-            image = frame.color_image / 255.0
-            image = self.coord_transforms(image)
-            image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
-
-            # interp_image = self.bilinear_interpret(coords, image)
-
-            # # Visualize image
-            # vis = PIL.Image.fromarray(interp_image)
-            # vis.show()
+        for frame in [scene, scene]:
 
             # Extract data
             xyz = np.ascontiguousarray(frame.scan_points[:, 0:3])
@@ -338,50 +340,49 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
             unique_feats = features[mapping]
 
-            # Make sure points fit in range
-            x_0 = int(coords[0, 0, 0]) + 1
-            y_0 = int(coords[1, 0, 0]) + 1
-            x_n = int(coords[0, 0, -1]) - 1
-            y_n = int(coords[1, -1, 0]) - 1
-
-            point_indices = np.arange(xyz.shape[0])
-            point_to_pixel_map = np.array(frame.point_to_pixel_map)
-            point_to_pixel_map = np.concatenate(
-                [point_indices.reshape(-1, 1), point_to_pixel_map], axis=1
-            )
-            select = (
-                (point_to_pixel_map[:, 1] > x_0)
-                & (point_to_pixel_map[:, 1] < x_n)
-                & (point_to_pixel_map[:, 2] > y_0)
-                & (point_to_pixel_map[:, 2] < y_n)
-            )
-
-            point_to_pixel_map = point_to_pixel_map[select]
-
             # Select random points to be used in training
             max_pos = 2000
             point_indices = np.random.choice(
                 point_to_pixel_map.shape[0], max_pos, replace=False
             )
-            point_to_pixel_map = point_to_pixel_map[point_indices]
+            point_to_pixel_map_frame = point_to_pixel_map[point_indices]
 
             # Map point indices to voxel indices
-            point_to_pixel_map[:, 0] = inverse_mapping[point_to_pixel_map[:, 0]]
+            point_to_pixel_map_frame[:, 0] = inverse_mapping[
+                point_to_pixel_map_frame[:, 0]
+            ]
 
             # Append to quantized frames
             quantized_frames.append(
                 {
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
-                    "image": image,
-                    "image_coords": coords.detach().cpu().numpy(),
-                    "point_to_pixel_map": point_to_pixel_map,
+                    "point_to_pixel_map": point_to_pixel_map_frame,
+                    "inverse_mapping": inverse_mapping,
                 }
             )
 
+        # Randomly pick points of original scene
+        max_pos = 1000
+        point_indices = np.random.choice(
+            frame.scan_points.shape[0], max_pos, replace=False
+        )
+
+        point_to_point_map = np.array(
+            [
+                [
+                    quantized_frames[0]["inverse_mapping"][point_ind],
+                    quantized_frames[1]["inverse_mapping"][point_ind],
+                ]
+                for point_ind in point_indices
+            ]
+        )
+
         return {
-            "correspondences": None,
+            "point_to_point_map": point_to_point_map,
             "quantized_frames": quantized_frames,
+            "image": image,
+            "image_coords": coords.detach().cpu().numpy(),
         }
 
 
