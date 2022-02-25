@@ -404,7 +404,7 @@ hyper-parameters:
     \end{table}
 \end{center}
 
-\subsection{Experiments}
+\subsection{Experiment log}
 
 \subsubsection{24.02.2022 - Image to 3D full pretraining}
 
@@ -412,7 +412,36 @@ hyper-parameters:
 
 \textbf{Results:} The error for 2D and 2D-3D went down way too quickly and became super small. However, on the final output of the pre-training it seems to have helped somewhat (0.608 to 0.624) but could certainly be better. Seeing as the embedding only got to 0.63 I think there's more performance to be had and it also validates the approach somewhat.
 
-\pagebreak
+\subsubsection{25.02.2022 - Image Contrastive learning}
+
+\textbf{Details:} Instead of using a BYOL loss with only positive samples, I went back to the old contrastive loss and was able to see a much more normal loss curve. Visualizing the results shows that it has learned key features in the images.
+
+\textbf{Results:} Here are some sample visualizations:
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.4]{images/experiments/25.02.2022-image-pretrain-vis1.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.43]{images/experiments/25.02.2022-image-pretrain-vis2.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.35]{images/experiments/25.02.2022-image-pretrain-vis3.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+
+\newpage
+
 
 \newpage
 \bibliographystyle{plain}
