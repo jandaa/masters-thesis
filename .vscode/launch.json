@@ -277,7 +277,7 @@
             "console": "integratedTerminal",
             "args": [
                 "tasks=['pretrain_vis']",
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
@@ -288,10 +288,10 @@
                 "check_val_every_n_epoch=2",
                 // "val_check_interval=1000",
                 "gpus=[0]",
-                "model.train.train_workers=12",
-                "model.pretrain.optimizer.lr=0.0001",
+                "model.train.train_workers=1",
+                "model.pretrain.optimizer.lr=0.01",
                 "model.net.warmup_steps=50",
-                "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
+                "pretrain_checkpoint=\"epoch=31-step=18879-val_loss=6.38.ckpt\""
                 // "limit_val_batches=0.05",
                 // "limit_test_batches=0.20"
             ]
@@ -305,7 +305,6 @@
             "args": [
                 "tasks=['pretrain']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
-                "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
                 "dataset.pretrain.batch_size=16",

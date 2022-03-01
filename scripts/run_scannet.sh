@@ -1,6 +1,6 @@
 
 # Initalize environment
-dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels
+dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans
 source .venv/bin/activate
 
 # Set output folder
