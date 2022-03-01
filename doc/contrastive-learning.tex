@@ -398,6 +398,7 @@ hyper-parameters:
                 \hline
                 CME - Encoder only                              & \textbf{0.911} & \textbf{0.963} & \textbf{0.818} & \textbf{0.002} & 0.278          & 0.541          & 0.521          & 0.733          & \textbf{0.883} & 0.524          & 0.705          & 0.756          & 0.559          & 0.630          \\
                 CME - Full, SimSiam                             & 0.882          & 0.958          & 0.812          & 0              & 0.355          & 0.525          & 0.474          & \textbf{0.759} & \textbf{0.869} & 0.458          & 0.723          & 0.767          & 0.533          & 0.624          \\
+                CME - Full, Contrast                            & 0.899          & 0.960          & 0.820          & 0              & 0.369          & 0.527          & 0.584          & 0.757          & 0.849          & 0.551          & 0.713          & 0.697          & 0.529          & 0.635          \\
             \end{tabular}
         }
         \caption{S3DIS pretraining results on Semantic Segmentation}
@@ -439,6 +440,11 @@ hyper-parameters:
     \end{center}
 \end{figure}
 
+\subsubsection{01.03.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Using the 2D Features learned from the previous experiment with a 2D pre-training objective, the goal was to transfer these 2D features over to the 3D points. This formed one side of the loss function, while the other side came from a 3D contrastive loss which compared points in the two transformed scans.
+
+\textbf{Results:} The results seem to show an improvement over baseline, and slightly over previous attempts. So far the best effort from 2D transfer learning. But still much bellow PointGroup.
 
 \newpage
 
