@@ -24,6 +24,7 @@ from models.minkowski.types import (
     ImagePretrainInput,
 )
 from util.utils import NCESoftmaxLoss
+import matplotlib.pyplot as plt
 
 # Visualization
 from sklearn.manifold import TSNE
@@ -509,8 +510,8 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d = self.image_feature_extractor(batch.images)
             features_2d.detach()
 
-        loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
-        loss += 0.5 * self.loss_fn_2d_3d(
+        # loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
+        loss = 0.5 * self.loss_fn_2d_3d(
             projection_1, features_2d, batch.point_to_pixel_maps1, batch
         )
         loss += 0.5 * self.loss_fn_2d_3d(
@@ -541,8 +542,8 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d = self.image_feature_extractor(batch.images)
             features_2d.detach()
 
-        loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
-        loss += 0.5 * self.loss_fn_2d_3d(
+        # loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
+        loss = 0.5 * self.loss_fn_2d_3d(
             projection_1, features_2d, batch.point_to_pixel_maps1, batch
         )
         loss += 0.5 * self.loss_fn_2d_3d(
@@ -568,7 +569,30 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             i = int((p_x - x_0) / dx)
             j = int((p_y - y_0) / dy)
 
-            interpolated_features[feature_ind] = features[:, i, j]
+            interpolated_features[feature_ind] = features[:, j, i]
+
+        return interpolated_features.to(features.device)
+
+    def find_closest_feature_verify(self, coords, features, pixels):
+
+        # interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
+        interpolated_features = torch.zeros((418, 418, features.shape[0]))
+
+        x_0 = int(coords[0, 0, 0])
+        y_0 = int(coords[1, 0, 0])
+        x_n = int(coords[0, 0, -1])
+        y_n = int(coords[1, -1, 0])
+        dx = coords[0, 0, 1] - coords[0, 0, 0]
+        dy = coords[1, 1, 0] - coords[1, 0, 0]
+
+        for p_x in range(x_0, x_n):
+            for p_y in range(y_0, y_n):
+
+                # Get indices in the transformed image
+                i = int((p_x - x_0) / dx)
+                j = int((p_y - y_0) / dy)
+
+                interpolated_features[p_y - y_0, p_x - x_0] = features[:, j, i]
 
         return interpolated_features.to(features.device)
 
@@ -603,6 +627,41 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         interpolated_features = interpolated_features / (dx * dy)
         return interpolated_features.to(features.device)
 
+    def bilinear_interpret_verify(self, coords, features, pixels):
+
+        interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
+        interpolated_features = torch.zeros((418, 418, features.shape[0]))
+
+        x_0 = int(coords[0, 0, 0])
+        y_0 = int(coords[1, 0, 0])
+        x_n = int(coords[0, 0, -1])
+        y_n = int(coords[1, -1, 0])
+        dx = coords[0, 0, 1] - coords[0, 0, 0]
+        dy = coords[1, 1, 0] - coords[1, 0, 0]
+
+        for p_x in range(x_0, x_n):
+            for p_y in range(y_0, y_n):
+
+                # Get indices in the transformed image
+                i = int((p_x - x_0) / dx)
+                j = int((p_y - y_0) / dy)
+
+                dx1 = p_x - coords[0, 0, i]
+                dx2 = coords[0, 0, i + 1] - p_x
+                dy1 = p_y - coords[1, j, 0]
+                dy2 = coords[1, j + 1, 0] - p_y
+
+                # perform bi-linear interpolation
+                interpolated_features[p_y - y_0, p_x - x_0] = (
+                    dx2 * dy2 * features[:, j, i]
+                    + dx1 * dy2 * features[:, j, i + 1]
+                    + dx2 * dy1 * features[:, j + 1, i]
+                    + dx1 * dy1 * features[:, j + 1, i + 1]
+                )
+
+        interpolated_features = interpolated_features / (dx * dy)
+        return interpolated_features.to(features.device)
+
     def _loss_fn(self, output_online, output_target):
         q = nn.functional.normalize(output_online, dim=-1, p=2)
         k = nn.functional.normalize(output_target, dim=-1, p=2)
@@ -627,8 +686,27 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         target_features = []
         for i in range(batch.batch_size):
 
+            # # Visualize feature interpolation
+            # features = self.bilinear_interpret_verify(
+            #     batch.image_coordinates[i],
+            #     output_target[i],
+            #     point_to_pixel_map[i][:, 1:3],
+            # )
+
+            # # features = output_target[i]
+            # # features = features[:, 150:300, 150:300]
+            # # features = features.reshape(16, -1).T.detach().cpu().numpy()
+            # features = features.reshape(-1, 16).detach().cpu().numpy()
+            # embedding = embed_tsne(features)
+            # embedding = embedding.reshape(418, 418)
+
+            # # Plot TSNE results
+            # plt.imshow(embedding, cmap="autumn", interpolation="nearest")
+            # plt.title("2-D Heat Map")
+            # plt.savefig("vis.png")
+
             # Get 2D features
-            target_features_i = self.find_closest_feature(
+            target_features_i = self.bilinear_interpret(
                 batch.image_coordinates[i],
                 output_target[i],
                 point_to_pixel_map[i][:, 1:3],
