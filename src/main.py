@@ -112,7 +112,9 @@ class Trainer:
             # Load backbone parameters only
             checkpoint = torch.load(self.pretrain_checkpoint)
             head_params = [
-                key for key in checkpoint["state_dict"] if "_model.head" in key
+                key
+                for key in checkpoint["state_dict"]
+                if "_model.head" in key or "head" in key
             ]
             for key in head_params:
                 del checkpoint["state_dict"][key]

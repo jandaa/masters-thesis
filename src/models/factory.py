@@ -73,12 +73,13 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_dataset_type(self):
-        if cme_name in self.model_name:
-            return MinkowskiFrameDataset
-        if minkowski_name in self.model_name:
-            return MinkowskiDataset
-        else:
-            raise RuntimeError(self.error_msg)
+        return MinkowskiDataset
+        # if cme_name in self.model_name:
+        #     return MinkowskiFrameDataset
+        # if minkowski_name in self.model_name:
+        #     return MinkowskiDataset
+        # else:
+        #     raise RuntimeError(self.error_msg)
 
     def get_backbone_dataset_type(self):
         if image_name == self.model_name:
