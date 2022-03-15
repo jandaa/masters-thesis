@@ -303,7 +303,7 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['pretrain']",
+                "tasks=['pretrain_vis_3d']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
