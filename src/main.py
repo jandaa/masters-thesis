@@ -14,6 +14,8 @@ from util import utils
 from models.factory import ModelFactory
 from dataloaders.datamodule import DataModule
 from datasets.interface import DataInterfaceFactory
+import MinkowskiEngine as ME
+import open3d as o3d
 
 # Visualization
 from sklearn.manifold import TSNE
@@ -314,6 +316,58 @@ class Trainer:
         plt.imshow(embeddings, cmap="autumn", interpolation="nearest")
         plt.title("2-D Heat Map")
         plt.show()
+
+    def pretrain_vis_3d(self):
+        """Visualize the pretrained feature embeddings."""
+        log.info("Visualizing 3D feature embeddings")
+
+        # Load model
+        backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
+        if self.pretrain_checkpoint:
+            log.info("Continuing pretraining from checkpoint.")
+            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
+                cfg=self.cfg,
+                checkpoint_path=self.pretrain_checkpoint,
+            )
+        else:
+            backbonewraper = backbone_wrapper_type(self.cfg)
+
+        # Get data
+        dataset_type = self.model_factory.get_backbone_dataset_type()
+        dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
+        collate_fn = dataset.collate
+        scene = collate_fn([dataset[2175]])
+
+        # Generate feature embeddings
+        input_3d_1 = ME.SparseTensor(scene.features1, scene.points1)
+        output_3d_1 = backbonewraper.model(input_3d_1)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(
+            scene.points1[:, 0:3].detach().cpu().numpy()
+        )
+        pcd.colors = o3d.utility.Vector3dVector(scene.features1.detach().cpu().numpy())
+
+        # z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
+
+        # TSNE
+        # test = z1.reshape(16, -1).T
+        # embeddings = embed_tsne(output_3d_1.F.detach().cpu().numpy())
+        # # embeddings = embeddings.reshape(z1.shape[2], z1.shape[3])
+
+        # # Normalize color map
+        # embeddings = embeddings - embeddings.min()
+        # embeddings = embeddings / embeddings.max()
+
+        # dist = wasserstein_distance(features[0], features[100])
+        vis_pcd = utils.get_colored_point_cloud_feature(
+            pcd,
+            output_3d_1.F.detach().cpu().numpy(),
+            0.05,
+        )
+        o3d.visualization.draw_geometries([vis_pcd])
+
+        waithere = 1
 
     def run_tasks(self):
         """Run all the tasks specified in configuration."""
