@@ -235,12 +235,12 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/old-loss-verify",
+                "model.name=minkowski_cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
                 "check_val_every_n_epoch=1",
                 "gpus=[0]",
                 "model.train.train_workers=8",
-                "model.net.freeze_encoder=True",
-                "pretrain_checkpoint=\"epoch=229-step=17019-val_loss=6.43.ckpt\""
+                "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
