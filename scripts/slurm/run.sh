@@ -15,7 +15,7 @@ base_dir=$PWD
 source $SLURM_TMPDIR/env/bin/activate
 
 # Set output dir
-output_dir=base_dir/outputs
+output_dir=$base_dir/outputs
 
 # Run training
 cd $base_dir
