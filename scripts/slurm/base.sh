@@ -4,21 +4,20 @@ module load python/3.8
 module load sparsehash
 module load openblas/0.3.17
 module load boost/1.72.0
-module load cuda/11.1
+module load cuda/11.4
 
-module load StdEnv/2020  
-module load cudacore/.11.1.1
+module load StdEnv/2020
 module load cudnn/8.2.0
 
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
-pip3 install torch==1.7.1 --no-index
-pip3 install  dist/*.tar.gz --no-index
-pip3 install  dist/*.whl --no-index
+pip install --no-index --upgrade pip
+pip install torch==1.10 torchvision==0.11.1 --no-index
+pip install  dist/*.tar.gz --no-index
+pip install  dist/*.whl --no-index
 
 # install each requirement individually incase some are unavailable
-cat setup/requirements.dev | xargs -n 1 pip3 install --no-index 
-cat setup/requirements.prod | xargs -n 1 pip3 install --no-index
+cat setup/requirements.slurm | xargs -n 1 pip install --no-index 
 
 # Run from the root of repository (e.g. sbatch scripts/slurm.sh)
 base_dir=$PWD
@@ -34,18 +33,6 @@ then
 fi
 
 cd $base_dir/src/packages/MinkowskiEngine/dist
-pip3 install *.whl
-
-# Install spconv
-spconv_dir=$base_dir/src/packages/spconv
-is_wheel=$(find $spconv_dir -name "*.whl" | wc -l)
-if [ $is_wheel -eq 0 ]
-then
-    cd $spconv_dir
-    python setup.py bdist_wheel
-fi
-
-cd $base_dir/src/packages/spconv/dist
 pip3 install *.whl
 
 # Install pointgroup ops
