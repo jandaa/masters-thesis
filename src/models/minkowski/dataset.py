@@ -507,9 +507,9 @@ class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
 
-        color_jitter_std = 0.05
-        color_trans_ratio = 0.1
-        scale_range = (0.8, 1.2)
+        color_jitter_std = 0.005
+        color_trans_ratio = 0.05
+        scale_range = (0.9, 1.1)
         elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
         self.augmentations = transforms.Compose(
             [
@@ -521,12 +521,6 @@ class MinkowskiDataset(SegmentationDataset):
                 transforms.RandomScale(scale_range),
                 transforms.RandomRotate(),
                 transforms.ElasticDistortion(elastic_distortion_params),
-            ]
-        )
-
-        self.test_augmentations = transforms.Compose(
-            [
-                transforms.Crop(self.max_pointcloud_size, self.ignore_label),
             ]
         )
 
@@ -556,9 +550,7 @@ class MinkowskiDataset(SegmentationDataset):
         features = torch.from_numpy(scene.features)
         labels = np.array([scene.semantic_labels, scene.instance_labels]).T
 
-        if self.is_test:
-            xyz, features, labels = self.test_augmentations(xyz, features, labels)
-        else:
+        if not self.is_test:
             xyz, features, labels = self.augmentations(xyz, features, labels)
 
         coords, feats, labels = ME.utils.sparse_quantize(
@@ -574,4 +566,41 @@ class MinkowskiDataset(SegmentationDataset):
             labels=labels,
             batch_size=1,
             test_filename=scene.name,
+        )
+
+
+class MinkowskiS3DISDataset(MinkowskiDataset):
+    def __init__(self, scenes, cfg, is_test=False):
+        super(MinkowskiS3DISDataset, self).__init__(scenes, cfg, is_test=is_test)
+
+        color_jitter_std = 0.005
+        color_trans_ratio = 0.05
+        scale_range = (0.9, 1.1)
+        elastic_distortion_params = None
+
+        CLIP_BOUND = 4  # [-N, N]
+
+        # Augmentation arguments
+        ROTATION_AUGMENTATION_BOUND = (
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi, np.pi),
+        )
+        TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.2, 0.2), (-0.05, 0.05))
+
+        self.augmentations = transforms.Compose(
+            [
+                transforms.Clip(
+                    CLIP_BOUND, TRANSLATION_AUGMENTATION_RATIO_BOUND, self.ignore_label
+                ),
+                transforms.RandomDropout(0.2),
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomScale(scale_range),
+                transforms.RandomRotateZ(
+                    ROTATION_AUGMENTATION_BOUND=ROTATION_AUGMENTATION_BOUND
+                ),
+                transforms.ElasticDistortion(elastic_distortion_params),
+            ]
         )
