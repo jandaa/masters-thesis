@@ -446,6 +446,13 @@ hyper-parameters:
 
 \textbf{Results:} The results seem to show an improvement over baseline, and slightly over previous attempts. So far the best effort from 2D transfer learning. But still much bellow PointGroup.
 
+
+\subsubsection{18.03.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Using the 3D features learned previously, the goal was to transfer these features to the 3D points. Here I used a 3D to 2D contrastive loss with no additional 3D-3D contrastive loss.
+
+\textbf{Results:} It seems to improve performance slightly. The biggest difference is that it starts at a significantly lower loss (2.5 vs 2.8) and thus goes down slightly quicker than without pre-training. The visualization also shows a big difference in terms of making sense of the points.
+
 \newpage
 
 
