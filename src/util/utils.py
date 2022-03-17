@@ -268,7 +268,7 @@ def embed_tsne(data):
     """
     N x D np.array data
     """
-    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=300, random_state=0)
+    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=350, random_state=0)
     tsne_results = tsne.fit_transform(data)
     tsne_results = np.squeeze(tsne_results)
     tsne_min = np.min(tsne_results)
