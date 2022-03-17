@@ -110,6 +110,9 @@ class Trainer:
             backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
 
             # Load backbone parameters only
+            # self.pretrain_checkpoint = self.pretrain_checkpoint.replace(
+            #     "pretrain_checkpoints", "pretrain_checkpoints_2d"
+            # )
             checkpoint = torch.load(self.pretrain_checkpoint)
             head_params = [
                 key
@@ -304,7 +307,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[2175]])
+        scene = collate_fn([dataset[9759]])
 
         # Generate feature embeddings
         z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
@@ -318,6 +321,8 @@ class Trainer:
         plt.imshow(embeddings, cmap="autumn", interpolation="nearest")
         plt.title("2-D Heat Map")
         plt.show()
+
+        waithere = 1
 
     def pretrain_vis_3d(self):
         """Visualize the pretrained feature embeddings."""
@@ -338,7 +343,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[2175]])
+        scene = collate_fn([dataset[9759]])
 
         # Generate feature embeddings
         input_3d_1 = ME.SparseTensor(scene.features1, scene.points1)
@@ -346,27 +351,17 @@ class Trainer:
 
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(
-            scene.points1[:, 0:3].detach().cpu().numpy()
+            scene.points1[:, 1:4].detach().cpu().numpy()
         )
         pcd.colors = o3d.utility.Vector3dVector(scene.features1.detach().cpu().numpy())
 
-        # z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
-
-        # TSNE
-        # test = z1.reshape(16, -1).T
-        # embeddings = embed_tsne(output_3d_1.F.detach().cpu().numpy())
-        # # embeddings = embeddings.reshape(z1.shape[2], z1.shape[3])
-
-        # # Normalize color map
-        # embeddings = embeddings - embeddings.min()
-        # embeddings = embeddings / embeddings.max()
-
-        # dist = wasserstein_distance(features[0], features[100])
         vis_pcd = utils.get_colored_point_cloud_feature(
             pcd,
             output_3d_1.F.detach().cpu().numpy(),
-            0.05,
+            0.02,
         )
+
+        # o3d.io.write_triangle_mesh("vis_3d.obj", vis_pcd, write_vertex_normals=False)
         o3d.visualization.draw_geometries([vis_pcd])
 
         waithere = 1
