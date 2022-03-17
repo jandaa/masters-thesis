@@ -237,10 +237,10 @@
                 "model=minkowski",
                 "model.name=minkowski_cme",
                 "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
-                "check_val_every_n_epoch=1",
-                "gpus=[0]",
-                "model.train.train_workers=8",
-                "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
+                "check_val_every_n_epoch=20",
+                "gpus=[1]",
+                "model.train.train_workers=12",
+                // "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
@@ -334,6 +334,28 @@
                 "dataset.scale=20",
                 "output_dir=~/datasets/s3dis_preprocessed_test",
                 "sens_file=/home/andrej/datasets/Stanford3dDataset_v1.2/Area_5/office_19/"
+            ]
+        },
+        {
+            "name": "Visualize 3D features",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['pretrain_vis_3d']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.pretrain.batch_size=16",
+                "model=minkowski",
+                "model.name=minkowski_cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                "check_val_every_n_epoch=1",
+                "gpus=[0]",
+                "model.train.train_workers=8",
+                "dataset.classes=16",
+                "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
