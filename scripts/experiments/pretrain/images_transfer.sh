@@ -5,11 +5,10 @@ python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=scannet \
     dataset.name=scannetv2_pretrain_new \
-    dataset.pretrain.batch_size=64 \
+    dataset.pretrain.batch_size=8 \
     model=minkowski \
-    model.name=image_pretrain \
+    model.name=minkowski_cme \
     model.train.train_workers=12 \
-    model.pretrain.optimizer.lr=0.01 \
-    check_val_every_n_epoch=2 \
-    model.net.warmup_steps=50 \
-    pretrain_checkpoint=\"epoch=11-step=7079-val_loss=6.42.ckpt\"
+    check_val_every_n_epoch=1 \
+    dataset.classes=16 \
+    pretrain_checkpoint_2d=\"epoch=31-step=18879-val_loss=6.38.ckpt\"

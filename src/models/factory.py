@@ -7,6 +7,7 @@ from models.minkowski.trainer import (
     MinkowskiMocoBackboneTrainer,
     MinkowskiBOYLBackboneTrainer,
     CMEBackboneTrainer,
+    CMEBackboneTrainerFull,
     ImageTrainer,
 )
 from models.minkowski.dataset import (
@@ -14,6 +15,7 @@ from models.minkowski.dataset import (
     MinkowskiDataset,
     MinkowskiPretrainDataset,
     MinkowskiFrameDataset,
+    MinkowskiS3DISDataset,
 )
 from util.types import DataInterface
 
@@ -28,6 +30,7 @@ supported_models = [minkowski_name, moco_name, byol_name, cme_name, image_name]
 class ModelFactory:
     def __init__(self, cfg: DictConfig, data_interface: DataInterface, backbone=None):
         self.model_name = cfg.model.name
+        self.dataset_name = cfg.dataset.name
         self.cfg = cfg
         self.data_interface = data_interface
         self.backbone = backbone
@@ -54,7 +57,7 @@ class ModelFactory:
         elif self.model_name == byol_name:
             return MinkowskiBOYLBackboneTrainer
         elif self.model_name == cme_name:
-            return CMEBackboneTrainer
+            return CMEBackboneTrainerFull
         elif self.model_name == image_name:
             return ImageTrainer
         else:
@@ -72,12 +75,10 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_dataset_type(self):
-        if cme_name in self.model_name:
-            return MinkowskiFrameDataset
-        if minkowski_name in self.model_name:
-            return MinkowskiDataset
+        if self.dataset_name == "S3DIS":
+            return MinkowskiS3DISDataset
         else:
-            raise RuntimeError(self.error_msg)
+            return MinkowskiDataset
 
     def get_backbone_dataset_type(self):
         if image_name == self.model_name:

@@ -6,14 +6,14 @@ net:
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
-  bn_momentum: 0.05
+  bn_momentum: 0.02
   freeze_backbone: False
   warmup_steps: 
   loss:
 
 optimizer:
   type: SGD # Adam or SGD
-  lr: 0.2
+  lr: 0.1
   momentum: 0.9
   weight_decay: 1e-4
 
@@ -21,7 +21,7 @@ scheduler:
   type: PolyLR
   exp_gamma:
   poly_power: 0.9
-  max_iter: 10000
+  max_iter: 60000
   interval: step
   frequency: 10
 

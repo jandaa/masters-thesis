@@ -371,9 +371,7 @@ hyper-parameters:
     \item iterations: 4000
 \end{itemize}
 
-
-
-\subsection{Semantic Segmentation Negative Sampling}
+\subsection{Semantic Segmentation Pretraining}
 
 \begin{center}
     \begin{table}[h!]
@@ -396,14 +394,67 @@ hyper-parameters:
                 Sampling - Mixing \cite{kalantidis_hard_nodate} & 0.895          & 0.962          & \textbf{0.820} & 0              & 0.277          & 0.576          & \textbf{0.706} & 0.747          & 0.849          & 0.567          & 0.724          & 0.769          & 0.562          & 0.650          \\
                 \hline
                 Moco \cite{he_momentum_2020}                    & 0.888          & 0.941          & \textbf{0.831} & \textbf{0.001} & \textbf{0.369} & \textbf{0.582} & 0.610          & \textbf{0.752} & \textbf{0.863} & 0.578          & \textbf{0.749} & 0.758          & 0.565          & 0.653          \\
+                BYOL \cite{grill_bootstrap_nodate}              & \textbf{0.907} & 0.958          & \textbf{8.25}  & 0              & 0.291          & 0.523          & \textbf{0.644} & 0.719          & 0.809          & 0.464          & \textbf{0.740} & 0.733          & 0.525          & 0.626          \\
+                \hline
+                CME - Encoder only                              & \textbf{0.911} & \textbf{0.963} & \textbf{0.818} & \textbf{0.002} & 0.278          & 0.541          & 0.521          & 0.733          & \textbf{0.883} & 0.524          & 0.705          & 0.756          & 0.559          & 0.630          \\
+                CME - Full, SimSiam                             & 0.882          & 0.958          & 0.812          & 0              & 0.355          & 0.525          & 0.474          & \textbf{0.759} & \textbf{0.869} & 0.458          & 0.723          & 0.767          & 0.533          & 0.624          \\
+                CME - Full, Contrast                            & 0.892          & 0.960          & 0.828          & 0              & 0.307          & 0.558          & 0.554          & 0.767          & 0.847          & 0.505          & 0.725          & 0.793          & 0.542          & 0.637          \\
             \end{tabular}
         }
         \caption{S3DIS pretraining results on Semantic Segmentation}
     \end{table}
 \end{center}
 
+\subsection{Experiment log}
 
-\pagebreak
+\subsubsection{24.02.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Ran 2D pre-training with SimSiam loss (which went to zero very quickly), then ran the same loss but between 2D to 3D using bi-linear interpolation to get the target feature vectors. Then finally ran full training on that.
+
+\textbf{Results:} The error for 2D and 2D-3D went down way too quickly and became super small. However, on the final output of the pre-training it seems to have helped somewhat (0.608 to 0.624) but could certainly be better. Seeing as the embedding only got to 0.63 I think there's more performance to be had and it also validates the approach somewhat.
+
+\subsubsection{25.02.2022 - Image Contrastive learning}
+
+\textbf{Details:} Instead of using a BYOL loss with only positive samples, I went back to the old contrastive loss and was able to see a much more normal loss curve. Visualizing the results shows that it has learned key features in the images.
+
+\textbf{Results:} Here are some sample visualizations:
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.4]{images/experiments/25.02.2022-image-pretrain-vis1.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.43]{images/experiments/25.02.2022-image-pretrain-vis2.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+\begin{figure}[h!]
+    \begin{center}
+        \includegraphics[scale=0.35]{images/experiments/25.02.2022-image-pretrain-vis3.png}
+        % \caption{Visualization of pre-trained image features}
+    \end{center}
+\end{figure}
+
+\subsubsection{01.03.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Using the 2D Features learned from the previous experiment with a 2D pre-training objective, the goal was to transfer these 2D features over to the 3D points. This formed one side of the loss function, while the other side came from a 3D contrastive loss which compared points in the two transformed scans.
+
+\textbf{Results:} The results seem to show an improvement over baseline, and slightly over previous attempts. So far the best effort from 2D transfer learning. But still much bellow PointGroup.
+
+
+\subsubsection{18.03.2022 - Image to 3D full pretraining}
+
+\textbf{Details:} Using the 3D features learned previously, the goal was to transfer these features to the 3D points. Here I used a 3D to 2D contrastive loss with no additional 3D-3D contrastive loss.
+
+\textbf{Results:} It seems to improve performance slightly. The biggest difference is that it starts at a significantly lower loss (2.5 vs 2.8) and thus goes down slightly quicker than without pre-training. The visualization also shows a big difference in terms of making sense of the points.
+
+\newpage
+
 
 \newpage
 \bibliographystyle{plain}

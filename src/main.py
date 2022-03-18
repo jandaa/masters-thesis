@@ -14,6 +14,8 @@ from util import utils
 from models.factory import ModelFactory
 from dataloaders.datamodule import DataModule
 from datasets.interface import DataInterfaceFactory
+import MinkowskiEngine as ME
+import open3d as o3d
 
 # Visualization
 from sklearn.manifold import TSNE
@@ -83,6 +85,13 @@ class Trainer:
                 f"Resuming pretraining checkpoint: {Path(self.pretrain_checkpoint).name}"
             )
 
+        self.checkpoint_2d_path = None
+        if cfg.pretrain_checkpoint_2d:
+            self.checkpoint_2d_path = str(
+                Path.cwd() / "pretrain_checkpoints_2d" / cfg.pretrain_checkpoint_2d
+            )
+            log.info(f"Resuming 2D checkpoint: {Path(self.checkpoint_2d_path).name}")
+
         self.supervised_pretrain_checkpoint = None
         if cfg.supervised_pretrain_checkpoint:
             self.supervised_pretrain_checkpoint = str(
@@ -101,9 +110,14 @@ class Trainer:
             backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
 
             # Load backbone parameters only
+            # self.pretrain_checkpoint = self.pretrain_checkpoint.replace(
+            #     "pretrain_checkpoints", "pretrain_checkpoints_2d"
+            # )
             checkpoint = torch.load(self.pretrain_checkpoint)
             head_params = [
-                key for key in checkpoint["state_dict"] if "_model.head" in key
+                key
+                for key in checkpoint["state_dict"]
+                if "_model.head" in key or "head" in key
             ]
             for key in head_params:
                 del checkpoint["state_dict"][key]
@@ -147,7 +161,7 @@ class Trainer:
         return pl.Trainer(
             logger=tb_logger,
             gpus=self.cfg.gpus,
-            accelerator=self.cfg.accelerator,
+            strategy=self.cfg.accelerator,
             max_epochs=self.cfg.max_epochs,
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
@@ -168,7 +182,7 @@ class Trainer:
         return pl.Trainer(
             logger=tb_logger,
             gpus=self.cfg.gpus,
-            accelerator=self.cfg.accelerator,
+            strategy=self.cfg.accelerator,
             resume_from_checkpoint=self.pretrain_checkpoint,
             max_steps=self.cfg.dataset.pretrain.max_steps,
             check_val_every_n_epoch=self.cfg.check_val_every_n_epoch,
@@ -211,6 +225,11 @@ class Trainer:
             backbonewraper = backbone_wrapper_type.load_from_checkpoint(
                 cfg=self.cfg,
                 checkpoint_path=self.pretrain_checkpoint,
+            )
+        elif self.checkpoint_2d_path:
+            log.info("Loading pretrained 2D network")
+            backbonewraper = backbone_wrapper_type(
+                self.cfg, checkpoint_2d_path=self.checkpoint_2d_path
             )
         else:
             backbonewraper = backbone_wrapper_type(self.cfg)
@@ -288,7 +307,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[2175]])
+        scene = collate_fn([dataset[9759]])
 
         # Generate feature embeddings
         z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
@@ -302,6 +321,50 @@ class Trainer:
         plt.imshow(embeddings, cmap="autumn", interpolation="nearest")
         plt.title("2-D Heat Map")
         plt.show()
+
+        waithere = 1
+
+    def pretrain_vis_3d(self):
+        """Visualize the pretrained feature embeddings."""
+        log.info("Visualizing 3D feature embeddings")
+
+        # Load model
+        backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
+        if self.pretrain_checkpoint:
+            log.info("Continuing pretraining from checkpoint.")
+            backbonewraper = backbone_wrapper_type.load_from_checkpoint(
+                cfg=self.cfg,
+                checkpoint_path=self.pretrain_checkpoint,
+            )
+        else:
+            backbonewraper = backbone_wrapper_type(self.cfg)
+
+        # Get data
+        dataset_type = self.model_factory.get_backbone_dataset_type()
+        dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
+        collate_fn = dataset.collate
+        scene = collate_fn([dataset[9759]])
+
+        # Generate feature embeddings
+        input_3d_1 = ME.SparseTensor(scene.features1, scene.points1)
+        output_3d_1 = backbonewraper.model(input_3d_1)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(
+            scene.points1[:, 1:4].detach().cpu().numpy()
+        )
+        pcd.colors = o3d.utility.Vector3dVector(scene.features1.detach().cpu().numpy())
+
+        vis_pcd = utils.get_colored_point_cloud_feature(
+            pcd,
+            output_3d_1.F.detach().cpu().numpy(),
+            0.02,
+        )
+
+        # o3d.io.write_triangle_mesh("vis_3d.obj", vis_pcd, write_vertex_normals=False)
+        o3d.visualization.draw_geometries([vis_pcd])
+
+        waithere = 1
 
     def run_tasks(self):
         """Run all the tasks specified in configuration."""

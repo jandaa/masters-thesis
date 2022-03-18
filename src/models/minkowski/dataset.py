@@ -19,16 +19,18 @@ from scipy.spatial import KDTree
 from models.minkowski.types import (
     MinkowskiInput,
     MinkowskiPretrainInput,
+    MinkowskiPretrainInputNew,
     ImagePretrainInput,
 )
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
 
 
-class ImagePretrainDataset(Dataset):
+class ImagePretrainDataset(PretrainDataset):
     def __init__(self, scenes, cfg):
-        super(ImagePretrainDataset, self).__init__()
+        super(ImagePretrainDataset, self).__init__(scenes, cfg)
 
         self.scenes = scenes
+
         image_size = 224
         crop = 0.2
         self.image_augmentations = transform_coord.Compose(
@@ -51,7 +53,6 @@ class ImagePretrainDataset(Dataset):
         coords1 = torch.vstack([datapoint["coords1"] for datapoint in batch])
         coords2 = torch.vstack([datapoint["coords2"] for datapoint in batch])
 
-        # correspondences = torch.cat([datapoint["correspondences"] for datapoint in batch], 0)
         correspondences = [
             datapoint["correspondences"] for datapoint in batch if datapoint
         ]
@@ -77,15 +78,23 @@ class ImagePretrainDataset(Dataset):
         with scene.open("rb") as scene_pickle:
             scene = pickle.load(scene_pickle)
 
+        if scene.points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes) - 1)
+            return self[new_ind]
+
         # Normalize image
         image = PIL.Image.fromarray(scene.color_image)
 
-        # Do two sets of augmentations
-        # self.image_augmentations(image).unsqueeze(dim=0).to(torch.float32)
+        # Do two sets of augmentations for 2D training
         image1, coords1 = self.image_augmentations(image)
         image2, coords2 = self.image_augmentations(image)
 
-        # visualize_image(image1)
+        # # Visualize image
+        # image1 = image1.transpose(2, 0) * 255.0
+        # image1 = image1.transpose(1, 0)
+        # image1 = image1.to(torch.uint8)
+        # vis = PIL.Image.fromarray(image1.detach().cpu().numpy())
+        # vis.show()
 
         # Generate a mapping
         coords1 = coords1.view(2, -1).T.detach().numpy()
@@ -170,50 +179,98 @@ class MinkowskiPretrainDataset(PretrainDataset):
             ]
         )
 
-        self.image_transforms = T.Compose(
+        self.coord_transforms = T.Compose(
             [
                 T.ToTensor(),
                 T.Resize(256),
                 T.CenterCrop(224),
+            ]
+        )
+
+        self.image_transforms = T.Compose(
+            [
                 T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
 
+    def get_coords(self, image):
+        height = image.shape[0]
+        width = image.shape[1]
+
+        # Create coordinate image
+        # dims are (2, W, H)
+        # where the first axis holds the (x,y) coordinates
+        coord_x = np.linspace(0, width - 1, width).reshape(1, 1, -1)
+        coord_x = np.repeat(coord_x, height, axis=1)
+        coord_y = np.linspace(0, height - 1, height).reshape(1, -1, 1)
+        coord_y = np.repeat(coord_y, width, axis=2)
+
+        coord = np.concatenate([coord_x, coord_y], axis=0)
+        coord = np.transpose(coord, (1, 2, 0))
+
+        return coord
+
     def collate(self, batch):
-        correspondences = [
-            datapoint["correspondences"] for datapoint in batch if datapoint
-        ]
-        coords_list = [
-            frame["discrete_coords"]
+
+        # Image stuff
+        point_to_pixel_maps1 = [
+            datapoint["quantized_frames"][0]["point_to_pixel_map"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
             if datapoint
         ]
-        features_list = [
-            frame["unique_feats"]
+        point_to_pixel_maps2 = [
+            datapoint["quantized_frames"][1]["point_to_pixel_map"]
             for datapoint in batch
-            for frame in datapoint["quantized_frames"]
             if datapoint
         ]
-
-        coordinates_batch, features_batch = ME.utils.sparse_collate(
-            coords_list, features_list
-        )
-
-        # Collate images
-        images = [
-            frame["image"]
-            for datapoint in batch
-            for frame in datapoint["quantized_frames"]
+        images = [datapoint["image"] for datapoint in batch if datapoint]
+        image_coordinates = [
+            datapoint["image_coords"] for datapoint in batch if datapoint
         ]
         images = torch.cat(images, 0)
 
-        pretrain_input = MinkowskiPretrainInput(
-            points=coordinates_batch,
-            features=features_batch.float(),
+        # Points stuff
+        coords1_list = [
+            datapoint["quantized_frames"][0]["discrete_coords"]
+            for datapoint in batch
+            if datapoint
+        ]
+        features1_list = [
+            datapoint["quantized_frames"][0]["unique_feats"]
+            for datapoint in batch
+            if datapoint
+        ]
+        coords2_list = [
+            datapoint["quantized_frames"][1]["discrete_coords"]
+            for datapoint in batch
+            if datapoint
+        ]
+        features2_list = [
+            datapoint["quantized_frames"][1]["unique_feats"]
+            for datapoint in batch
+            if datapoint
+        ]
+
+        points1, features1 = ME.utils.sparse_collate(coords1_list, features1_list)
+
+        points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
+
+        # Point to Point map
+        point_to_point_map = [
+            datapoint["point_to_point_map"] for datapoint in batch if datapoint
+        ]
+
+        pretrain_input = MinkowskiPretrainInputNew(
+            points1=points1,
+            features1=features1.float(),
+            points2=points2,
+            features2=features2.float(),
+            point_to_pixel_maps1=point_to_pixel_maps1,
+            point_to_pixel_maps2=point_to_pixel_maps2,
             images=images,
-            correspondences=correspondences,
-            batch_size=2 * len(batch),
+            image_coordinates=image_coordinates,
+            point_to_point_map=point_to_point_map,
+            batch_size=len(batch),
         )
 
         return pretrain_input
@@ -226,19 +283,45 @@ class MinkowskiPretrainDataset(PretrainDataset):
             scene = pickle.load(scene_pickle)
 
         if scene.points.shape[0] == 0:
-            new_ind = random.randint(0, len(self.scenes))
+            new_ind = random.randint(0, len(self.scenes) - 1)
             return self[new_ind]
+
+        # Get image coordinates
+        coords = self.get_coords(scene.color_image)
+        coords = self.coord_transforms(coords)
+
+        # Transform image
+        image = scene.color_image / 255.0
+        image = self.coord_transforms(image)
+        image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+
+        # Make sure points fit in range
+        x_0 = int(coords[0, 0, 0]) + 1
+        y_0 = int(coords[1, 0, 0]) + 1
+        x_n = int(coords[0, 0, -1]) - 1
+        y_n = int(coords[1, -1, 0]) - 1
+
+        point_indices = np.arange(scene.scan_points.shape[0])
+        point_to_pixel_map = np.array(scene.point_to_pixel_map)
+        point_to_pixel_map = np.concatenate(
+            [point_indices.reshape(-1, 1), point_to_pixel_map], axis=1
+        )
+        select = (
+            (point_to_pixel_map[:, 1] > x_0)
+            & (point_to_pixel_map[:, 1] < x_n)
+            & (point_to_pixel_map[:, 2] > y_0)
+            & (point_to_pixel_map[:, 2] < y_n)
+        )
+
+        point_to_pixel_map = point_to_pixel_map[select]
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
-        for frame in [scene]:
-
-            image = frame.color_image / 255.0
-            image = self.image_transforms(image).unsqueeze(dim=0).to(torch.float32)
+        for frame in [scene, scene]:
 
             # Extract data
-            xyz = np.ascontiguousarray(frame.points)
-            features = torch.from_numpy(frame.point_colors)
+            xyz = np.ascontiguousarray(frame.scan_points[:, 0:3])
+            features = torch.from_numpy(frame.scan_point_colors)
 
             # apply a random scalling
             xyz *= random_scale
@@ -248,57 +331,58 @@ class MinkowskiPretrainDataset(PretrainDataset):
             xyz, features, _ = self.augmentations(xyz, features, None)
 
             # Voxelize input
-            discrete_coords, mapping = ME.utils.sparse_quantize(
-                coordinates=xyz, quantization_size=self.voxel_size, return_index=True
+            discrete_coords, mapping, inverse_mapping = ME.utils.sparse_quantize(
+                coordinates=xyz,
+                quantization_size=self.voxel_size,
+                return_index=True,
+                return_inverse=True,
             )
 
             unique_feats = features[mapping]
 
-            # Get the point to voxel mapping
-            mapping = {
-                point_ind: voxel_ind
-                for voxel_ind, point_ind in enumerate(mapping.numpy())
-            }
+            # Select random points to be used in training
+            max_pos = 2000
+            point_indices = np.random.choice(
+                point_to_pixel_map.shape[0], max_pos, replace=False
+            )
+            point_to_pixel_map_frame = point_to_pixel_map[point_indices]
+
+            # Map point indices to voxel indices
+            point_to_pixel_map_frame[:, 0] = inverse_mapping[
+                point_to_pixel_map_frame[:, 0]
+            ]
 
             # Append to quantized frames
             quantized_frames.append(
                 {
                     "discrete_coords": discrete_coords,
                     "unique_feats": unique_feats,
-                    "mapping": mapping,
-                    "image": image,
+                    "point_to_pixel_map": point_to_pixel_map_frame,
+                    "inverse_mapping": inverse_mapping,
                 }
             )
 
-        # # Randomly pick points as correspondances
-        # max_pos = min(2024, scene.points.shape[0])
-        # point_indices = np.random.choice(scene.points.shape[0], max_pos, replace=False)
+        # Randomly pick points of original scene
+        max_pos = 1000
+        point_indices = np.random.choice(
+            frame.scan_points.shape[0], max_pos, replace=False
+        )
 
-        # # Remap the correspondances into voxel world
-        # mapping1 = quantized_frames[0]["mapping"]
-        # mapping2 = quantized_frames[1]["mapping"]
-        # correspondences = [
-        #     {
-        #         "frame1": {
-        #             "voxel_inds": mapping1[point_ind],
-        #         },
-        #         "frame2": {
-        #             "voxel_inds": mapping2[point_ind],
-        #         },
-        #     }
-        #     for point_ind in point_indices
-        #     if point_ind in mapping1.keys() and point_ind in mapping2.keys()
-        # ]
-
-        # visualize_mapping(
-        #     quantized_frames[0]["discrete_coords"],
-        #     quantized_frames[1]["discrete_coords"],
-        #     correspondences,
-        # )
+        point_to_point_map = np.array(
+            [
+                [
+                    quantized_frames[0]["inverse_mapping"][point_ind],
+                    quantized_frames[1]["inverse_mapping"][point_ind],
+                ]
+                for point_ind in point_indices
+            ]
+        )
 
         return {
-            "correspondences": None,
+            "point_to_point_map": point_to_point_map,
             "quantized_frames": quantized_frames,
+            "image": image,
+            "image_coords": coords.detach().cpu().numpy(),
         }
 
 
@@ -423,9 +507,9 @@ class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
 
-        color_jitter_std = 0.05
-        color_trans_ratio = 0.1
-        scale_range = (0.8, 1.2)
+        color_jitter_std = 0.005
+        color_trans_ratio = 0.05
+        scale_range = (0.9, 1.1)
         elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
         self.augmentations = transforms.Compose(
             [
@@ -437,12 +521,6 @@ class MinkowskiDataset(SegmentationDataset):
                 transforms.RandomScale(scale_range),
                 transforms.RandomRotate(),
                 transforms.ElasticDistortion(elastic_distortion_params),
-            ]
-        )
-
-        self.test_augmentations = transforms.Compose(
-            [
-                transforms.Crop(self.max_pointcloud_size, self.ignore_label),
             ]
         )
 
@@ -472,9 +550,7 @@ class MinkowskiDataset(SegmentationDataset):
         features = torch.from_numpy(scene.features)
         labels = np.array([scene.semantic_labels, scene.instance_labels]).T
 
-        if self.is_test:
-            xyz, features, labels = self.test_augmentations(xyz, features, labels)
-        else:
+        if not self.is_test:
             xyz, features, labels = self.augmentations(xyz, features, labels)
 
         coords, feats, labels = ME.utils.sparse_quantize(
@@ -490,4 +566,41 @@ class MinkowskiDataset(SegmentationDataset):
             labels=labels,
             batch_size=1,
             test_filename=scene.name,
+        )
+
+
+class MinkowskiS3DISDataset(MinkowskiDataset):
+    def __init__(self, scenes, cfg, is_test=False):
+        super(MinkowskiS3DISDataset, self).__init__(scenes, cfg, is_test=is_test)
+
+        color_jitter_std = 0.005
+        color_trans_ratio = 0.05
+        scale_range = (0.9, 1.1)
+        elastic_distortion_params = None
+
+        CLIP_BOUND = 4  # [-N, N]
+
+        # Augmentation arguments
+        ROTATION_AUGMENTATION_BOUND = (
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi, np.pi),
+        )
+        TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.2, 0.2), (-0.05, 0.05))
+
+        self.augmentations = transforms.Compose(
+            [
+                transforms.Clip(
+                    CLIP_BOUND, TRANSLATION_AUGMENTATION_RATIO_BOUND, self.ignore_label
+                ),
+                transforms.RandomDropout(0.2),
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomScale(scale_range),
+                transforms.RandomRotateZ(
+                    ROTATION_AUGMENTATION_BOUND=ROTATION_AUGMENTATION_BOUND
+                ),
+                transforms.ElasticDistortion(elastic_distortion_params),
+            ]
         )

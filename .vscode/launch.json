@@ -235,12 +235,12 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/old-loss-verify",
-                "check_val_every_n_epoch=1",
-                "gpus=[0]",
-                "model.train.train_workers=8",
-                "model.net.freeze_encoder=True",
-                "pretrain_checkpoint=\"epoch=229-step=17019-val_loss=6.43.ckpt\""
+                "model.name=minkowski_cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                "check_val_every_n_epoch=20",
+                "gpus=[1]",
+                "model.train.train_workers=12",
+                // "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
@@ -277,7 +277,7 @@
             "console": "integratedTerminal",
             "args": [
                 "tasks=['pretrain_vis']",
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
@@ -288,10 +288,10 @@
                 "check_val_every_n_epoch=2",
                 // "val_check_interval=1000",
                 "gpus=[0]",
-                "model.train.train_workers=12",
-                "model.pretrain.optimizer.lr=0.0001",
+                "model.train.train_workers=1",
+                "model.pretrain.optimizer.lr=0.01",
                 "model.net.warmup_steps=50",
-                "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
+                "pretrain_checkpoint=\"epoch=31-step=18879-val_loss=6.38.ckpt\""
                 // "limit_val_batches=0.05",
                 // "limit_test_batches=0.20"
             ]
@@ -303,21 +303,22 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['pretrain_2d_3d']",
+                "tasks=['pretrain_vis_3d']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
-                "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
-                "dataset.pretrain.batch_size=64",
+                "dataset.pretrain.batch_size=16",
                 "model=minkowski",
-                "model.name=image_pretrain",
+                "model.name=minkowski_cme",
                 "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
                 "check_val_every_n_epoch=2",
                 "gpus=[0]",
                 "model.train.train_workers=12",
-                "model.pretrain.optimizer.lr=0.0001",
-                "model.net.warmup_steps=50",
-                "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
+                "dataset.classes=16",
+                "pretrain_checkpoint_2d=last.ckpt"
+                // "model.pretrain.optimizer.lr=0.0001",
+                // "model.net.warmup_steps=50",
+                // "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""
             ]
         },
         {
@@ -333,6 +334,28 @@
                 "dataset.scale=20",
                 "output_dir=~/datasets/s3dis_preprocessed_test",
                 "sens_file=/home/andrej/datasets/Stanford3dDataset_v1.2/Area_5/office_19/"
+            ]
+        },
+        {
+            "name": "Visualize 3D features",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['pretrain_vis_3d']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.pretrain.batch_size=16",
+                "model=minkowski",
+                "model.name=minkowski_cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                "check_val_every_n_epoch=1",
+                "gpus=[0]",
+                "model.train.train_workers=8",
+                "dataset.classes=16",
+                "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
