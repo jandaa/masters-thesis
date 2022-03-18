@@ -1127,7 +1127,14 @@ class MinkowskiTrainer(SegmentationTrainer):
     def __init__(self, cfg: DictConfig, data_interface: DataInterface, backbone=None):
         super(MinkowskiTrainer, self).__init__(cfg, data_interface)
 
-        self.model = MinkovskiSemantic(cfg, backbone=backbone)
+        self.model = Res16UNet34C(3, cfg.dataset.classes, cfg.model, D=3)
+        if backbone:
+            state_dict = backbone.state_dict()
+            head_params = [key for key in state_dict if "final" in key]
+            for key in head_params:
+                del state_dict[key]
+            self.model.load_state_dict(state_dict, strict=False)
+
         self.criterion = NCESoftmaxLoss()
         self.semantic_criterion = nn.CrossEntropyLoss(
             ignore_index=cfg.dataset.ignore_label
@@ -1140,6 +1147,7 @@ class MinkowskiTrainer(SegmentationTrainer):
     def training_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
         output = self.model(model_input)
+        output = MinkowskiOutput(output=output, semantic_scores=output.F)
         loss = self.loss_fn(batch, output)
 
         # Log losses
@@ -1151,6 +1159,7 @@ class MinkowskiTrainer(SegmentationTrainer):
     def validation_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
         output = self.model(model_input)
+        output = MinkowskiOutput(output=output, semantic_scores=output.F)
         loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
