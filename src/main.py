@@ -163,6 +163,7 @@ class Trainer:
             gpus=self.cfg.gpus,
             strategy=self.cfg.accelerator,
             max_epochs=self.cfg.max_epochs,
+            resume_from_checkpoint=self.checkpoint_path,
             check_val_every_n_epoch=int(self.cfg.check_val_every_n_epoch),
             callbacks=[get_checkpoint_callback(), lr_monitor],
             limit_train_batches=self.cfg.limit_train_batches,
