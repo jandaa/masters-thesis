@@ -2,6 +2,7 @@ python src/main.py \
     dataset_dir=$dataset_dir \
     dataset=s3dis \
     model=minkowski \
+    model.name=minkowski_cme \
     tasks=["train","eval"] \
     hydra.run.dir=$output_dir/pretrain/images \
     gpus=[0] \
