@@ -2,6 +2,7 @@ import sys
 import shutil
 import copy
 import math
+import random
 import pprint
 from pathlib import Path
 import concurrent.futures
@@ -12,6 +13,16 @@ import torch
 import torch.nn as nn
 import open3d as o3d
 import numpy as np
+import pytorch_lightning as pl
+
+
+def set_seed(curr_iteration):
+    # Set random seeds for reproductability
+    seed = 123 + curr_iteration
+    torch.manual_seed(seed)
+    random.seed(0)
+    np.random.seed(0)
+    pl.seed_everything(seed, workers=True)
 
 
 class NCESoftmaxLoss(nn.Module):

@@ -37,9 +37,8 @@ class ChromaticTranslation(object):
 
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
-            tr = (np.random.rand(1, 3) - 0.5) * 2 * self.trans_range_ratio
-            # tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
-            feats[:, :3] = np.clip(feats[:, :3] + tr, -0.5, 0.5)
+            tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
+            feats[:, :3] = np.clip(feats[:, :3] + tr, 0, 255)
         return coords, feats, labels
 
 
@@ -54,11 +53,11 @@ class ChromaticAutoContrast(object):
             # std = np.std(feats, 0, keepdims=True)
             # lo = mean - std
             # hi = mean + std
-            lo = feats[:, :3].min(0, keepdims=True)
-            hi = feats[:, :3].max(0, keepdims=True)
+            lo = feats[:, :3].min(0, keepdims=True).values
+            hi = feats[:, :3].max(0, keepdims=True).values
             assert hi.max() > 1, f"invalid color value. Color is supposed to be [0-255]"
 
-            scale = 255 / (hi - lo)
+            scale = 255.0 / (hi - lo)
 
             contrast_feats = (feats[:, :3] - lo) * scale
 
@@ -76,8 +75,8 @@ class ChromaticJitter(object):
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
             noise = np.random.randn(feats.shape[0], 3)
-            noise *= self.std
-            feats[:, :3] = np.clip(feats[:, :3] + noise, -1, 1)
+            noise *= self.std * 255
+            feats[:, :3] = np.clip(feats[:, :3] + noise, 0, 255)
         return coords, feats, labels
 
 
@@ -95,8 +94,8 @@ class RandomDropout(object):
     def __call__(self, coords, feats, labels):
         if random.random() < self.dropout_ratio:
             N = len(coords)
-            if N < 10:
-                return coords, feats, labels
+            # if N < 10:
+            #     return coords, feats, labels
             inds = np.random.choice(N, int(N * (1 - self.dropout_ratio)), replace=False)
             return coords[inds], feats[inds], labels[inds]
         return coords, feats, labels

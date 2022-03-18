@@ -550,8 +550,14 @@ class MinkowskiDataset(SegmentationDataset):
         features = torch.from_numpy(scene.features)
         labels = np.array([scene.semantic_labels, scene.instance_labels]).T
 
+        # Unnormalize features for a sec
+        features = (features + 1.0) * 127.5
+
         if not self.is_test:
             xyz, features, labels = self.augmentations(xyz, features, labels)
+
+        # Renormalize
+        features = features / 255.0 - 0.5
 
         coords, feats, labels = ME.utils.sparse_quantize(
             xyz,
@@ -559,6 +565,8 @@ class MinkowskiDataset(SegmentationDataset):
             labels=labels[:, 0],
             quantization_size=self.voxel_size,
         )
+
+        coords[:, :3] += (np.random.random(3) * 100).astype(np.int)
 
         return MinkowskiInput(
             points=coords,
@@ -595,6 +603,7 @@ class MinkowskiS3DISDataset(MinkowskiDataset):
                 ),
                 transforms.RandomDropout(0.2),
                 transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticAutoContrast(),
                 transforms.ChromaticTranslation(color_trans_ratio),
                 transforms.ChromaticJitter(color_jitter_std),
                 transforms.RandomScale(scale_range),

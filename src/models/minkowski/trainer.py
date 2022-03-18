@@ -23,7 +23,7 @@ from models.minkowski.types import (
     MinkowskiPretrainInputNew,
     ImagePretrainInput,
 )
-from util.utils import NCESoftmaxLoss
+from util.utils import NCESoftmaxLoss, set_seed
 import matplotlib.pyplot as plt
 
 # Visualization
@@ -1143,6 +1143,9 @@ class MinkowskiTrainer(SegmentationTrainer):
     @property
     def return_instances(self):
         return False
+
+    def on_before_zero_grad(self, optimizer) -> None:
+        set_seed(self.trainer.global_step)
 
     def training_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
