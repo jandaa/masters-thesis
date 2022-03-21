@@ -563,10 +563,10 @@ class MinkowskiDataset(SegmentationDataset):
         xyz = xyz - xyz.min(0)
 
         coords, feats, labels = ME.utils.sparse_quantize(
-            xyz,
+            xyz / self.voxel_size,
             features=features,
             labels=labels[:, 0],
-            quantization_size=self.voxel_size,
+            # quantization_size=self.voxel_size,
         )
 
         coords[:, :3] += (np.random.random(3) * 100).astype(np.int)
@@ -587,7 +587,6 @@ class MinkowskiS3DISDataset(MinkowskiDataset):
         color_jitter_std = 0.005
         color_trans_ratio = 0.05
         scale_range = (0.9, 1.1)
-        elastic_distortion_params = None
 
         CLIP_BOUND = 4  # [-N, N]
 
@@ -613,6 +612,5 @@ class MinkowskiS3DISDataset(MinkowskiDataset):
                 transforms.RandomRotateZ(
                     ROTATION_AUGMENTATION_BOUND=ROTATION_AUGMENTATION_BOUND
                 ),
-                transforms.ElasticDistortion(elastic_distortion_params),
             ]
         )
