@@ -556,8 +556,11 @@ class MinkowskiDataset(SegmentationDataset):
         if not self.is_test:
             xyz, features, labels = self.augmentations(xyz, features, labels)
 
-        # Renormalize
+        # Renormalize Colour
         features = features / 255.0 - 0.5
+
+        # Move coordinates back to origin
+        xyz = xyz - xyz.min(0)
 
         coords, feats, labels = ME.utils.sparse_quantize(
             xyz,

@@ -1135,7 +1135,6 @@ class MinkowskiTrainer(SegmentationTrainer):
                 del state_dict[key]
             self.model.load_state_dict(state_dict, strict=False)
 
-        self.criterion = NCESoftmaxLoss()
         self.semantic_criterion = nn.CrossEntropyLoss(
             ignore_index=cfg.dataset.ignore_label
         )
