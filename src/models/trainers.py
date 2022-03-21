@@ -58,6 +58,7 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
             parameters,
             lr=optimizer_cfg.lr,
             momentum=optimizer_cfg.momentum,
+            dampening=optimizer_cfg.dampening,
             weight_decay=optimizer_cfg.weight_decay,
         )
     else:
