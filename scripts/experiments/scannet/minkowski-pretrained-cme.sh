@@ -1,6 +1,6 @@
 python src/main.py \
     model=minkowski \
-    hydra.run.dir=$output_dir/scannetv2/minkowski \
+    hydra.run.dir=$output_dir/scannetv2/minkowski-pretrained-cme \
     model.name=minkowski_cme \
     tasks=["train","eval"] \
     gpus=[0] \
@@ -12,4 +12,5 @@ python src/main.py \
     max_time="01:00:00:00" \
     max_epochs=2000 \
     check_val_every_n_epoch=20 \
-    model.train.train_workers=10
+    model.train.train_workers=10 \
+    pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\"

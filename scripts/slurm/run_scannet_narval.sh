@@ -8,7 +8,7 @@
 source scripts/slurm/base_narval.sh
 
 # Untar data
-dataset=~/scratch/datasets/scannet_preprocessed_2cm_frames_with_labels.tar
+dataset=~/scratch/datasets/scannet_preprocessed_2cm_clean.tar
 tar -xf $dataset -C $SLURM_TMPDIR
 
 base_dir=$PWD
@@ -19,6 +19,6 @@ output_dir=$base_dir/outputs
 
 # Run training
 cd $base_dir
-dataset_dir=$SLURM_TMPDIR/scannet_preprocessed_2cm_frames_with_labels
+dataset_dir=$SLURM_TMPDIR/scannet_preprocessed_2cm_clean
 tensorboard --logdir=outputs --host 0.0.0.0 --load_fast false & \
 source $1
