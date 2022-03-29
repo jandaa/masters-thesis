@@ -1143,9 +1143,6 @@ class MinkowskiTrainer(SegmentationTrainer):
     def return_instances(self):
         return False
 
-    def on_before_zero_grad(self, optimizer) -> None:
-        set_seed(self.trainer.global_step)
-
     def training_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
         output = self.model(model_input)

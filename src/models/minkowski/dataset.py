@@ -507,13 +507,19 @@ class MinkowskiDataset(SegmentationDataset):
     def __init__(self, scenes, cfg, is_test=False):
         super(MinkowskiDataset, self).__init__(scenes, cfg, is_test=is_test)
 
+        CLIP_BOUND = 6  # [-N, N]
+        TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.2, 0.2), (-0.05, 0.05))
+
         color_jitter_std = 0.005
         color_trans_ratio = 0.05
         scale_range = (0.9, 1.1)
         elastic_distortion_params = ((0.2, 0.4), (0.8, 1.6))
         self.augmentations = transforms.Compose(
             [
-                transforms.Crop(self.max_npoint, self.ignore_label),
+                # transforms.Crop(self.max_npoint, self.ignore_label),
+                transforms.Clip(
+                    CLIP_BOUND, TRANSLATION_AUGMENTATION_RATIO_BOUND, self.ignore_label
+                ),
                 transforms.RandomDropout(0.2),
                 transforms.RandomHorizontalFlip("z", False),
                 transforms.ChromaticTranslation(color_trans_ratio),
@@ -563,10 +569,10 @@ class MinkowskiDataset(SegmentationDataset):
         xyz = xyz - xyz.min(0)
 
         coords, feats, labels = ME.utils.sparse_quantize(
-            xyz / self.voxel_size,
+            xyz,
             features=features,
             labels=labels[:, 0],
-            # quantization_size=self.voxel_size,
+            quantization_size=self.voxel_size,
         )
 
         coords[:, :3] += (np.random.random(3) * 100).astype(np.int)
