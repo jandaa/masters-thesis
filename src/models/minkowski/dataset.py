@@ -563,10 +563,10 @@ class MinkowskiDataset(SegmentationDataset):
         xyz = xyz - xyz.min(0)
 
         coords, feats, labels = ME.utils.sparse_quantize(
-            xyz / self.voxel_size,
+            xyz,
             features=features,
             labels=labels[:, 0],
-            # quantization_size=self.voxel_size,
+            quantization_size=self.voxel_size,
         )
 
         coords[:, :3] += (np.random.random(3) * 100).astype(np.int)
