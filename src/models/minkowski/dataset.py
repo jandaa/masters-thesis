@@ -569,8 +569,6 @@ class MinkowskiDataset(SegmentationDataset):
             quantization_size=self.voxel_size,
         )
 
-        coords[:, :3] += (np.random.random(3) * 100).astype(np.int)
-
         return MinkowskiInput(
             points=coords,
             features=feats,
