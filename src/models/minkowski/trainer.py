@@ -498,26 +498,29 @@ class CMEBackboneTrainerFull(BackboneTrainer):
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         input_3d_1 = ME.SparseTensor(batch.features1, batch.points1)
-        input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
+        # input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
         output_3d_1 = self.model(input_3d_1)
-        output_3d_2 = self.model(input_3d_2)
+        # output_3d_2 = self.model(input_3d_2)
 
         projection_1 = self.head(output_3d_1)
-        projection_2 = self.head(output_3d_2)
+        # projection_2 = self.head(output_3d_2)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
             features_2d = self.image_feature_extractor(batch.images)
             features_2d.detach()
 
-        # loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
-        loss = 0.5 * self.loss_fn_2d_3d(
+        loss = self.loss_fn_2d_3d(
             projection_1, features_2d, batch.point_to_pixel_maps1, batch
         )
-        loss += 0.5 * self.loss_fn_2d_3d(
-            projection_2, features_2d, batch.point_to_pixel_maps2, batch
-        )
-        loss /= 2  # Average loss out
+
+        # loss = 0.5 * self.loss_fn_2d_3d(
+        #     projection_1, features_2d, batch.point_to_pixel_maps1, batch
+        # )
+        # loss += 0.5 * self.loss_fn_2d_3d(
+        #     projection_2, features_2d, batch.point_to_pixel_maps2, batch
+        # )
+        # loss /= 2  # Average loss out
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -530,26 +533,29 @@ class CMEBackboneTrainerFull(BackboneTrainer):
 
     def validation_step(self, batch: MinkowskiPretrainInputNew, batch_idx: int):
         input_3d_1 = ME.SparseTensor(batch.features1, batch.points1)
-        input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
+        # input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
         output_3d_1 = self.model(input_3d_1)
-        output_3d_2 = self.model(input_3d_2)
+        # output_3d_2 = self.model(input_3d_2)
 
         projection_1 = self.head(output_3d_1)
-        projection_2 = self.head(output_3d_2)
+        # projection_2 = self.head(output_3d_2)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
             features_2d = self.image_feature_extractor(batch.images)
             features_2d.detach()
 
-        # loss = self.loss_fn_3d(output_3d_1, output_3d_2, batch)
-        loss = 0.5 * self.loss_fn_2d_3d(
+        loss = self.loss_fn_2d_3d(
             projection_1, features_2d, batch.point_to_pixel_maps1, batch
         )
-        loss += 0.5 * self.loss_fn_2d_3d(
-            projection_2, features_2d, batch.point_to_pixel_maps2, batch
-        )
-        loss /= 2  # Average loss out
+
+        # loss = 0.5 * self.loss_fn_2d_3d(
+        #     projection_1, features_2d, batch.point_to_pixel_maps1, batch
+        # )
+        # loss += 0.5 * self.loss_fn_2d_3d(
+        #     projection_2, features_2d, batch.point_to_pixel_maps2, batch
+        # )
+        # loss /= 2  # Average loss out
 
         # loss = self.loss_fn(output, features_2d, batch)
         self.log("val_loss", loss, sync_dist=True)
