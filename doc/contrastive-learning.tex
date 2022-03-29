@@ -405,6 +405,21 @@ hyper-parameters:
     \end{table}
 \end{center}
 
+
+\begin{center}
+    \begin{table}[h!]
+        \resizebox{\textwidth}{!}{
+            \begin{tabular}{ c | c c c c c c c c c c c c c | c }
+                        & ceiling        & floor          & wall           & beam & column & window & door           & table          & chair          & sofa           & bookcase       & board & clutter        & mIOU           \\
+                \hline
+                Scratch & 91.53          & 96.79          & 81.25          & 0.0  & 29.81  & 56.92  & 64.77          & 74.43          & 86.35          & 55.24          & 68.38          & 79.7  & 55.65          & 64.68          \\
+                CME     & \textbf{91.07} & \textbf{96.74} & \textbf{82.84} & 0    & 28.38  & 55.98  & \textbf{70.34} & \textbf{75.01} & \textbf{87.34} & \textbf{63.24} & \textbf{71.25} & 75.01 & \textbf{56.42} & \textbf{65.67} \\
+            \end{tabular}
+        }
+        \caption{S3DIS results using ContrastiveSceneContexts Code}
+    \end{table}
+\end{center}
+
 \subsection{Experiment log}
 
 \subsubsection{24.02.2022 - Image to 3D full pretraining}
