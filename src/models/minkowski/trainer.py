@@ -1022,9 +1022,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         return self._model.backbone
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self._model(model_input).output
-        loss = self.loss_fn(batch, output)
+        model_input1 = ME.SparseTensor(batch.features1.float(), batch.points1)
+        output1 = self._model(model_input1).output
+        loss = self.loss_fn(batch, output1)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -1036,9 +1036,9 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         torch.cuda.empty_cache()
 
     def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features, batch.points)
-        output = self._model(model_input).output
-        loss = self.loss_fn(batch, output)
+        model_input1 = ME.SparseTensor(batch.features1.float(), batch.points1)
+        output1 = self._model(model_input1).output
+        loss = self.loss_fn(batch, output1)
         self.log("val_loss", loss, sync_dist=True)
 
     def loss_fn_new(self, batch, output):
@@ -1092,14 +1092,12 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
 
         # Get all positive and negative pairs
         qs, ks = [], []
-        for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
-            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
+        for i in range(batch.batch_size):
+            # voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
+            # voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
 
-            output_batch_1 = output.features_at(2 * i)
-            output_batch_2 = output.features_at(2 * i + 1)
-            q = output_batch_1[voxel_indices_1]
-            k = output_batch_2[voxel_indices_2]
+            q = output.features_at(2 * i)[batch.point_to_point_map[i][:, 0]]
+            k = output.features_at(2 * i + 1)[batch.point_to_point_map[i][:, 1]]
 
             # visualize_mapping(points1, points2, voxel_indices_1)
 

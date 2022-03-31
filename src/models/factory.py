@@ -16,15 +16,24 @@ from models.minkowski.dataset import (
     MinkowskiPretrainDataset,
     MinkowskiFrameDataset,
     MinkowskiS3DISDataset,
+    PointContrastPretrainDataset,
 )
 from util.types import DataInterface
 
 minkowski_name = "minkowski"
+pointcontrast_name = "pointcontrast"
 moco_name = "minkowski_moco"
 byol_name = "minkowski_byol"
 cme_name = "minkowski_cme"
 image_name = "image_pretrain"
-supported_models = [minkowski_name, moco_name, byol_name, cme_name, image_name]
+supported_models = [
+    minkowski_name,
+    moco_name,
+    byol_name,
+    cme_name,
+    image_name,
+    pointcontrast_name,
+]
 
 
 class ModelFactory:
@@ -51,6 +60,8 @@ class ModelFactory:
 
     def get_backbone_wrapper_type(self):
         if self.model_name == minkowski_name:
+            return MinkowskiBackboneTrainer
+        elif self.model_name == pointcontrast_name:
             return MinkowskiBackboneTrainer
         elif self.model_name == moco_name:
             return MinkowskiMocoBackboneTrainer
@@ -83,7 +94,10 @@ class ModelFactory:
     def get_backbone_dataset_type(self):
         if image_name == self.model_name:
             return ImagePretrainDataset
+        if self.model_name == pointcontrast_name:
+            return PointContrastPretrainDataset
         if minkowski_name in self.model_name:
             return MinkowskiPretrainDataset
+
         else:
             raise RuntimeError(self.error_msg)

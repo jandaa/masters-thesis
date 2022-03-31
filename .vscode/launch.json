@@ -176,7 +176,7 @@
             "args": [
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain_new",
+                "dataset.name=scannetv2",
                 "sens_file=/media/starslab/datasets/scannet/scans/scene0353_01",
                 "dataset.voxel_size=0.02",
                 "hydra.run.dir=outputs/preprocess",
@@ -190,11 +190,11 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain",
+                "dataset.name=scannetv2_pretrain_new",
                 "model=minkowski",
-                "model.name=minkowski",
+                "model.name=pointcontrast",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
                 "gpus=[0]",
@@ -254,7 +254,7 @@
             "console": "integratedTerminal",
             "args": [
                 "tasks=['train','eval']",
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
                 "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
