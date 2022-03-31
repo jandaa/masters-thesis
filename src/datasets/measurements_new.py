@@ -2,11 +2,13 @@
 
 import pickle
 from pathlib import Path
+from re import L
 import numpy as np
 import open3d as o3d
 import cv2
 
 from util.types import Scene, SceneWithLabels
+from util.utils import get_random_colour
 
 measurements_dir_name = "measurements"
 colour_image_extension = ".color.jpg"
@@ -95,6 +97,10 @@ class SceneMeasurement:
         )
         pose_info_name = measurements_dir / (f"frame-{frame_id}" + pose_extension)
 
+        frame_number = int(self.frame_id)
+        instance_image_name = directory / (f"instance-filt/{frame_number}.png")
+        label_image_name = directory / (f"label-filt/{frame_number}.png")
+
         # load calibrations
         self.colour_intrinsics = np.fromstring(
             info["m_calibrationColorIntrinsic"], sep=" "
@@ -109,9 +115,23 @@ class SceneMeasurement:
         depth_image = depth_image.astype(np.float32) / float(info["m_depthShift"])
         self.pose = np.loadtxt(str(pose_info_name), delimiter=" ").astype(np.float32)
 
+        # load annotations
+        self.label_image = cv2.imread(str(directory / label_image_name))
+        self.instance_image = cv2.imread(str(directory / instance_image_name))
+
         # Resize colour image to be same as depth image
         depth_resolution = (int(info["m_depthWidth"]), int(info["m_depthHeight"]))
         self.color_image = cv2.resize(self.color_image, depth_resolution)
+        self.instance_image = cv2.resize(
+            self.instance_image,
+            depth_resolution,
+            interpolation=cv2.INTER_NEAREST,
+        )
+        # self.label_image = cv2.resize(
+        #     self.label_image,
+        #     depth_resolution,
+        #     interpolation=cv2.INTER_NEAREST,
+        # )
 
         # Convert depth map into point cloud
         self.scan_points, self.point_to_pixel_map = get_point_cloud(
@@ -128,7 +148,7 @@ class SceneMeasurement:
         self.scan_point_colors = self.scan_point_colors / 127.5 - 1
 
         # Get points visible in camera frame
-        frame = self.get_projected_scene(info, scene)
+        frame, pixels = self.get_projected_scene(info, scene)
 
         # # Get point cloud for camera view
         # pcd = o3d.geometry.PointCloud()
@@ -147,6 +167,47 @@ class SceneMeasurement:
         self.point_colors = frame.features
         self.semantic_labels = frame.semantic_labels
         self.instance_labels = frame.instance_labels
+
+        # Compute image labels
+        self.label_image[:, :, :] = frame.semantic_labels.max() + 1
+        for point_ind, (px, py) in enumerate(pixels.T):
+            self.label_image[int(py), int(px), :] = frame.semantic_labels[point_ind]
+
+        self.label_image = cv2.resize(
+            self.label_image,
+            depth_resolution,
+            interpolation=cv2.INTER_NEAREST,
+        )
+
+        # labels_to_colors = {}
+        # for i in range(100):
+        #     labels_to_colors[i] = (get_random_colour() * 255).astype(np.int)
+        # labels_to_colors[-100] = (get_random_colour() * 255).astype(np.int)
+
+        if frame.semantic_labels.size > 0:
+            # Use the instance image to
+            ignore_label = 20
+            for i in range(self.instance_image.max()):
+                instance_pixels = self.instance_image == i
+                (unique_values, counts) = np.unique(
+                    self.label_image[instance_pixels], return_counts=True
+                )
+
+                rm = np.where(unique_values >= ignore_label)[0]
+                if rm.size > 0:
+                    unique_values = np.delete(unique_values, rm)
+                    counts = np.delete(counts, rm)
+
+                if unique_values.size > 0:
+                    label = unique_values[np.argmax(counts)]
+                    self.label_image[instance_pixels[:, :, 0]] = label
+        else:
+            self.label_image = None
+
+        # # Show label image
+        # cv2.imwrite("instance.png", self.instance_image)
+        # cv2.imwrite("semantic.png", self.label_image)
+        # cv2.imwrite("color.png", self.color_image)
 
         # save all processed data to file
         self.save_to_file(output_dir)
@@ -179,12 +240,15 @@ class SceneMeasurement:
         for condition in valid:
             valid_points = np.logical_and(valid_points, condition)
 
-        return SceneWithLabels(
-            name="",
-            points=points_in_camera_frame[0:3].T[valid_points],
-            features=scene.features[valid_points],
-            semantic_labels=scene.semantic_labels[valid_points],
-            instance_labels=scene.instance_labels[valid_points],
+        return (
+            SceneWithLabels(
+                name="",
+                points=points_in_camera_frame[0:3].T[valid_points],
+                features=scene.features[valid_points],
+                semantic_labels=scene.semantic_labels[valid_points],
+                instance_labels=scene.instance_labels[valid_points],
+            ),
+            pixels[:2, valid_points],
         )
 
     @classmethod

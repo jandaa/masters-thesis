@@ -97,10 +97,7 @@ class RandomDropout(object):
             # if N < 10:
             #     return coords, feats, labels
             inds = np.random.choice(N, int(N * (1 - self.dropout_ratio)), replace=False)
-            if labels:
-                return coords[inds], feats[inds], labels[inds]
-            else:
-                return coords[inds], feats[inds], labels
+            return coords[inds], feats[inds], labels[inds]
         return coords, feats, labels
 
 
