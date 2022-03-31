@@ -1,0 +1,161 @@
+% CVPR 2022 Paper Template
+% based on the CVPR template provided by Ming-Ming Cheng (https://github.com/MCG-NKU/CVPR_Template)
+% modified and extended by Stefan Roth (stefan.roth@NOSPAMtu-darmstadt.de)
+
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+%%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
+\usepackage[review]{cvpr}      % To produce the REVIEW version
+%\usepackage{cvpr}              % To produce the CAMERA-READY version
+%\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+
+
+% It is strongly recommended to use hyperref, especially for the review version.
+% hyperref with option pagebackref eases the reviewers' job.
+% Please disable hyperref *only* if you encounter grave issues, e.g. with the
+% file validation for the camera-ready version.
+%
+% If you comment hyperref and then uncomment it, you should delete
+% ReviewTempalte.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you
+%  should be clear).
+\usepackage[pagebackref,breaklinks,colorlinks]{hyperref}
+
+
+% Support for easy cross-referencing
+\usepackage[capitalize]{cleveref}
+\crefname{section}{Sec.}{Secs.}
+\Crefname{section}{Section}{Sections}
+\Crefname{table}{Table}{Tables}
+\crefname{table}{Tab.}{Tabs.}
+
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+\def\cvprPaperID{*****} % *** Enter the CVPR Paper ID here
+\def\confName{CVPR}
+\def\confYear{2022}
+
+
+\begin{document}
+
+%%%%%%%%% TITLE - PLEASE UPDATE
+\title{Exploring Self-Supervised Learning for Indoor 3D scenes}
+
+\author{Andrej Janda\\
+University of Toronto Institute for Aerospace Studies\\
+Institution1 address\\
+{\tt\small andrej.janda@robotics.utias.utoronto.ca}
+% For a paper whose authors are all at the same institution,
+% omit the following lines up until the closing ``}''.
+% Additional authors and addresses can be added with ``\and'',
+% just like the second author.
+% To save space, use either the email address or home page, not both
+\and
+Jonathan Kelly\\
+University of Toronto Institute for Aerospace Studies\\
+First line of institution2 address\\
+{\tt\small jonathan.kelly@robotics.utias.utoronto.ca}
+}
+\maketitle
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+    We show that previous work \cite{xie2020pointcontrast} on self-supervised contrastive learning of 3D point clouds relies on extrapolating points in the scene and not from learning noise as was claimed in the original paper. We then investigate if using 2D pre-trained features transfered to 3D can do as well as fully supervised learning.
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+\label{sec:intro}
+
+% Write topic sentences and go from there
+Segmentation of indoor 3D scenes has the potential to allow robots to navigate and interact with complicated industrial environments, such as warehouses and production facilities. Although robots already play a limited role in these facilities, understanding their surroundings would give them much greater autonomy. For instance, through segmentation, an accurate up-to-date digital twin of a physical area can be maintained for the purposes of inventory management, item retrieval, and item routing. Advances in segmentation of 3D point clouds \cite{choy20194d} has made this closer to reality.
+
+Alternatively, segmentation of 2D images has come a long way. But it does not give us information about the 3D world and so we are left with projecting these predictions into 3D. This was the approach taken by \cite{} but has recently been overtaken by methods operating purely in 3D.
+
+In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web. Still, the hardest component is annotation which requires users to manipulate 3D scenes and select only those points that belong to a particular object. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
+
+It is common practice in image tasks to use a model that was pre-trained in a supervised way on a larger but different dataset. However, recent works have been exploring the use of self-supervised objectives without labels in 2D image classification and found that they can greatly improve downstream accuracy, even matching fully supervised training \cite{}.
+
+Recently, works such as \cite{xie2020pointcontrast} have shown that these methods also work with 3D data. Similar to 2D methods they use a contrastive loss objective where the goal is to learn distinguishing features between different datapoints and their respective augmentations.
+
+These algorithms work exclusively with point clouds but throw away the corresponding images of the scene which provide a rich and dense source in extra information that can be used in downstream training. This paper investigates how this extra data modality can be leveraged. Additionally, it investigates the properties of an existing 3D pre-training algorithm.
+
+This paper has the following contributions.
+
+\begin{itemize}
+    \item Demonstrates that previous work in 3D \cite{xie2020pointcontrast} works by learning to extrapolate 3D scenes. When purely learning improved features on fully-overlapping regions the performance gain disapears.
+    \item Provide a 2D feature extractor and pre-training algorithm. Demonstrate that these features can improve 2D segmentation.
+    \item Transfer learned 2D features onto a 3D model
+\end{itemize}
+
+\section{Related Work}
+\label{sec:relatedWork}
+
+
+\section{Method}
+\label{sec:method}
+
+\section{Feature Extractors}
+\label{sec:method:featuresExtractors}
+
+\section{Extracting 2D features}
+\label{sec:method:features2d}
+
+\section{Transfering 2D features}
+\label{sec:method:features2D3D}
+
+Talk about projection and Bi-linear interpolation
+
+\section{Experiment Results}
+\label{sec:results}
+
+\begin{table*}[t!]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{ c | c c c c c c c c c c c c c | c }
+                                        & ceiling        & floor          & wall           & beam & column & window & door           & table          & chair          & sofa           & bookcase       & board & clutter        & mIOU           \\
+            \hline
+            Scratch                     & 91.53          & 96.79          & 81.25          & 0.0  & 29.81  & 56.92  & 64.77          & 74.43          & 86.35          & 55.24          & 68.38          & 79.7  & 55.65          & 64.68          \\
+            Supervised                  &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
+            \hline
+            PointContrast               &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
+            PointContrast - No Overhang &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
+            CME                         & \textbf{91.07} & \textbf{96.74} & \textbf{82.84} & 0    & 28.38  & 55.98  & \textbf{70.34} & \textbf{75.01} & \textbf{87.34} & \textbf{63.24} & \textbf{71.25} & 75.01 & \textbf{56.42} & \textbf{65.67} \\
+        \end{tabular}
+    }
+    \caption{S3DIS results using ContrastiveSceneContexts Code}
+    \label{table:s3disResults}
+\end{table*}
+
+\subsection{Datasets}
+\label{sec:results:datasets}
+
+\subsection{Implementation}
+\label{sec:results:implementation}
+
+\subsection{Contrastive Loss in 3D}
+\label{sec:results:3d}
+
+\subsection{Contrastive Loss in 2D}
+\label{sec:results:2d}
+
+\subsection{Transfering 2D features to 3D}
+\label{sec:results:2d3d}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+
+%%%%%%%%% REFERENCES
+{\small
+    \bibliographystyle{ieee_fullname}
+    \bibliography{contrastive-learning}
+}
+
+\end{document}
