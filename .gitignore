@@ -136,6 +136,7 @@ outputs/
 
 doc/*.aux
 doc/*.bbl
+doc/*.brf
 doc/*.blg
 doc/*.fdb_latexmk
 doc/*.fls 
