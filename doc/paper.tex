@@ -119,14 +119,14 @@ Talk about projection and Bi-linear interpolation
     \centering
     \resizebox{\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c c c c | c }
-                                        & ceiling        & floor          & wall           & beam & column & window & door           & table          & chair          & sofa           & bookcase       & board & clutter        & mIOU           \\
+                                        & ceiling         & floor          & wall           & beam          & column         & window         & door           & table          & chair           & sofa           & bookcase       & board          & clutter        & mIOU                    \\
             \hline
-            Scratch                     & 91.53          & 96.79          & 81.25          & 0.0  & 29.81  & 56.92  & 64.77          & 74.43          & 86.35          & 55.24          & 68.38          & 79.7  & 55.65          & 64.68          \\
-            Supervised                  &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
+            Scratch                     & 91.53           & \textbf{96.79} & 81.25          & 0             & 29.81          & 56.92          & 64.77          & 74.43          & 86.35           & 55.24          & 68.38          & 79.7           & 55.65          & 64.68                   \\
+            Supervised                  & \textbf{91.81}  & 96.74          & \textbf{84.11} & \textbf{0.21} & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82}  & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} (+5.54)  \\
             \hline
-            PointContrast               &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
-            PointContrast - No Overhang &                &                &                &      &        &        &                &                &                &                &                &       &                &                \\
-            CME                         & \textbf{91.07} & \textbf{96.74} & \textbf{82.84} & 0    & 28.38  & 55.98  & \textbf{70.34} & \textbf{75.01} & \textbf{87.34} & \textbf{63.24} & \textbf{71.25} & 75.01 & \textbf{56.42} & \textbf{65.67} \\
+            PointContrast               & \textbf{92.118} & \textbf{96.93} & 82.2           & 0             & 24.94          & 53.78          & \textbf{76.91} & \textbf{75.94} & \textbf{87.929} & \textbf{70.27} & 71.196         & \textbf{77.76} & 56.36          & \textbf{66.641} (+1.73) \\
+            PointContrast - No Overhang &                 &                &                &               &                &                &                &                &                 &                &                &                &                &                         \\
+            CME                         & 91.07           & 96.74          & \textbf{82.84} & 0             & \textbf{28.38} & \textbf{55.98} & 70.34          & 75.01          & 87.34           & 63.24          & \textbf{71.25} & 75.01          & \textbf{56.42} & 65.67 (+0.99)           \\
         \end{tabular}
     }
     \caption{S3DIS results using ContrastiveSceneContexts Code}
