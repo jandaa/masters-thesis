@@ -145,6 +145,8 @@ This is then passed through the loss function described in \ref{eq:contrastive_l
 
 \AJ{Add figure of what your feature extractor looks like}
 
+\AJ{Need to review how I do this in the code, I think I use a projector left over from BYOL}
+
 \subsection{Feature projection}
 \label{sec:featureProjection}
 
@@ -187,18 +189,14 @@ After passing in the image through the model, the output is a scaled version of 
 \subsection{Feature Transfer}
 \label{sec:featureTransfer}
 
-With the mapping, we can now
+Our last step, after generating 2D features and mapping them to 3D points is to train our 3D model to emulate our pre-trained features. We accomplish this using the same contrastive loss from \ref{eq:contrastive_loss} but with input embeddings $\mathbf{z}_i$ coming from the features of the 3D points and its positive and negative embeddings $\mathbf{z}_i^{+},\mathbf{z}_i^{-}$ coming from the corresponding 2D feature.
 
-Transformations applied to 3D points.
+Only the required transformations are applied to the 2D image. These being: resizing, square cropping and colour normalization. Point cloud coordinates are transformed with a random horizontal flip and random rotation around the $z$ axis while their colors are transformed using autocontrast, translation and jitter.
 
-How the loss was formulated in the 2D to 3D transfer.
+We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks, the final $1\times1$ convolution is thrown away as the decoder.
 
-What does the loss function look like?
+\AJ{Need to look at not using a projection head in 3D model.}
 
-\section{Downstream Tasks}
-\label{sec:downstream}
-
-\newpage
 \section{Experiment Results}
 \label{sec:results}
 
