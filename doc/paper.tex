@@ -6,7 +6,7 @@
 
 %%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
 \usepackage[review]{cvpr}      % To produce the REVIEW version
-%\usepackage{cvpr}              % To produce the CAMERA-READY version
+% \usepackage{cvpr}              % To produce the CAMERA-READY version
 %\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
 
 % Include other packages here, before hyperref.
@@ -41,6 +41,7 @@
 \def\confName{CVPR}
 \def\confYear{2022}
 
+\newcommand{\AJ}[1]{{\color{red}{[Andrej: #1]}}}
 
 \begin{document}
 
@@ -98,51 +99,106 @@ This paper has the following contributions.
 \label{sec:relatedWork}
 
 
+\textbf{Sparse 3D convolutions.} Talk about submanifold networks, Minkowski Engine, etc
+
+\textbf{Contrastive Learning.} Talk about SimCLR, BOYL, etc. Then talk about PointContrast.
+
+\textbf{Knowledge Distilation} Need to read up on this
 
 
 \section{Self-Supervised Contrastive learning}
 \label{sec:contrastiveLearning}
 
-The goal of self-supervised transfer learning is to learn from unlabeled data using a self-supervised objective and use the initialized backbone parameters to improve performance of downstream tasks. Specifically, contrastive learning uses an objective function that encourages the outputs of a model on similar datapoints to be close together while keeping those of dissimilar datapoints to be far apart.
+The goal of self-supervised transfer learning is to learn from unlabeled data using a self-supervised objective which in turn initializes a model's backbone. The initialization is meant to improve performance of downstream tasks. Specifically, contrastive learning uses an objective function that encourages the outputs of a model on similar datapoints to be close together while keeping those of dissimilar datapoints to be far apart, in some metric space.
 
 Defining what datapoints are similar and dissimilar depends on the pretext task. Image colorization for example defines color pixels and their grayscale equivalent as similar and all other pixels as dissimilar. In this work, we adopt the instance discrimination task as in \cite{} whereby each input individually is taken to belong to its own class.
 
-Given a sampled point $\mathbf{x}$, positive points are sampled according to a positive distribution $\mathbf{x}^{+} \sim p^{+}( \cdot | \mathbf{x})$ which is commonly defined as a set of transformations $t$ of the original point. Often, positive pairs are derived by applying two different augmentations to the input point, $x = t(x), \quad x^{+} = t^{'}(x)$. Conversely, negative points are sampled according to $\mathbf{x}^{-} \sim p^{-}( \cdot | \mathbf{x})$ which in the context of an instance discriminative task means that they are taken as any other point not derived from the input point, regardless of augmentation.
+We follow the formulation from \cite{le-khac_contrastive_2020}. Given a sampled point $\mathbf{x}$, positive points are sampled according to a positive distribution $\mathbf{x}^{+} \sim p^{+}( \cdot | \mathbf{x})$ which is commonly defined as a set of transformations $t$ of the original point. Often, positive pairs are derived by applying two different augmentations to the input point, $\mathbf{x}^{+} = t_{1}(\mathbf{x}), \, \mathbf{x} = t_{2}(\mathbf{x})$. Conversely, negative points are sampled according to $\mathbf{x}^{-} \sim p^{-}( \cdot | \mathbf{x})$ which in the context of an instance discriminative task means that they are taken as any other point not derived from the input point, regardless of its augmentation.
 
-As for the final loss, we adopt InfoNCE (Info Noise Contrastive Estimation) loss which is a negative log probability of a point's similarity to its positive sample conditioned by the similarity of that point to all the negative samples. It is defined as:
+This point is fed through an encoder $e()$ to get feature $\mathbf{v} = e(\mathbf{x}), \mathbf{v} \in \mathbb{R}^d$. This encoder is the backbone of the model we are trying to initialize. The embedding is subsequently passed through a decoder $h()$ to generate a normalized latent representation $\mathbf{z}=h(\mathbf{v})$ with $\{\mathbf{z} \, | \, \mathbf{z} \in \mathbb{R}^{m}, \lVert \mathbf{z} \lVert^{2} = 1\}$  and where $m \leq d$. Once pretrained, only the encoder parameters are retained as the initialized backbone.
+
+As for the objective function, we adopt an InfoNCE (Info Noise Contrastive Estimation) loss. It computes a negative log probability of an embedding's similarity to the embedding of its corresponding positive sample. This is conditioned by the similarity of that embedding to all the negative embeddings. It is defined as:
 \begin{equation}
-    \mathcal{L}_{i} = -\log \frac{\exp(x_{i} \cdot x^{+}_{i} / \tau)}{\exp(x_{i} \cdot x^{+}_{i} / \tau) + \sum^{K}_{j}\exp(x_{i} \cdot x^{-}_{j} / \tau)}
+    \mathcal{L}_{i} = -\log \frac{\exp(\mathbf{z}_{i} \cdot \mathbf{z}^{+}_{i} / \tau)}{\exp(\mathbf{z}_{i} \cdot \mathbf{z}^{+}_{i} / \tau) + \sum^{K}_{j}\exp(\mathbf{z}_{i} \cdot \mathbf{z}^{-}_{j} / \tau)}
     \label{eq:contrastive_loss}
 \end{equation}
 
-Where $\tau \in (0,1]$ and represents the temperature parameter that controls the smoothness of the latent representations. Similarity between features is computed as the dot product.
+Where $\tau \in (0,1]$ and represents the temperature parameter that controls the smoothness of the latent representations. $K$ is a hyperparameter that represents the number of negative embeddings to sample. Similarity between features is computed as the dot product.
 
-\subsection{Feature Extraction}
-\label{sec:method:featuresExtractors}
+\section{Feature Extraction}
+\label{sec:featureExtraction}
 
-Then we need an encoder and decoder.
+This section goes through the types of backbones used as well as how features are extracted from 2D images and transferred to a 3D model.
 
-Throw away the end of the
-
-Use a ResNet and U-net following the same structure as was defined in...
-
+\AJ{Need a picture depicting the pipeline}
 
 \subsection{Extracting 2D features}
 \label{sec:method:features2d}
 
-How the loss was formulated in 2D.
+We follow the ResUNet architecture from Godard \etal \cite{godard2019Digging}, which proved hugely successful in self-supervised monocular depth estimation. Its backbone consists of a ResNet34 with weights that were pretrained on ImageNet. Instead of estimating depth however, our decoder computes a 16 dimensional feature vector for each pixel in the input image.
 
-What augmentations, cropping the image in two places, only using the points on the overlap regions.
+Images are selected from the desired pre-training dataset. Positive samples are generated by randomly cropping the image, and then applying the following transformations: random horizontal flip, random gray-scale, gaussian blur and color jitter.
 
-Add figure of what your feature extractor looks like
+Only pixels found in the overlap of the two crops are used in the objective function. Corresponding pixels are taken as positive samples while all others, including from other images in a batch are taken as negatives.
 
-\subsection{Transfering 2D features}
-\label{sec:method:features2D3D}
+This is then passed through the loss function described in \ref{eq:contrastive_loss}.
+
+\AJ{Add figure of what your feature extractor looks like}
+
+\subsection{Feature projection}
+\label{sec:featureProjection}
+
+Here we leverage that images are a projection of 3D space. We assume that from a given viewpoint we have both an image as well as a depth or range scan, which is often the case when capturing raw data. Unlike in \cite{xie2020pointcontrast}, we don't require a pose linking adjacent frames making our method applicable to more use cases.
+
+The two modalities can be mapped by projecting the point cloud into the color image using a standard pinhole camera model as defined below \cite{?}:
+
+\begin{equation}
+    \begin{bmatrix}
+        u \\
+        v \\
+        1
+    \end{bmatrix} = \frac{1}{z}
+    \begin{bmatrix}
+        f_u & 0   & c_u & 0 \\
+        0   & f_v & c_v & 0 \\
+        0   & 0   & 0   & 1 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+        x \\
+        y \\
+        z \\
+        1 \\
+    \end{bmatrix}
+    \label{eq:pinhole}
+\end{equation}
+
+\AJ{Is this equation necessary or is this considered common knowledge}
+
+Where $f$ represents focal length, $c$ the center offset, $u,v$ the pixels of an image and $x,y,z$ the 3D coordinates of the input point.
+
+In the case of stereo cameras, this step is unnecessary as the mapping comes directly from the depth image. Note that its important to have the viewpoints of the 2D and 3D sensors be as close together as possible. This is exactly true for stereo cameras, but not guaranteed when using different sensors for each modality. Its important because occluded points can falsely be mapped to a pixel even though they are not directly visible in the image. Note also that using scans as opposed to any point cloud is also a limitation of \cite{xie2020pointcontrast}.
+
+If the viewpoints are slightly off or the point cloud is a reconstruction from multiple scans, hidden points can be removed using the algorithm from Katz \etal \cite{katz2007Direct}.
+
+After passing in the image through the model, the output is a scaled version of the original image. To complete the mapping, we can either take the feature with the closest feature pixel or interpolate the features using bi-linear interpolation. We will show an analysis of these two methods in section \ref{sec:results}
+
+\AJ{Do I need to give the equation for Bi-linear interpolation or is this also considered basic knowledge}
+
+\subsection{Feature Transfer}
+\label{sec:featureTransfer}
+
+With the mapping, we can now
+
+Transformations applied to 3D points.
 
 How the loss was formulated in the 2D to 3D transfer.
 
-Talk about projection and Bi-linear interpolation
+What does the loss function look like?
 
+\section{Downstream Tasks}
+\label{sec:downstream}
+
+\newpage
 \section{Experiment Results}
 \label{sec:results}
 
@@ -180,6 +236,8 @@ Things to include in results
     \item Scannet semantic segmentation
     \item Visualization of features in 2d
     \item Visualization of features in 3D
+    \item Pretraining and training without colour information
+    \item Using projection of 3D points instead of direct scan using \cite{katz2007Direct}
     \item Training and validation curves
     \item Ablation studies
 \end{itemize}
@@ -194,6 +252,7 @@ Things to include in results
 \label{sec:conclusion}
 
 
+\newpage
 %%%%%%%%% REFERENCES
 {\small
     \bibliographystyle{ieee_fullname}
