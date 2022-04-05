@@ -197,9 +197,6 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
 
 \AJ{Need to look at not using a projection head in 3D model.}
 
-\section{Experiment Results}
-\label{sec:results}
-
 \begin{table*}[t!]
     \centering
     \resizebox{\textwidth}{!}{
@@ -211,28 +208,94 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
             \hline
             PointContrast               & \textbf{92.118} & \textbf{96.93} & 82.2           & 0              & 24.94          & 53.78          & \textbf{76.91} & \textbf{75.94} & 87.93          & 70.27          & 71.2           & \textbf{77.76} & 56.36          & \textbf{66.641} (+1.58) \\
             PointContrast - No Overhang & 91.624          & 96.86          & 82.02          & 0              & 29.37          & \textbf{57.5}  & 64.93          & 75.49          & 87.36          & 59.32          & 71.42          & 76.61          & 56.11          & 65.28 (+0.22)           \\
-            CME                         & 90.8            & 96.57          & \textbf{82.52} & \textbf{0.110} & \textbf{30.94} & 56.94          & 68.71          & 75.12          & \textbf{88.48} & \textbf{71.7}  & \textbf{72.17} & 73.783         & \textbf{56.35} & 66.48 (+1.42)           \\
+            CME \textbf{(Ours)}         & 90.8            & 96.57          & \textbf{82.52} & \textbf{0.110} & \textbf{30.94} & 56.94          & 68.71          & 75.12          & \textbf{88.48} & \textbf{71.7}  & \textbf{72.17} & 73.783         & \textbf{56.35} & 66.48 (+1.42)           \\
         \end{tabular}
     }
     \caption{S3DIS results using ContrastiveSceneContexts Code}
     \label{table:s3disResults}
 \end{table*}
 
+\section{Experiment Results}
+\label{sec:results}
+
+This section will show (1) that the learned 2D features improve 2D segmentation performance as well as show a clear mapping to their input image when visualized. Therefore these features serve as good candidates for initializing our 3D network. (2) That the transfer of features from 2D to 3D improve performance on various 3D tasks against training from scratch. (3) That the performance of PointContrast is wholly dependant on the use of overlapping scans that allow it to extrapolate data.
+
 \subsection{Datasets}
 \label{sec:results:datasets}
+
+Following the common practice of 3D contrastive learning \cite{xie2020pointcontrast,hou2021Exploring, zhang2021Self, jiang2021Guided}, we use the following the datasets.
+
+\textbf{Scannet \cite{Dai2017ScanNet}:} Comprises of roughly 1600 reconstructed scans of indoor scenes captured using a stereo camera, reconstructed using a pose graph and then formed into a mesh. The scenes are mostly of individual rooms and range in the square floor size of 2 meters to 10 meters with a standard ceiling height of about 3 meters. Included in the dataset is the raw data of individual scans with their corresponding images along with the semantic and instance labels for the reconstructed scenes. It contains 20 different classes. We use the predefined train and validation split, using the validation as our test set as well as is done in previous works.
+
+\textbf{S3DIS \cite{armeni20163D}}: Much smaller than Scannet, it comprises of only 300 scenes however their size varies quite drastically as some are of rooms and others are of entire auditoriums. The scenes were also captured using a stereo camera and are mainly of indoor office scenes. There are 13 different semantic classes and all scenes contain point level semantic and instance labels. As is commonly done \cite{xie2020pointcontrast, hou2021Exploring} we use the Area 5 split as our validation and test set.
+
+\textbf{semanticKITTI}: Time allowing.
+
+We use Scannet to pretrain out network as it is the largest. It shares many of the same classes and types of indoor scenes as S3DIS and so is a perfect candidate to show the use case of collecting large amounts of unlabeled data for a task and then labeling only a partial amount.
 
 \subsection{Implementation}
 \label{sec:results:implementation}
 
-\subsection{Contrastive Loss in 3D}
+\textbf{Model:} The backbone network used is the same as that used in \cite{xie2020pointcontrast, hou2021Exploring} using the sparse convolutional library developed by \cite{choy20194d}. The backbone uses a Res16UNet34 structure with non-bottleneck blocks and a maximum feature embedding size of 256. The outputs of the model are directly used for semantic segmentation.
+
+Instance segmentation is done using the same backbone with the head from \cite{jiang2020pointgroup}.
+
+\textbf{Pretraining on 2D:} Batch size of 64 image pairs where for each image pair we select 4092 pixels to contrast in our loss function. The loss function uses a tau of 0.4, a learning rate of 0.01, SGD optimizer with a momentum of 0.9, dampning of 0.1 and weight decay of 0.004. We decay the learning rate according to an exponential scheduler with an exponential rate of 0.99. Trained for ?? iterations.
+
+\textbf{Transfer:} Transfer learning is done using the scannet dataset. We use a batch size of 8 and select 2000 point-pixel combinations per datapoint. The images are only center cropped to fit into the 2D model. The 3D model uses a voxel size of 5cm. The hyperparameters are the same al those in 2D except the learning rate is set to 0.1. It is trained for ?? time (I forget).
+
+\textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. The only difference is that we train instead on a single GPU for 20k iterations
+
+\subsection{Contrastive Loss in 2D}
+\label{sec:results:2d}
+
+Before transferring features into 3D, we first want to verify that the features we are transferring are useful. To do this we first visualized the features by bringing them into a 1D color space using the t-SNE \cite{maaten2008Visualizing} algorithm. the colors are put together to make an image. The visualization along with the original image can be found in figure \ref{fig:features2dvis}.
+
+\AJ{Need to train a 2D segmentation with and without pre-training.}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=8cm]{images/experiments/25.02.2022-image-pretrain-vis2.png}
+    \includegraphics[width=8cm]{images/experiments/25.02.2022-image-pretrain-vis1.png}
+    \caption{Visualization of features from the pre-trained 2D backbone. Images on the left are the input and right are the output.}
+    \label{fig:features2dvis}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=8cm]{images/experiments/image-to-point-vis1.png}
+    \includegraphics[width=8cm]{images/experiments/image-to-point-vis2.png}
+    \caption{\textbf{left} shows features of the 2D images and \textbf{right} shows the features that were transfered to the 3D point cloud.}
+    \label{fig:features2d-3dvis}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=4cm]{images/experiments/scratch-3d.png}
+    \includegraphics[width=4cm]{images/experiments/scratch-3d-2.png}
+    \caption{Visualization of point features without pre-training.}
+    \label{fig:features2dScratchvis}
+\end{figure}
+
+\subsection{Transfering 2D features to 3D}
+\label{sec:results:2d3d}
+
+To verify that the features were trasnfered correctly, we used the same visualization approach taken in section \ref{sec:results:2d} but instead applied it to points. Figure \ref{fig:features2d-3dvis} shows the relation between the 2D and 3D features. Although they didn't transfer perfectly, they did on certain key areas for example on the bookshelves in the top image and the wall and table in the lower image.
+
+\subsection{Semantic Segmentation}
 \label{sec:results:3d}
+
+We first test the case of pretraining our model on ScannetV2 and finetuning on S3DIS. Our results are shown in table \ref{table:s3disResults}. Fully supervised pretraining has a drastic impact on the final downstream performance and is used as an upperbound on expected performance. Our algorithm is comparable to the performance of \cite{xie2020pointcontrast} however, that is without using overlapping 3D scans.
+
+When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
 
 Things to include in results
 \begin{itemize}
     \item S3DIS semantic segmentation
     \item S3DIS instance segmentation
     \item Scannet semantic segmentation
-    \item Visualization of features in 2d
+    \item Scannet semantic segmentation with different amounts of data
+    \item Visualization of features in 2D
     \item Visualization of features in 3D
     \item Pretraining and training without colour information
     \item Using projection of 3D points instead of direct scan using \cite{katz2007Direct}
@@ -240,14 +303,9 @@ Things to include in results
     \item Ablation studies
 \end{itemize}
 
-\subsection{Contrastive Loss in 2D}
-\label{sec:results:2d}
-
-\subsection{Transfering 2D features to 3D}
-\label{sec:results:2d3d}
-
 \section{Conclusion}
 \label{sec:conclusion}
+
 
 
 \newpage
