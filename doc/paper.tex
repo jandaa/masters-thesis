@@ -257,9 +257,9 @@ We use Scannet to pretrain out network as it is the largest. It shares many of t
 
 Instance segmentation is done using the same backbone with the head from \cite{jiang2020pointgroup}.
 
-\textbf{Pretraining on 2D:} Batch size of 64 image pairs where for each image pair we select 4092 pixels to contrast in our loss function. The loss function uses a tau of 0.4, a learning rate of 0.01, SGD optimizer with a momentum of 0.9, dampning of 0.1 and weight decay of 0.004. We decay the learning rate according to an exponential scheduler with an exponential rate of 0.99. Trained for ?? iterations.
+\textbf{Pretraining on 2D:} Batch size of 64 image pairs where for each image pair we select 4092 pixels to contrast in our loss function. The loss function uses a tau of 0.4, a learning rate of 0.01, SGD optimizer with a momentum of 0.9, dampning of 0.1 and weight decay of 0.004. We decay the learning rate according to an exponential scheduler with an exponential rate of 0.99. Trained for 20k iterations.
 
-\textbf{Transfer:} Transfer learning is done using the scannet dataset. We use a batch size of 8 and select 2000 point-pixel combinations per datapoint. The images are only center cropped to fit into the 2D model. The 3D model uses a voxel size of 5cm. The hyperparameters are the same al those in 2D except the learning rate is set to 0.1. It is trained for ?? time (I forget).
+\textbf{Transfer:} Transfer learning is done using the scannet dataset. We use a batch size of 8 and select 2000 point-pixel combinations per datapoint. The images are only center cropped to fit into the 2D model. The 3D model uses a voxel size of 5cm. The hyperparameters are the same al those in 2D except the learning rate is set to 0.1. It is trained for 20k iterations same as pre-training on 2D.
 
 \textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. The only difference is that we train instead on a single GPU for 20k iterations
 
