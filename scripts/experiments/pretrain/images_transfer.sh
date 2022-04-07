@@ -6,6 +6,7 @@ python src/main.py \
     dataset=scannet \
     dataset.name=scannetv2_pretrain_new \
     dataset.pretrain.batch_size=8 \
+    dataset.voxel_size=0.05 \
     model=minkowski \
     model.name=minkowski_cme \
     model.train.train_workers=12 \

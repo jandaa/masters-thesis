@@ -166,16 +166,178 @@ def visualize_image(image):
     vis.show()
 
 
+class PointContrastPretrainDataset(PretrainDataset):
+    def __init__(self, scenes, cfg):
+        super(PointContrastPretrainDataset, self).__init__(scenes, cfg)
+
+        color_trans_ratio = 0.05
+        color_jitter_std = 0.005
+        self.scale_range = (0.9, 1.1)
+
+        ROTATION_AUGMENTATION_BOUND = (
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi, np.pi),
+        )
+
+        self.augmentations = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticAutoContrast(),
+                transforms.ChromaticTranslation(color_trans_ratio),
+                transforms.ChromaticJitter(color_jitter_std),
+                transforms.RandomRotateZ(
+                    ROTATION_AUGMENTATION_BOUND=ROTATION_AUGMENTATION_BOUND
+                ),
+            ]
+        )
+
+    def collate(self, batch):
+
+        # Points stuff
+        coords1_list = [
+            frame["discrete_coords"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+        features1_list = [
+            frame["unique_feats"]
+            for datapoint in batch
+            for frame in datapoint["quantized_frames"]
+            if datapoint
+        ]
+        # coords2_list = [
+        #     datapoint["quantized_frames"][1]["discrete_coords"]
+        #     for datapoint in batch
+        #     if datapoint
+        # ]
+        # features2_list = [
+        #     datapoint["quantized_frames"][1]["unique_feats"]
+        #     for datapoint in batch
+        #     if datapoint
+        # ]
+
+        points1, features1 = ME.utils.sparse_collate(coords1_list, features1_list)
+        # points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
+
+        # Point to Point map
+        point_to_point_map = [
+            datapoint["point_to_point_map"] for datapoint in batch if datapoint
+        ]
+
+        pretrain_input = MinkowskiPretrainInputNew(
+            points1=points1,
+            features1=features1.float(),
+            points2=None,
+            features2=None,
+            point_to_pixel_maps1=None,
+            point_to_pixel_maps2=None,
+            images=None,
+            image_coordinates=None,
+            point_to_point_map=point_to_point_map,
+            batch_size=len(batch),
+        )
+
+        return pretrain_input
+
+    def __getitem__(self, index):
+
+        scene = self.scenes[index]
+
+        with scene.open("rb") as scene_pickle:
+            scene = pickle.load(scene_pickle)
+
+        if scene.scan_points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes) - 1)
+            return self[new_ind]
+
+        quantized_frames = []
+        random_scale = np.random.uniform(*self.scale_range)
+        for frame in [scene, scene]:
+
+            # Extract data
+            xyz = np.ascontiguousarray(frame.scan_points[:, 0:3])
+            features = torch.from_numpy(frame.scan_point_colors)
+
+            # apply a random scalling
+            xyz *= random_scale
+
+            # Unnormalize features for a sec
+            features = (features + 1.0) * 127.5
+
+            # Randomly rotate each frame
+            xyz = xyz - xyz.mean(0)
+            xyz, features, _ = self.augmentations(xyz, features, None)
+            xyz = xyz - xyz.mean(0)
+
+            # Renormalize Colour
+            features = features / 255.0 - 0.5
+
+            # Voxelize input
+            discrete_coords, mapping, inverse_mapping = ME.utils.sparse_quantize(
+                coordinates=xyz,
+                quantization_size=self.voxel_size,
+                return_index=True,
+                return_inverse=True,
+            )
+
+            unique_feats = features[mapping]
+
+            # Append to quantized frames
+            quantized_frames.append(
+                {
+                    "discrete_coords": discrete_coords,
+                    "unique_feats": unique_feats,
+                    "inverse_mapping": inverse_mapping,
+                }
+            )
+
+        # Randomly pick points of original scene
+        max_pos = 1000
+        point_indices = np.random.choice(
+            frame.scan_points.shape[0], max_pos, replace=False
+        )
+
+        point_to_point_map = np.array(
+            [
+                [
+                    quantized_frames[0]["inverse_mapping"][point_ind],
+                    quantized_frames[1]["inverse_mapping"][point_ind],
+                ]
+                for point_ind in point_indices
+            ]
+        )
+
+        return {
+            "quantized_frames": quantized_frames,
+            "point_to_point_map": point_to_point_map,
+        }
+
+
 class MinkowskiPretrainDataset(PretrainDataset):
     def __init__(self, scenes, cfg):
         super(MinkowskiPretrainDataset, self).__init__(scenes, cfg)
 
-        color_jitter_std = 0.05
+        color_trans_ratio = 0.05
+        color_jitter_std = 0.005
         self.scale_range = (0.9, 1.1)
+
+        ROTATION_AUGMENTATION_BOUND = (
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi / 32, np.pi / 32),
+            (-np.pi, np.pi),
+        )
+
         self.augmentations = transforms.Compose(
             [
+                transforms.RandomHorizontalFlip("z", False),
+                transforms.ChromaticAutoContrast(),
+                transforms.ChromaticTranslation(color_trans_ratio),
                 transforms.ChromaticJitter(color_jitter_std),
-                transforms.RandomRotateZ(),
+                transforms.RandomRotateZ(
+                    ROTATION_AUGMENTATION_BOUND=ROTATION_AUGMENTATION_BOUND
+                ),
             ]
         )
 
@@ -218,11 +380,11 @@ class MinkowskiPretrainDataset(PretrainDataset):
             for datapoint in batch
             if datapoint
         ]
-        point_to_pixel_maps2 = [
-            datapoint["quantized_frames"][1]["point_to_pixel_map"]
-            for datapoint in batch
-            if datapoint
-        ]
+        # point_to_pixel_maps2 = [
+        #     datapoint["quantized_frames"][1]["point_to_pixel_map"]
+        #     for datapoint in batch
+        #     if datapoint
+        # ]
         images = [datapoint["image"] for datapoint in batch if datapoint]
         image_coordinates = [
             datapoint["image_coords"] for datapoint in batch if datapoint
@@ -240,36 +402,36 @@ class MinkowskiPretrainDataset(PretrainDataset):
             for datapoint in batch
             if datapoint
         ]
-        coords2_list = [
-            datapoint["quantized_frames"][1]["discrete_coords"]
-            for datapoint in batch
-            if datapoint
-        ]
-        features2_list = [
-            datapoint["quantized_frames"][1]["unique_feats"]
-            for datapoint in batch
-            if datapoint
-        ]
+        # coords2_list = [
+        #     datapoint["quantized_frames"][1]["discrete_coords"]
+        #     for datapoint in batch
+        #     if datapoint
+        # ]
+        # features2_list = [
+        #     datapoint["quantized_frames"][1]["unique_feats"]
+        #     for datapoint in batch
+        #     if datapoint
+        # ]
 
         points1, features1 = ME.utils.sparse_collate(coords1_list, features1_list)
 
-        points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
+        # points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
 
-        # Point to Point map
-        point_to_point_map = [
-            datapoint["point_to_point_map"] for datapoint in batch if datapoint
-        ]
+        # # Point to Point map
+        # point_to_point_map = [
+        #     datapoint["point_to_point_map"] for datapoint in batch if datapoint
+        # ]
 
         pretrain_input = MinkowskiPretrainInputNew(
             points1=points1,
             features1=features1.float(),
-            points2=points2,
-            features2=features2.float(),
+            points2=None,
+            features2=None,
             point_to_pixel_maps1=point_to_pixel_maps1,
-            point_to_pixel_maps2=point_to_pixel_maps2,
+            point_to_pixel_maps2=None,
             images=images,
             image_coordinates=image_coordinates,
-            point_to_point_map=point_to_point_map,
+            point_to_point_map=None,
             batch_size=len(batch),
         )
 
@@ -317,7 +479,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
 
         quantized_frames = []
         random_scale = np.random.uniform(*self.scale_range)
-        for frame in [scene, scene]:
+        for frame in [scene]:
 
             # Extract data
             xyz = np.ascontiguousarray(frame.scan_points[:, 0:3])
@@ -326,9 +488,16 @@ class MinkowskiPretrainDataset(PretrainDataset):
             # apply a random scalling
             xyz *= random_scale
 
+            # Unnormalize features for a sec
+            features = (features + 1.0) * 127.5
+
             # Randomly rotate each frame
             xyz = xyz - xyz.mean(0)
             xyz, features, _ = self.augmentations(xyz, features, None)
+            xyz = xyz - xyz.mean(0)
+
+            # Renormalize Colour
+            features = features / 255.0 - 0.5
 
             # Voxelize input
             discrete_coords, mapping, inverse_mapping = ME.utils.sparse_quantize(
@@ -368,18 +537,18 @@ class MinkowskiPretrainDataset(PretrainDataset):
             frame.scan_points.shape[0], max_pos, replace=False
         )
 
-        point_to_point_map = np.array(
-            [
-                [
-                    quantized_frames[0]["inverse_mapping"][point_ind],
-                    quantized_frames[1]["inverse_mapping"][point_ind],
-                ]
-                for point_ind in point_indices
-            ]
-        )
+        # point_to_point_map = np.array(
+        #     [
+        #         [
+        #             quantized_frames[0]["inverse_mapping"][point_ind],
+        #             quantized_frames[1]["inverse_mapping"][point_ind],
+        #         ]
+        #         for point_ind in point_indices
+        #     ]
+        # )
 
         return {
-            "point_to_point_map": point_to_point_map,
+            # "point_to_point_map": point_to_point_map,
             "quantized_frames": quantized_frames,
             "image": image,
             "image_coords": coords.detach().cpu().numpy(),

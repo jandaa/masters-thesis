@@ -176,7 +176,7 @@
             "args": [
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain_new",
+                "dataset.name=scannetv2",
                 "sens_file=/media/starslab/datasets/scannet/scans/scene0353_01",
                 "dataset.voxel_size=0.02",
                 "hydra.run.dir=outputs/preprocess",
@@ -190,11 +190,11 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh_cluster_no_images",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain",
+                "dataset.name=scannetv2_pretrain_new",
                 "model=minkowski",
-                "model.name=minkowski",
+                "model.name=pointcontrast",
                 "tasks=['pretrain']",
                 "hydra.run.dir=outputs/pretrain/debug",
                 "gpus=[0]",
@@ -235,12 +235,15 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                "model.name=minkowski_cme",
-                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                // "model.name=minkowski_cme",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/supervised",
                 "check_val_every_n_epoch=20",
                 "gpus=[1]",
                 "model.train.train_workers=12",
-                // "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
+                "dataset.batch_size=6",
+                "dataset.accumulate_grad_batches=8",
+                // "checkpoint=last.ckpt"
+                "pretrain_checkpoint=\"epoch=1719-step=32679-val_semantic_mIOU=0.669.ckpt\""
             ]
         },
         {
@@ -303,11 +306,12 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['pretrain_vis_3d']",
+                "tasks=['pretrain']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_and_scans",
                 "dataset=scannet",
                 "dataset.name=scannetv2_pretrain_new",
-                "dataset.pretrain.batch_size=16",
+                "dataset.pretrain.batch_size=4",
+                "dataset.voxel_size=0.05",
                 "model=minkowski",
                 "model.name=minkowski_cme",
                 "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
