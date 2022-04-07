@@ -98,366 +98,6 @@ class MinkowskiMLP(nn.Module):
 
         return output
 
-
-class MinkowskiBYOL(nn.Module):
-    def __init__(self, cfg: DictConfig, use_predictor=False):
-        nn.Module.__init__(self)
-
-        self.dataset_cfg = cfg.dataset
-        self.use_predictor = use_predictor
-        self.feature_dim = cfg.model.net.model_n_out
-        self.bn_momentum = cfg.model.net.bn_momentum
-        self.norm_type = NormType.BATCH_NORM
-
-        # Backbone
-        self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-
-        # Projection head
-        self.projector = MinkowskiMLP(
-            cfg,
-            self.feature_dim,
-            cfg.model.pretrain.loss.projector_hidden_size,
-            cfg.model.pretrain.loss.projector_output_size,
-        )
-
-        if use_predictor:
-            self.predictor = MinkowskiMLP(
-                cfg,
-                cfg.model.pretrain.loss.projector_output_size,
-                cfg.model.pretrain.loss.predictor_hidden_size,
-                cfg.model.pretrain.loss.projector_output_size,
-            )
-
-    def forward(self, input):
-        """Extract features and predict semantic class."""
-
-        # Get embedding
-        output = self.backbone(input)
-
-        # Get projected features
-        output = self.projector(output)
-
-        # Get predicted features if requested
-        if self.use_predictor:
-            output = self.predictor(output)
-
-        return output
-
-
-class MinkowskiBOYLBackboneTrainer(BackboneTrainer):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
-        super(MinkowskiBOYLBackboneTrainer, self).__init__(cfg)
-
-        # config
-        self.feature_dim = cfg.model.net.model_n_out
-        self.tau = cfg.model.pretrain.loss.byol_tau
-
-        # Loss type
-        self.criterion = nn.MSELoss()
-
-        # Encoders
-        self.model_online = MinkowskiBYOL(cfg, use_predictor=True)
-        self.model_target = MinkowskiBYOL(cfg, use_predictor=False)
-
-    @property
-    def model(self):
-        return self.model_online.backbone
-
-    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-
-        # Get outputs
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output_online = self.model_online(model_input)
-        output_target = self.model_target(model_input)
-
-        # Compute loss function
-        loss = self.loss_fn(batch, output_online, output_target)
-
-        # update target parameters
-        self._update_target_parameters()
-
-        # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
-        log("train_loss", loss)
-
-        return loss
-
-    @torch.no_grad()
-    def _update_target_parameters(self):
-        for param_online, param_target in zip(
-            self.model_online.parameters(), self.model_target.parameters()
-        ):
-            param_target.data = (
-                self.tau * param_target.data + (1.0 - self.tau) * param_online.data
-            )
-
-    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-
-        # Get outputs
-        model_input = ME.SparseTensor(batch.features, batch.points)
-        output_online = self.model_online(model_input)
-        output_target = self.model_target(model_input)
-
-        # Compute loss function
-        loss = self.loss_fn(batch, output_online, output_target)
-        self.log("val_loss", loss, sync_dist=True)
-
-    def loss_fn(self, batch, output_online, output_target):
-        max_pos = 4092
-
-        # Get all samples
-        online_view_1 = []
-        online_view_2 = []
-        target_view_1 = []
-        target_view_2 = []
-        for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
-            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
-
-            output_online_1 = output_online.features_at(2 * i)
-            output_online_2 = output_online.features_at(2 * i + 1)
-            online_view_1.append(output_online_1[voxel_indices_1])
-            online_view_2.append(output_online_2[voxel_indices_2])
-
-            output_target_1 = output_target.features_at(2 * i)
-            output_target_2 = output_target.features_at(2 * i + 1)
-            target_view_1.append(output_target_1[voxel_indices_1])
-            target_view_2.append(output_target_2[voxel_indices_2])
-
-        # Create tensors
-        online_view_1 = torch.cat(online_view_1, 0)
-        online_view_2 = torch.cat(online_view_2, 0)
-        target_view_1 = torch.cat(target_view_1, 0)
-        target_view_2 = torch.cat(target_view_2, 0)
-
-        # limit max number of query points
-        if online_view_1.shape[0] > max_pos:
-            inds = np.random.choice(online_view_1.shape[0], max_pos, replace=False)
-            online_view_1 = online_view_1[inds]
-            online_view_2 = online_view_2[inds]
-            target_view_1 = target_view_1[inds]
-            target_view_2 = target_view_2[inds]
-
-        # normalize to unit vectors
-        online_view_1 = nn.functional.normalize(online_view_1, dim=1, p=2)
-        online_view_2 = nn.functional.normalize(online_view_2, dim=1, p=2)
-        target_view_1 = nn.functional.normalize(target_view_1, dim=1, p=2)
-        target_view_2 = nn.functional.normalize(target_view_2, dim=1, p=2)
-
-        # Apply stop gradient to target network outputs
-        target_view_1 = target_view_1.detach()
-        target_view_2 = target_view_2.detach()
-
-        # Compute regression loss (symmetrically)
-        loss = self.criterion(online_view_1, target_view_2)
-        loss += self.criterion(online_view_2, target_view_1)
-
-        return loss * 100
-
-
-class MinkowskiMocoBackboneTrainer(BackboneTrainer):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
-        super(MinkowskiMocoBackboneTrainer, self).__init__(cfg)
-
-        # config
-        self.feature_dim = cfg.model.net.model_n_out
-        self.difficulty = cfg.model.pretrain.loss.difficulty
-        self.m = cfg.model.pretrain.loss.momentum
-        self.K = (
-            cfg.model.pretrain.loss.num_neg_points
-            * cfg.model.pretrain.loss.queue_multiple
-        )
-
-        # queue
-        self.register_buffer("queue", torch.randn(self.feature_dim, self.K))
-        self.queue = nn.functional.normalize(self.queue, dim=0)
-        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
-
-        self.criterion = nn.CrossEntropyLoss()
-
-        # Encoders
-        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-        self.model2 = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-
-        # initalize encoder 2 with parameters of encoder 1
-        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
-            param_k.data.copy_(param_q.data)  # initialize
-            param_k.requires_grad = False  # not update by gradient
-
-    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output1 = self.model(model_input)
-
-        # no gradient to keys
-        with torch.no_grad():
-
-            # update the key encoder
-            self._momentum_update_key_encoder()
-
-            # get output of second encoder
-            output2 = self.model2(model_input)
-
-        loss = self.loss_fn(batch, output1, output2)
-
-        # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
-        log("train_loss", loss)
-
-        return loss
-
-    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features, batch.points)
-        output1 = self.model(model_input)
-        output2 = self.model2(model_input)
-        loss = self.loss_fn(batch, output1, output2, is_val=True)
-        self.log("val_loss", loss, sync_dist=True)
-
-    @torch.no_grad()
-    def _momentum_update_key_encoder(self):
-        """
-        Momentum update of the key encoder
-        """
-        for param_q, param_k in zip(self.model.parameters(), self.model2.parameters()):
-            param_k.data = param_k.data * self.m + param_q.data * (1.0 - self.m)
-
-    @torch.no_grad()
-    def _dequeue_and_enqueue(self, keys):
-        # gather keys before updating queue
-        # keys = concat_all_gather(keys)
-
-        batch_size = keys.shape[0]
-
-        ptr = int(self.queue_ptr)
-        assert self.K % batch_size == 0  # for simplicity
-
-        # replace the keys at ptr (dequeue and enqueue)
-        self.queue[:, ptr : ptr + batch_size] = torch.transpose(keys, 0, 1)
-        ptr = (ptr + batch_size) % self.K  # move pointer
-
-        self.queue_ptr[0] = ptr
-
-    def loss_fn(self, batch, output1, output2, is_val=False):
-        max_pos = 4092
-        tau = 0.4
-
-        # Get all positive and negative pairs
-        qs, ks = [], []
-        for i, matches in enumerate(batch.correspondences):
-            voxel_indices_1 = [match["frame1"]["voxel_inds"] for match in matches]
-            voxel_indices_2 = [match["frame2"]["voxel_inds"] for match in matches]
-
-            output_batch_1 = output1.features_at(2 * i)
-            output_batch_2 = output2.features_at(2 * i + 1)
-            q = output_batch_1[voxel_indices_1]
-            k = output_batch_2[voxel_indices_2]
-
-            qs.append(q)
-            ks.append(k)
-
-        q = torch.cat(qs, 0)
-        k = torch.cat(ks, 0)
-
-        # normalize to unit vectors
-        q = nn.functional.normalize(q, dim=1, p=2)
-        k = nn.functional.normalize(k, dim=1, p=2)
-        k = k.detach()
-
-        # limit max number of query points
-        if q.shape[0] > max_pos:
-            inds = np.random.choice(q.shape[0], max_pos, replace=False)
-            q = q[inds]
-            k = k[inds]
-
-        # return self.criterion(logits, labels)
-        l_pos = torch.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
-
-        # negative logits: NxK
-        neg_features = self.queue.clone().detach()
-        l_neg = torch.einsum("nc,ck->nk", [q, neg_features])
-
-        # logits: Nx(1+K)
-        logits = torch.cat([l_pos, l_neg], dim=1)
-
-        # apply temperature
-        logits /= tau
-
-        if not is_val:
-            self._dequeue_and_enqueue(k)
-
-        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
-
-        return self.criterion(torch.squeeze(logits), labels)
-
-
-# Cross modal expert trainer
-class CMEBackboneTrainer(BackboneTrainer):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
-        super(CMEBackboneTrainer, self).__init__(cfg)
-
-        # config
-        self.feature_dim = cfg.model.net.model_n_out
-
-        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-        self._model = MinkovskiSemantic(cfg, encoding_only=True)
-
-        # 2D feature extraction
-        self.image_feature_extractor = models.resnet50(pretrained=True).eval()
-
-    @property
-    def model(self):
-        return self._model.backbone
-
-    def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self._model(model_input).F
-
-        # Get 2D output & apply stop gradient
-        with torch.no_grad():
-            features_2d = self.image_feature_extractor(batch.images)
-            features_2d.detach()
-
-        loss = self.loss_fn(output, features_2d)
-
-        # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
-        log("train_loss", loss)
-
-        return loss
-
-    def on_train_batch_end(self, outputs, batch, batch_idx):
-        torch.cuda.empty_cache()
-
-    def validation_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        model_input = ME.SparseTensor(batch.features.float(), batch.points)
-        output = self._model(model_input).F
-
-        # Get 2D output & apply stop gradient
-        with torch.no_grad():
-            features_2d = self.image_feature_extractor(batch.images)
-            features_2d.detach()
-
-        loss = self.loss_fn(output, features_2d)
-        self.log("val_loss", loss, sync_dist=True)
-
-    def _loss_fn(self, output_online, output_target):
-        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
-        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
-        return 2 - 2 * (output_online * output_target).sum(dim=-1)
-
-    def loss_fn(self, output_online, output_target):
-        # For now don't make it symmetric
-        return self._loss_fn(output_online, output_target).mean()
-
-
 def embed_tsne(data):
     """
     N x D np.array data
@@ -497,13 +137,8 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         self.image_feature_extractor = image_trainer.model
 
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
-        input_3d_1 = ME.SparseTensor(batch.features1, batch.points1)
-        # input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
-        output_3d_1 = self.model(input_3d_1)
-        # output_3d_2 = self.model(input_3d_2)
-
-        projection_1 = self.head(output_3d_1)
-        # projection_2 = self.head(output_3d_2)
+        input_3d = ME.SparseTensor(batch.features1, batch.points1)
+        features_3d = self.model(input_3d)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
@@ -511,16 +146,8 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d.detach()
 
         loss = self.loss_fn_2d_3d(
-            projection_1, features_2d, batch.point_to_pixel_maps1, batch
+            features_3d, features_2d, batch.point_to_pixel_maps1, batch
         )
-
-        # loss = 0.5 * self.loss_fn_2d_3d(
-        #     projection_1, features_2d, batch.point_to_pixel_maps1, batch
-        # )
-        # loss += 0.5 * self.loss_fn_2d_3d(
-        #     projection_2, features_2d, batch.point_to_pixel_maps2, batch
-        # )
-        # loss /= 2  # Average loss out
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -533,12 +160,7 @@ class CMEBackboneTrainerFull(BackboneTrainer):
 
     def validation_step(self, batch: MinkowskiPretrainInputNew, batch_idx: int):
         input_3d_1 = ME.SparseTensor(batch.features1, batch.points1)
-        # input_3d_2 = ME.SparseTensor(batch.features2, batch.points2)
         output_3d_1 = self.model(input_3d_1)
-        # output_3d_2 = self.model(input_3d_2)
-
-        projection_1 = self.head(output_3d_1)
-        # projection_2 = self.head(output_3d_2)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
@@ -546,61 +168,11 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d.detach()
 
         loss = self.loss_fn_2d_3d(
-            projection_1, features_2d, batch.point_to_pixel_maps1, batch
+            output_3d_1, features_2d, batch.point_to_pixel_maps1, batch
         )
-
-        # loss = 0.5 * self.loss_fn_2d_3d(
-        #     projection_1, features_2d, batch.point_to_pixel_maps1, batch
-        # )
-        # loss += 0.5 * self.loss_fn_2d_3d(
-        #     projection_2, features_2d, batch.point_to_pixel_maps2, batch
-        # )
-        # loss /= 2  # Average loss out
 
         # loss = self.loss_fn(output, features_2d, batch)
         self.log("val_loss", loss, sync_dist=True)
-
-    def find_closest_feature(self, coords, features, pixels):
-
-        interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
-
-        x_0 = int(coords[0, 0, 0])
-        y_0 = int(coords[1, 0, 0])
-        dx = coords[0, 0, 1] - coords[0, 0, 0]
-        dy = coords[1, 1, 0] - coords[1, 0, 0]
-
-        for feature_ind, (p_x, p_y) in enumerate(pixels):
-
-            # Get indices in the transformed image
-            i = int((p_x - x_0) / dx)
-            j = int((p_y - y_0) / dy)
-
-            interpolated_features[feature_ind] = features[:, j, i]
-
-        return interpolated_features.to(features.device)
-
-    def find_closest_feature_verify(self, coords, features, pixels):
-
-        # interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
-        interpolated_features = torch.zeros((418, 418, features.shape[0]))
-
-        x_0 = int(coords[0, 0, 0])
-        y_0 = int(coords[1, 0, 0])
-        x_n = int(coords[0, 0, -1])
-        y_n = int(coords[1, -1, 0])
-        dx = coords[0, 0, 1] - coords[0, 0, 0]
-        dy = coords[1, 1, 0] - coords[1, 0, 0]
-
-        for p_x in range(x_0, x_n):
-            for p_y in range(y_0, y_n):
-
-                # Get indices in the transformed image
-                i = int((p_x - x_0) / dx)
-                j = int((p_y - y_0) / dy)
-
-                interpolated_features[p_y - y_0, p_x - x_0] = features[:, j, i]
-
-        return interpolated_features.to(features.device)
 
     def bilinear_interpret(self, coords, features, pixels):
 
@@ -669,10 +241,10 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         return interpolated_features.to(features.device)
 
     def _loss_fn(self, output_online, output_target):
+        tau = 0.4
+
         q = nn.functional.normalize(output_online, dim=-1, p=2)
         k = nn.functional.normalize(output_target, dim=-1, p=2)
-
-        tau = 0.4
 
         # Labels
         npos = q.shape[0]
@@ -736,34 +308,6 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         # For now don't make it symmetric
         return self._loss_fn(online_features, target_features)
 
-    def loss_fn_3d(self, output1, output2, batch):
-        max_pos = 4092
-
-        # Get all positive and negative pairs
-        qs, ks = [], []
-        for i, matches in enumerate(batch.point_to_point_map):
-            voxel_indices_1 = matches[:, 0]
-            voxel_indices_2 = matches[:, 1]
-
-            output_batch_1 = output1.features_at(i)
-            output_batch_2 = output2.features_at(i)
-            q = output_batch_1[voxel_indices_1]
-            k = output_batch_2[voxel_indices_2]
-
-            qs.append(q)
-            ks.append(k)
-
-        q = torch.cat(qs, 0)
-        k = torch.cat(ks, 0)
-
-        # limit max number of query points
-        if q.shape[0] > max_pos:
-            inds = np.random.choice(q.shape[0], max_pos, replace=False)
-            q = q[inds]
-            k = k[inds]
-
-        return self._loss_fn(q, k)
-
 
 class ImageTrainer(BackboneTrainer):
     def __init__(
@@ -779,12 +323,6 @@ class ImageTrainer(BackboneTrainer):
 
         # 2D feature extraction
         self.model = FeatureDecoder()
-
-        # 3D feature extraction
-        # self.model_3d = MinkovskiSemantic(cfg)
-
-        # Projection head
-        # self.projection_head = MLP2d(16, inner_dim=64, out_dim=16)
 
     # learning rate warm-up
     def optimizer_step(
@@ -809,25 +347,6 @@ class ImageTrainer(BackboneTrainer):
 
         # update params
         optimizer.step(closure=optimizer_closure)
-
-    def find_closest_feature(self, coords, features, pixels):
-
-        interpolated_features = torch.zeros((pixels.shape[0], features.shape[0]))
-
-        x_0 = int(coords[0, 0, 0])
-        y_0 = int(coords[1, 0, 0])
-        dx = coords[0, 0, 1] - coords[0, 0, 0]
-        dy = coords[1, 1, 0] - coords[1, 0, 0]
-
-        for feature_ind, (p_x, p_y) in enumerate(pixels):
-
-            # Get indices in the transformed image
-            i = int((p_x - x_0) / dx)
-            j = int((p_y - y_0) / dy)
-
-            interpolated_features[feature_ind] = features[:, i, j]
-
-        return interpolated_features.to(features.device)
 
     def training_step(self, batch: ImagePretrainInput, batch_idx: int):
 
