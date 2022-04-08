@@ -4,9 +4,6 @@ from omegaconf import DictConfig
 from models.minkowski.trainer import (
     MinkowskiTrainer,
     MinkowskiBackboneTrainer,
-    MinkowskiMocoBackboneTrainer,
-    MinkowskiBOYLBackboneTrainer,
-    CMEBackboneTrainer,
     CMEBackboneTrainerFull,
     ImageTrainer,
 )
@@ -22,14 +19,10 @@ from util.types import DataInterface
 
 minkowski_name = "minkowski"
 pointcontrast_name = "pointcontrast"
-moco_name = "minkowski_moco"
-byol_name = "minkowski_byol"
 cme_name = "minkowski_cme"
 image_name = "image_pretrain"
 supported_models = [
     minkowski_name,
-    moco_name,
-    byol_name,
     cme_name,
     image_name,
     pointcontrast_name,
@@ -63,10 +56,6 @@ class ModelFactory:
             return MinkowskiBackboneTrainer
         elif self.model_name == pointcontrast_name:
             return MinkowskiBackboneTrainer
-        elif self.model_name == moco_name:
-            return MinkowskiMocoBackboneTrainer
-        elif self.model_name == byol_name:
-            return MinkowskiBOYLBackboneTrainer
         elif self.model_name == cme_name:
             return CMEBackboneTrainerFull
         elif self.model_name == image_name:

@@ -10,6 +10,6 @@ python src/main.py \
     model=minkowski \
     model.name=minkowski_cme \
     model.train.train_workers=12 \
+    model.net.model_n_out=16 \
     check_val_every_n_epoch=1 \
-    dataset.classes=16 \
     pretrain_checkpoint_2d=\"epoch=31-step=18879-val_loss=6.38.ckpt\"

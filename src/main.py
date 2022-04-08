@@ -92,15 +92,6 @@ class Trainer:
             )
             log.info(f"Resuming 2D checkpoint: {Path(self.checkpoint_2d_path).name}")
 
-        self.supervised_pretrain_checkpoint = None
-        if cfg.supervised_pretrain_checkpoint:
-            self.supervised_pretrain_checkpoint = str(
-                Path.cwd() / "pretrain_checkpoints" / cfg.supervised_pretrain_checkpoint
-            )
-            log.info(
-                f"Resuming supervied pretraining checkpoint: {Path(self.supervised_pretrain_checkpoint).name}"
-            )
-
         log.info("Loading data module")
         self.data_interface = DataInterfaceFactory(cfg).get_interface()
         self.model_factory = ModelFactory(cfg, self.data_interface)
@@ -137,22 +128,6 @@ class Trainer:
         self.trainer = self.get_trainer()
         self.pretrainer = self.get_pretrainer()
         self.data_loader = None
-
-        # Load supervised pretrain checkpoint if available
-        if self.supervised_pretrain_checkpoint:
-            self.load_supervised_checkpoint()
-
-    def load_supervised_checkpoint(self):
-        state_dict = torch.load(self.supervised_pretrain_checkpoint)["state_dict"]
-        for weight in state_dict.keys():
-            if "model.backbone" not in weight:
-                del state_dict[weight]
-
-        self.model.load_state_dict(state_dict, strict=False)
-
-        log.info(
-            f"Loaded supervised pretrained checkpoint: {Path(self.supervised_pretrain_checkpoint).name}"
-        )
 
     def get_trainer(self):
         """Build a trainer for regular training"""
