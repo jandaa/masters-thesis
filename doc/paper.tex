@@ -211,7 +211,7 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
             CME \textbf{(Ours)}         & 90.8            & 96.57          & \textbf{82.52} & \textbf{0.110} & \textbf{30.94} & 56.94          & 68.71          & 75.12          & \textbf{88.48} & \textbf{71.7}  & \textbf{72.17} & 73.783         & \textbf{56.35} & 66.48 (+1.42)           \\
         \end{tabular}
     }
-    \caption{S3DIS results using ContrastiveSceneContexts Code}
+    \caption{S3DIS Semantic Segmentation results (mIOU)}
     \label{table:s3disResults}
 \end{table*}
 
@@ -231,6 +231,38 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \caption{S3DIS Instance Segmentation Results (mAP@0.5)}
     \label{table:s3disInstanceSegmention}
 \end{table*}
+
+\begin{table}[t!]
+    \centering
+
+    \begin{tabular}{ c | c c c c c c}
+                            & 5\%  & 10\% & 20\% & 30\% & 40\% & 100\% \\
+        \hline
+        Scratch             & 56.9 &      & 64.1 &      &      &       \\
+        \hline
+        PointContrast       &      &      &      &      &      &       \\
+        CME \textbf{(Ours)} & 60.8 &      & 64.8 &      &      &       \\
+    \end{tabular}
+
+    \caption{Scannet Semantic Segmentation with Partial Data  (mIOU)}
+    \label{table:scannetVaryingDataAmount}
+\end{table}
+
+% \begin{table}[t!]
+%     \centering
+
+%     \begin{tabular}{ c | c c c c c c }
+%                             & 5\% & 10\% & 20\% & 30\% & 40\% & 100\% \\
+%         \hline
+%         Scratch             &     &      &      &      &      &       \\
+%         \hline
+%         PointContrast       &     &      &      &      &      &       \\
+%         CME \textbf{(Ours)} &     &      &      &      &      &       \\
+%     \end{tabular}
+
+%     \caption{S3DIS Semantic Segmentation with Partial Data  (mIOU)}
+%     \label{table:s3disVaryingDataAmount}
+% \end{table}
 
 \section{Experiment Results}
 \label{sec:results}
