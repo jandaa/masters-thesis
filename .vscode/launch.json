@@ -316,10 +316,10 @@
                 "model.name=minkowski_cme",
                 "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
                 "check_val_every_n_epoch=2",
-                "gpus=[0]",
+                "gpus=[1]",
                 "model.train.train_workers=12",
-                "dataset.classes=16",
-                "pretrain_checkpoint_2d=last.ckpt"
+                "model.net.model_n_out=16",
+                "pretrain_checkpoint_2d=\"epoch=31-step=18879-val_loss=6.38.ckpt\""
                 // "model.pretrain.optimizer.lr=0.0001",
                 // "model.net.warmup_steps=50",
                 // "pretrain_checkpoint=\"epoch=59-step=17699-val_loss=0.00.ckpt\""

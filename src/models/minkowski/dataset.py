@@ -380,11 +380,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
             for datapoint in batch
             if datapoint
         ]
-        # point_to_pixel_maps2 = [
-        #     datapoint["quantized_frames"][1]["point_to_pixel_map"]
-        #     for datapoint in batch
-        #     if datapoint
-        # ]
+
         images = [datapoint["image"] for datapoint in batch if datapoint]
         image_coordinates = [
             datapoint["image_coords"] for datapoint in batch if datapoint
@@ -402,25 +398,8 @@ class MinkowskiPretrainDataset(PretrainDataset):
             for datapoint in batch
             if datapoint
         ]
-        # coords2_list = [
-        #     datapoint["quantized_frames"][1]["discrete_coords"]
-        #     for datapoint in batch
-        #     if datapoint
-        # ]
-        # features2_list = [
-        #     datapoint["quantized_frames"][1]["unique_feats"]
-        #     for datapoint in batch
-        #     if datapoint
-        # ]
 
         points1, features1 = ME.utils.sparse_collate(coords1_list, features1_list)
-
-        # points2, features2 = ME.utils.sparse_collate(coords2_list, features2_list)
-
-        # # Point to Point map
-        # point_to_point_map = [
-        #     datapoint["point_to_point_map"] for datapoint in batch if datapoint
-        # ]
 
         pretrain_input = MinkowskiPretrainInputNew(
             points1=points1,
@@ -537,18 +516,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
             frame.scan_points.shape[0], max_pos, replace=False
         )
 
-        # point_to_point_map = np.array(
-        #     [
-        #         [
-        #             quantized_frames[0]["inverse_mapping"][point_ind],
-        #             quantized_frames[1]["inverse_mapping"][point_ind],
-        #         ]
-        #         for point_ind in point_indices
-        #     ]
-        # )
-
         return {
-            # "point_to_point_map": point_to_point_map,
             "quantized_frames": quantized_frames,
             "image": image,
             "image_coords": coords.detach().cpu().numpy(),

@@ -98,6 +98,7 @@ class MinkowskiMLP(nn.Module):
 
         return output
 
+
 def embed_tsne(data):
     """
     N x D np.array data
@@ -120,10 +121,6 @@ class CMEBackboneTrainerFull(BackboneTrainer):
 
         # 3D feature extractor
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-
-        self.head = MinkowskiMLP(
-            cfg, self.feature_dim, self.feature_dim, self.dataset_cfg.classes
-        )
 
         self.criterion = nn.CrossEntropyLoss()
 
