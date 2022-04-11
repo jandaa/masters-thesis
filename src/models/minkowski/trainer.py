@@ -32,44 +32,16 @@ from sklearn.manifold import TSNE
 log = logging.getLogger(__name__)
 
 
-class MinkovskiSemantic(nn.Module):
-    def __init__(
-        self, cfg: DictConfig, encoding_only=False, backbone=None, freeze_backbone=False
-    ):
-        nn.Module.__init__(self)
-
-        self.encoding_only = encoding_only
-        self.dataset_cfg = cfg.dataset
-        self.feature_dim = cfg.model.net.model_n_out
-        self.bn_momentum = cfg.model.net.bn_momentum
-        self.norm_type = NormType.BATCH_NORM
-
-        # Backbone
-        if backbone:
-            self.backbone = backbone
-        else:
-            self.backbone = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-
-        # Freeze backbone if required
-        if cfg.model.net.freeze_backbone:
-            for param in self.backbone.parameters():
-                param.requires_grad = False
-
-        self.head = MinkowskiMLP(
-            cfg, self.feature_dim, self.feature_dim, self.dataset_cfg.classes
-        )
-
-    def forward(self, input):
-        """Extract features and predict semantic class."""
-
-        if self.encoding_only:
-            return self.backbone.encoder(input)
-        else:
-            # Get backbone features
-            output = self.backbone(input)
-            output = self.head(output)
-
-            return MinkowskiOutput(output=output, semantic_scores=output.F)
+def embed_tsne(data):
+    """
+    N x D np.array data
+    """
+    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=300, random_state=0)
+    tsne_results = tsne.fit_transform(data)
+    tsne_results = np.squeeze(tsne_results)
+    tsne_min = np.min(tsne_results)
+    tsne_max = np.max(tsne_results)
+    return (tsne_results - tsne_min) / (tsne_max - tsne_min)
 
 
 class MinkowskiMLP(nn.Module):
@@ -99,18 +71,6 @@ class MinkowskiMLP(nn.Module):
         return output
 
 
-def embed_tsne(data):
-    """
-    N x D np.array data
-    """
-    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=300, random_state=0)
-    tsne_results = tsne.fit_transform(data)
-    tsne_results = np.squeeze(tsne_results)
-    tsne_min = np.min(tsne_results)
-    tsne_max = np.max(tsne_results)
-    return (tsne_results - tsne_min) / (tsne_max - tsne_min)
-
-
 # Cross modal expert trainer
 class CMEBackboneTrainerFull(BackboneTrainer):
     def __init__(self, cfg: DictConfig, checkpoint_2d_path=None):
@@ -121,6 +81,10 @@ class CMEBackboneTrainerFull(BackboneTrainer):
 
         # 3D feature extractor
         self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
+
+        self.head = MinkowskiMLP(
+            cfg, self.feature_dim, self.feature_dim, self.dataset_cfg.classes
+        )
 
         self.criterion = nn.CrossEntropyLoss()
 
@@ -136,6 +100,7 @@ class CMEBackboneTrainerFull(BackboneTrainer):
     def training_step(self, batch: MinkowskiPretrainInput, batch_idx: int):
         input_3d = ME.SparseTensor(batch.features1, batch.points1)
         features_3d = self.model(input_3d)
+        projection = self.head(features_3d)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
@@ -143,7 +108,7 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d.detach()
 
         loss = self.loss_fn_2d_3d(
-            features_3d, features_2d, batch.point_to_pixel_maps1, batch
+            projection, features_2d, batch.point_to_pixel_maps1, batch
         )
 
         # Log losses
@@ -156,8 +121,9 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         torch.cuda.empty_cache()
 
     def validation_step(self, batch: MinkowskiPretrainInputNew, batch_idx: int):
-        input_3d_1 = ME.SparseTensor(batch.features1, batch.points1)
-        output_3d_1 = self.model(input_3d_1)
+        input_3d = ME.SparseTensor(batch.features1, batch.points1)
+        features_3d = self.model(input_3d)
+        projection = self.head(features_3d)
 
         # Get 2D output & apply stop gradient
         with torch.no_grad():
@@ -165,7 +131,7 @@ class CMEBackboneTrainerFull(BackboneTrainer):
             features_2d.detach()
 
         loss = self.loss_fn_2d_3d(
-            output_3d_1, features_2d, batch.point_to_pixel_maps1, batch
+            projection, features_2d, batch.point_to_pixel_maps1, batch
         )
 
         # loss = self.loss_fn(output, features_2d, batch)
@@ -530,8 +496,7 @@ class MinkowskiBackboneTrainer(BackboneTrainer):
         # config
         self.feature_dim = cfg.model.net.model_n_out
 
-        # self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-        self._model = MinkovskiSemantic(cfg)
+        self.model = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
 
     @property
     def model(self):
