@@ -6,12 +6,13 @@ from models.minkowski.trainer import (
     MinkowskiBackboneTrainer,
     CMEBackboneTrainerFull,
     ImageTrainer,
+    ImageSegmentationTrainer,
 )
 from models.minkowski.dataset import (
     ImagePretrainDataset,
     MinkowskiDataset,
     MinkowskiPretrainDataset,
-    MinkowskiFrameDataset,
+    ImageSegmentationDataset,
     MinkowskiS3DISDataset,
     PointContrastPretrainDataset,
 )
@@ -21,21 +22,30 @@ minkowski_name = "minkowski"
 pointcontrast_name = "pointcontrast"
 cme_name = "minkowski_cme"
 image_name = "image_pretrain"
+image_seg_name = "image_segmentation"
 supported_models = [
     minkowski_name,
     cme_name,
     image_name,
     pointcontrast_name,
+    image_seg_name,
 ]
 
 
 class ModelFactory:
-    def __init__(self, cfg: DictConfig, data_interface: DataInterface, backbone=None):
+    def __init__(
+        self,
+        cfg: DictConfig,
+        data_interface: DataInterface,
+        backbone=None,
+        checkpoint_2d_path=None,
+    ):
         self.model_name = cfg.model.name
         self.dataset_name = cfg.dataset.name
         self.cfg = cfg
         self.data_interface = data_interface
         self.backbone = backbone
+        self.checkpoint_2d_path = checkpoint_2d_path
 
         # Ensure that the model is supported
         self.error_msg = f"model {self.model_name} is not supported"
@@ -43,7 +53,14 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_model(self):
-        return MinkowskiTrainer(self.cfg, self.data_interface, backbone=self.backbone)
+        if self.model_name == image_seg_name:
+            return ImageSegmentationTrainer(
+                self.cfg, checkpoint_2d_path=self.checkpoint_2d_path
+            )
+        else:
+            return MinkowskiTrainer(
+                self.cfg, self.data_interface, backbone=self.backbone
+            )
         # if minkowski_name in self.model_name:
         #     return MinkowskiTrainer(
         #         self.cfg, self.data_interface, backbone=self.backbone
@@ -75,6 +92,8 @@ class ModelFactory:
             raise RuntimeError(self.error_msg)
 
     def get_dataset_type(self):
+        if self.model_name == image_seg_name:
+            return ImageSegmentationDataset
         if self.dataset_name == "S3DIS":
             return MinkowskiS3DISDataset
         else:
@@ -83,6 +102,8 @@ class ModelFactory:
     def get_backbone_dataset_type(self):
         if image_name == self.model_name:
             return ImagePretrainDataset
+        if image_seg_name == self.model_name:
+            return ImageSegmentationDataset
         if self.model_name == pointcontrast_name:
             return PointContrastPretrainDataset
         if minkowski_name in self.model_name:

@@ -213,7 +213,7 @@ class Visualizer:
 
 
 def get_random_colour():
-    return np.random.choice(range(256), size=3).astype(np.float) / 255.0
+    return np.random.choice(range(256), size=3).astype(np.float) / 256.0
 
 
 def visualize_pointcloud(points, colours):

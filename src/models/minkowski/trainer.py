@@ -272,6 +272,96 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         return self._loss_fn(online_features, target_features)
 
 
+class ImageSegmentationTrainer(BackboneTrainer):
+    def __init__(self, cfg: DictConfig, checkpoint_2d_path=None):
+        super(ImageSegmentationTrainer, self).__init__(cfg)
+
+        # 2D feature extraction
+        if checkpoint_2d_path:
+            self.model = ImageTrainer.load_from_checkpoint(
+                cfg=cfg, checkpoint_path=checkpoint_2d_path
+            ).model
+        else:
+            self.model = FeatureDecoder()
+
+        self.head = MLP2d(16, inner_dim=16, out_dim=cfg.dataset.classes + 1)
+
+        self.semantic_criterion = nn.CrossEntropyLoss(
+            ignore_index=cfg.dataset.ignore_label
+        )
+
+    def training_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        output = self.head(z1)
+
+        semantic_predictions = output.reshape((-1, output.shape[1]))
+        semantic_labels = batch.labels.reshape((-1,)).long()
+        loss = self.semantic_criterion(semantic_predictions, semantic_labels)
+
+        # Log losses
+        log = functools.partial(self.log, on_step=True, on_epoch=True)
+        log("train_loss", loss)
+
+        return loss
+
+    def validation_step(self, batch: ImagePretrainInput, batch_idx: int):
+
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        output = self.head(z1)
+
+        semantic_predictions = output.reshape((-1, output.shape[1]))
+        semantic_labels = batch.labels.reshape((-1,)).long()
+        loss = self.semantic_criterion(semantic_predictions, semantic_labels)
+
+        self.log("val_loss", loss, sync_dist=True)
+
+    def _loss_fn(self, output_online, output_target):
+        q = nn.functional.normalize(output_online, dim=-1, p=2)
+        k = nn.functional.normalize(output_target, dim=-1, p=2)
+
+        tau = 0.4
+
+        # Labels
+        npos = q.shape[0]
+        labels = torch.arange(npos).to(q.device).long()
+
+        logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
+        out = torch.div(logits, tau)
+        out = out.squeeze().contiguous()
+
+        return self.criterion(out, labels)
+
+    def loss_fn(self, p, z, correspondances):
+
+        max_pos = 4092
+        N, C, H, W = p.shape
+
+        # [bs, feat_dim, 224x224]
+        p = p.view(N, C, -1)
+        z = z.view(N, C, -1)
+
+        loss = 0
+        for batch_ind, matches in enumerate(correspondances):
+            if len(matches) == 0:
+                continue
+
+            # limit max size per image
+            # Randomly select matches
+            if matches.shape[0] > max_pos:
+                inds = np.random.choice(matches.shape[0], max_pos, replace=False)
+                matches = matches[inds, :]
+
+            online = p[batch_ind, :, matches[:, 0]]
+            target = z[batch_ind, :, matches[:, 1]]
+
+            loss += self._loss_fn(online.T, target.T).mean()
+
+        return loss / len(correspondances)
+
+
 class ImageTrainer(BackboneTrainer):
     def __init__(
         self,
@@ -378,112 +468,6 @@ class ImageTrainer(BackboneTrainer):
             loss += self._loss_fn(online.T, target.T).mean()
 
         return loss / len(correspondances)
-
-
-class ImagePointTrainer(BackboneTrainer):
-    def __init__(
-        self,
-        cfg: DictConfig,
-    ):
-        super(ImageTrainer, self).__init__(cfg)
-
-        # config
-        self.feature_dim = cfg.model.net.model_n_out
-        self.learning_rate = cfg.model.pretrain.optimizer.lr
-        self.warmup_steps = cfg.model.net.warmup_steps
-
-        # 2D feature extraction
-        self.model_2d = FeatureDecoder()
-
-        # 3D feature extraction
-        self.model_3d = Res16UNet34C(3, self.feature_dim, cfg.model, D=3)
-
-        # Projection head
-        self.projection_head = MLP2d(16, inner_dim=64, out_dim=16)
-
-    def training_step(self, batch: ImagePretrainInput, batch_idx: int):
-
-        # Get Encoder values
-        z1 = self.model(batch.images1)
-        z2 = self.model(batch.images2)
-
-        # Stop grad on target
-        z1.detach()
-        z2.detach()
-
-        # Get projection values
-        p1 = self.projection_head(z1)
-        p2 = self.projection_head(z2)
-
-        # Compute a symmetric loss
-        loss = 0.5 * (
-            self.loss_fn(p1, z2, batch.correspondences)
-            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
-        )
-
-        # Log losses
-        log = functools.partial(self.log, on_step=True, on_epoch=True)
-        log("train_loss", loss)
-
-        return loss
-
-    def validation_step(self, batch: ImagePretrainInput, batch_idx: int):
-
-        # Get Encoder values
-        z1 = self.model(batch.images1)
-        z2 = self.model(batch.images2)
-
-        # Stop grad on target
-        z1.detach()
-        z2.detach()
-
-        # Get projection values
-        p1 = self.projection_head(z1)
-        p2 = self.projection_head(z2)
-
-        loss = 0.5 * (
-            self.loss_fn(p1, z2, batch.correspondences)
-            + self.loss_fn(p2, z1, batch.correspondences, backwards=True)
-        )
-
-        self.log("val_loss", loss, sync_dist=True)
-
-    def _loss_fn(self, output_online, output_target):
-        output_online = nn.functional.normalize(output_online, dim=-1, p=2)
-        output_target = nn.functional.normalize(output_target, dim=-1, p=2)
-        return 2 - 2 * (output_online * output_target).sum(dim=-1)
-        # return -2.0 * torch.einsum("nc, nc->n", [output_online, output_target]).mean()
-
-    def loss_fn(self, p, z, correspondances, backwards=False):
-
-        max_pos = 2000
-        N, C, H, W = p.shape
-
-        # [bs, feat_dim, 224x224]
-        p = p.view(N, C, -1)
-        z = z.view(N, C, -1)
-
-        loss = 0
-        for batch_ind, matches in enumerate(correspondances):
-            if len(matches) == 0:
-                continue
-
-            # limit max size per image
-            # Randomly select matches
-            if matches.shape[0] > max_pos:
-                inds = np.random.choice(matches.shape[0], max_pos, replace=False)
-                matches = matches[inds, :]
-
-            if not backwards:
-                online = p[batch_ind, :, matches[:, 0]]
-                target = z[batch_ind, :, matches[:, 1]]
-            else:
-                online = p[batch_ind, :, matches[:, 1]]
-                target = z[batch_ind, :, matches[:, 0]]
-
-            loss += self._loss_fn(online.T, target.T).mean()
-
-        return loss / len(correspondances) * 10
 
 
 class MinkowskiBackboneTrainer(BackboneTrainer):

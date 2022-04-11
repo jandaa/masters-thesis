@@ -15,14 +15,143 @@ from dataloaders import transform_coord
 from dataloaders import transforms
 
 from scipy.spatial import KDTree
+from util.utils import get_random_colour
 
 from models.minkowski.types import (
     MinkowskiInput,
-    MinkowskiPretrainInput,
     MinkowskiPretrainInputNew,
     ImagePretrainInput,
 )
 from dataloaders.datasets import PretrainDataset, SegmentationDataset
+
+
+class ImageSegmentationDataset(PretrainDataset):
+    def __init__(self, scenes, cfg, is_test=False):
+        super(ImageSegmentationDataset, self).__init__(scenes, cfg)
+
+        self.scenes = scenes
+        self.is_test = is_test
+        self.ignore_label = cfg.dataset.ignore_label
+
+        image_size = 224
+        crop = 0.4
+        self.image_augmentations = transform_coord.Compose(
+            [
+                transform_coord.RandomResizedCropCoord(image_size, scale=(crop, 1.0)),
+                transform_coord.RandomHorizontalFlipCoord(),
+                T.RandomApply([T.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+                T.RandomGrayscale(p=0.2),
+                T.RandomApply([transforms.GaussianBlur([0.1, 2.0])], p=0.5),
+                T.ToTensor(),
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+
+        self.coord_augmentations = T.Compose(
+            [
+                T.ToTensor(),
+                T.Resize(256),
+                T.CenterCrop(image_size),
+            ]
+        )
+        self.test_augmentations = T.Compose(
+            [
+                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            ]
+        )
+
+    def get_coords(self, image):
+        height = image.shape[0]
+        width = image.shape[1]
+
+        # Create coordinate image
+        # dims are (2, W, H)
+        # where the first axis holds the (x,y) coordinates
+        coord_x = np.linspace(0, width - 1, width).reshape(1, 1, -1)
+        coord_x = np.repeat(coord_x, height, axis=1)
+        coord_y = np.linspace(0, height - 1, height).reshape(1, -1, 1)
+        coord_y = np.repeat(coord_y, width, axis=2)
+
+        coord = np.concatenate([coord_x, coord_y], axis=0)
+        coord = np.transpose(coord, (1, 2, 0))
+
+        return coord
+
+    def collate(self, batch):
+
+        # Collate images
+        images = torch.cat([datapoint["image"] for datapoint in batch], 0)
+        labels = torch.cat([datapoint["labels"] for datapoint in batch], 0)
+
+        pretrain_input = ImagePretrainInput(
+            images1=images,
+            labels=labels,
+            images2=None,
+            coords1=None,
+            coords2=None,
+            correspondences=None,
+            batch_size=len(images),
+        )
+
+        return pretrain_input
+
+    def __len__(self):
+        return len(self.scenes)
+
+    def __getitem__(self, index):
+
+        scene = self.scenes[index]
+
+        with scene.open("rb") as scene_pickle:
+            scene = pickle.load(scene_pickle)
+
+        if scene.points.shape[0] == 0:
+            new_ind = random.randint(0, len(self.scenes) - 1)
+            return self[new_ind]
+
+        # Normalize image
+        labels = scene.label_image[:, :, 0]
+        inds = labels > 20
+        labels = labels.astype(np.float64)
+        labels[inds] = self.ignore_label
+        unique_labels = np.unique(labels)
+
+        inds = labels > 20
+        if labels[inds].size > 0:
+            waithere = 1
+        # # Visualize label image
+        # label_to_color_map = []
+        # for i in range(50):
+        #     label_to_color_map.append(get_random_colour() * 256)
+        # label_image = np.zeros((3, 480, 640))
+        # for unique_label in np.unique(labels):
+        #     if unique_label == 156:
+        #         continue
+        #     inds = unique_label == labels
+        #     label_image[:, inds] = label_to_color_map[unique_label].reshape(3, 1)
+
+        # label_image = label_image.astype(np.uint8)
+        # label_image = PIL.Image.fromarray(np.transpose(label_image, axes=(1, 2, 0)))
+        # label_image.save("label_image.png")
+        # image.save("image.png")
+
+        # Perform augmentations and get coordinates
+        if self.is_test:
+            image = scene.color_image / 255.0
+            coords = self.get_coords(scene.color_image)
+            coords = self.coord_augmentations(coords)
+            image = self.coord_augmentations(image)
+            image = self.test_augmentations(image)
+        else:
+            image = PIL.Image.fromarray(scene.color_image)
+            image, coords = self.image_augmentations(image)
+
+        image = image.float()
+
+        coords = coords.to(torch.int32)
+        labels = torch.from_numpy(labels[coords[1], coords[0]])
+
+        return {"image": image.unsqueeze(dim=0), "labels": labels.unsqueeze(dim=0)}
 
 
 class ImagePretrainDataset(PretrainDataset):

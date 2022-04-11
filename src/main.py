@@ -94,7 +94,9 @@ class Trainer:
 
         log.info("Loading data module")
         self.data_interface = DataInterfaceFactory(cfg).get_interface()
-        self.model_factory = ModelFactory(cfg, self.data_interface)
+        self.model_factory = ModelFactory(
+            cfg, self.data_interface, checkpoint_2d_path=self.checkpoint_2d_path
+        )
 
         if self.pretrain_checkpoint:
             log.info("Continuing pretraining from checkpoint.")
