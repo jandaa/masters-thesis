@@ -5,169 +5,6 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Train Scannet",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=~/datasets/scannet/",
-                "dataset=scannet",
-                "tasks=['train','eval']",
-                "hydra.run.dir=outputs/scannetv2/debug",
-                "gpus=[0]",
-                "check_val_every_n_epoch=20",
-                "model.train.train_workers=1"
-                // "limit_train_batches=0.01",
-                // "max_epochs=1"
-                // "checkpoint=last.ckpt"
-            ]
-        },
-        {
-            "name": "Train Minkowski Scannet",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_fpfh",
-                "dataset=scannet",
-                "model=minkowski",
-                "tasks=['train','eval']",
-                "hydra.run.dir=outputs/s3dis/minkovski",
-                "gpus=[0]",
-                "dataset.pretrain.batch_size=2",
-                "check_val_every_n_epoch=20",
-                "pretrain_checkpoint="
-            ]
-        },
-        {
-            "name": "Train Scannet Debug",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=~/datasets/scannet_preprocessed/",
-                "dataset=scannet",
-                "tasks=['train']",
-                "hydra.run.dir=outputs/scannetv2/debug",
-                "gpus=[0]",
-                "preload_data=False",
-                "check_val_every_n_epoch=20",
-                "model.structure.m=32",
-            ]
-        },
-        {
-            "name": "Train S3DIS",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "tasks=['train']",
-                "dataset_dir=/home/andrej/datasets/S3DIS",
-                "dataset=s3dis",
-                "hydra.run.dir=outputs/s3dis/dev",
-                "check_val_every_n_epoch=20",
-                "gpus=[0]",
-                "preload_data=True",
-            ]
-        },
-        {
-            "name": "Eval S3DIS",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/home/andrej/datasets/S3DIS",
-                "dataset=s3dis",
-                "tasks=['eval']",
-                "hydra.run.dir=outputs/s3dis/single-gpu-v1/",
-                "checkpoint=\"epoch=275-step=30911-val_loss=0.53.ckpt\"",
-                "gpus=[0]"
-            ]
-        },
-        {
-            "name": "Visualize S3DIS",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/home/andrej/datasets/S3DIS",
-                "dataset=s3dis",
-                "tasks=['visualize']",
-                "hydra.run.dir=outputs/s3dis/single-gpu-v1/",
-                "gpus=[0]"
-            ]
-        },
-        {
-            "name": "Eval Scannet",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/media/starslab/datasets/scannet",
-                "dataset=scannet",
-                "tasks=['eval']",
-                "hydra.run.dir=outputs/scannetv2/pretrained",
-                "dataset.test_split_file=scannetv2-val.txt",
-                "checkpoint=\"last.ckpt\"",
-            ]
-        },
-        {
-            "name": "Visualize Scannet",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/media/starslab/datasets/scannet",
-                "dataset=scannet",
-                "tasks=['visualize']",
-                "hydra.run.dir=outputs/scannetv2/pretrained",
-                "dataset.test_split_file=scannetv2-val.txt",
-                "checkpoint=\"epoch=383-step=115199-val_loss=0.51.ckpt\"",
-            ]
-        },
-        {
-            "name": "Eval Scannet Single GPU",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=~/datasets/scannet/",
-                "dataset=scannet",
-                "tasks=['visualize']",
-                "hydra.run.dir=outputs/scannetv2/single-gpu-v1",
-                "dataset.test_split_file=scannetv2-val.txt",
-                "checkpoint=\"epoch=383-step=115199-val_loss=0.46.ckpt\"",
-            ]
-        },
-        {
-            "name": "Debug Contrastive Loss",
-            "type": "python",
-            "request": "launch",
-            "program": "src/main.py",
-            "console": "integratedTerminal",
-            "args": [
-                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2mm",
-                "dataset=scannet",
-                "tasks=['pretrain']",
-                "hydra.run.dir=outputs/scannetv2/debug",
-                "gpus=[0]",
-                "preload_data=False",
-                "dataset.pretrain.batch_size=12",
-                "dataset.pretrain.learning_rate=0.00001",
-                // "model.train.train_workers=1",
-                "model.structure.m=32",
-            ]
-        },
-        {
             "name": "Debug preprocessing",
             "type": "python",
             "request": "launch",
@@ -235,7 +72,7 @@
                 "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
                 "dataset=s3dis",
                 "model=minkowski",
-                // "model.name=minkowski_cme",
+                "model.name=minkowski_cme",
                 "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/supervised",
                 "check_val_every_n_epoch=20",
                 "gpus=[1]",
@@ -243,7 +80,7 @@
                 "dataset.batch_size=6",
                 "dataset.accumulate_grad_batches=8",
                 // "checkpoint=last.ckpt"
-                "pretrain_checkpoint=\"epoch=1719-step=32679-val_semantic_mIOU=0.669.ckpt\""
+                // "pretrain_checkpoint=\"epoch=1719-step=32679-val_semantic_mIOU=0.669.ckpt\""
             ]
         },
         {
@@ -270,6 +107,32 @@
                 "model.train.train_workers=8",
                 "limit_val_batches=0.05",
                 "limit_test_batches=0.20"
+            ]
+        },
+        {
+            "name": "Image Segmentation Train",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['train']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_image_labels",
+                "dataset=scannetv2_pretrain_new",
+                "dataset=scannet",
+                "dataset.name=scannetv2_pretrain_new",
+                "dataset.batch_size=64",
+                "model=minkowski",
+                "model.name=image_segmentation",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/images",
+                "check_val_every_n_epoch=2",
+                "gpus=[1]",
+                "model.train.train_workers=12",
+                "model.pretrain.optimizer.lr=0.01",
+                "model.net.warmup_steps=50",
+                "pretrain_checkpoint_2d=\"epoch=31-step=18879-val_loss=6.38.ckpt\""
+                // "limit_val_batches=0.05",
+                // "limit_test_batches=0.20"
             ]
         },
         {
@@ -318,7 +181,7 @@
                 "check_val_every_n_epoch=2",
                 "gpus=[1]",
                 "model.train.train_workers=12",
-                "model.net.model_n_out=16",
+                "dataset.classes=16",
                 "pretrain_checkpoint_2d=\"epoch=31-step=18879-val_loss=6.38.ckpt\""
                 // "model.pretrain.optimizer.lr=0.0001",
                 // "model.net.warmup_steps=50",
