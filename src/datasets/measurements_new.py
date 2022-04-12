@@ -133,6 +133,11 @@ class SceneMeasurement:
         #     interpolation=cv2.INTER_NEAREST,
         # )
 
+        # Show label image
+        cv2.imwrite("instance.png", self.instance_image)
+        cv2.imwrite("semantic.png", self.label_image)
+        cv2.imwrite("color.png", self.color_image)
+
         # Convert depth map into point cloud
         self.scan_points, self.point_to_pixel_map = get_point_cloud(
             depth_image, self.depth_intrinsics
@@ -149,6 +154,13 @@ class SceneMeasurement:
 
         # Get points visible in camera frame
         frame, pixels = self.get_projected_scene(info, scene)
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(frame.points)
+        labels = np.zeros(frame.features.shape)
+        labels[:, 0] = frame.semantic_labels
+        pcd.colors = o3d.utility.Vector3dVector(labels)
+        points_map = self.remove_hidden_points(pcd)
 
         # # Get point cloud for camera view
         # pcd = o3d.geometry.PointCloud()
@@ -169,9 +181,13 @@ class SceneMeasurement:
         self.instance_labels = frame.instance_labels
 
         # Compute image labels
-        self.label_image[:, :, :] = frame.semantic_labels.max() + 1
-        for point_ind, (px, py) in enumerate(pixels.T):
-            self.label_image[int(py), int(px), :] = frame.semantic_labels[point_ind]
+        self.label_image[:, :, :] = frame.semantic_labels.max() + 20
+        tmp = frame.semantic_labels
+        tmp[frame.semantic_labels == -100] = 256
+        for point_ind in points_map:
+            # for point_ind, (px, py) in enumerate(pixels.T):
+            px, py = pixels.T[point_ind]
+            self.label_image[int(py), int(px), :] = tmp[point_ind]
 
         self.label_image = cv2.resize(
             self.label_image,
@@ -179,35 +195,44 @@ class SceneMeasurement:
             interpolation=cv2.INTER_NEAREST,
         )
 
-        # labels_to_colors = {}
-        # for i in range(100):
-        #     labels_to_colors[i] = (get_random_colour() * 255).astype(np.int)
-        # labels_to_colors[-100] = (get_random_colour() * 255).astype(np.int)
+        labels_to_colors = {}
+        for i in range(100):
+            labels_to_colors[i] = (get_random_colour() * 255).astype(np.int)
+        labels_to_colors[-100] = (get_random_colour() * 255).astype(np.int)
+
+        for i in range(20):
+            pixels = self.label_image == i
+            self.label_image[pixels[:, :, 0]] = labels_to_colors[i]
+
+        # Show label image
+        cv2.imwrite("instance.png", self.instance_image)
+        cv2.imwrite("semantic.png", self.label_image)
+        cv2.imwrite("color.png", self.color_image)
 
         if frame.semantic_labels.size > 0:
             # Use the instance image to
             ignore_label = 20
-            for i in range(self.instance_image.max()):
+            for i in np.unique(self.instance_image):
                 instance_pixels = self.instance_image == i
                 (unique_values, counts) = np.unique(
                     self.label_image[instance_pixels], return_counts=True
                 )
 
-                rm = np.where(unique_values >= ignore_label)[0]
+                rm = np.where(unique_values > ignore_label)[0]
                 if rm.size > 0:
                     unique_values = np.delete(unique_values, rm)
                     counts = np.delete(counts, rm)
 
                 if unique_values.size > 0:
                     label = unique_values[np.argmax(counts)]
-                    self.label_image[instance_pixels[:, :, 0]] = label
+                    self.label_image[instance_pixels[:, :, 0]] = labels_to_colors[label]
         else:
             self.label_image = None
 
-        # # Show label image
-        # cv2.imwrite("instance.png", self.instance_image)
-        # cv2.imwrite("semantic.png", self.label_image)
-        # cv2.imwrite("color.png", self.color_image)
+        # Show label image
+        cv2.imwrite("instance.png", self.instance_image)
+        cv2.imwrite("semantic.png", self.label_image)
+        cv2.imwrite("color.png", self.color_image)
 
         # save all processed data to file
         self.save_to_file(output_dir)
@@ -257,8 +282,10 @@ class SceneMeasurement:
         diameter = np.linalg.norm(diameter)
         camera = [0, 0, -diameter]
         radius = diameter * 10000
+        # radius = diameter * 100
         _, pt_map = pcd.hidden_point_removal(camera, radius)
-        return pcd.select_by_index(pt_map)
+        return pt_map
+        # return pcd.select_by_index(pt_map)
 
     @property
     def color_image_for_point_cloud(self):
