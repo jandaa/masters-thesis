@@ -217,15 +217,15 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
 
 \begin{table*}[t!]
     \centering
-    \resizebox{\textwidth}{!}{
-        \begin{tabular}{ c | c c c c c c c c c c c c c | c }
-                                & ceiling & floor & wall & beam & column & window & door & table & chair & sofa & bookcase & board & clutter & mAP@0.5 \\
+    \resizebox{0.8\textwidth}{!}{
+        \begin{tabular}{ c | c c c c c c c c c c | c }
+                                & beam & column        & window        & door          & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
             \hline
-            Scratch             & 69.2    & 93.7  & 67.5 & 0    & 20.8   & 67.9   & 76.9 & 36.1  & 90.1  & 71.7 & 36.6     & 85.3  & N/A     & 59.6    \\
-            Supervised          & 73.2    & 88.6  & 67.0 & 0    & 28.2   & 71.7   & 82.3 & 39.0  & 89.8  & 62.4 & 34.5     & 82.6  & N/A     & 59.9    \\
+            Scratch             & 0    & 12.8          & 61.7          & 92.0          & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
+            Supervised          & 0    & 26.0          & 74.3          & 84.5          & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
             \hline
-            PointContrast       & 72.5    & 99.7  & 64.8 & 0    & 15.5   & 68.4   & 78.8 & 34.4  & 86.0  & 47.0 & 32.1     & 80.2  & N/A     & 56.6    \\
-            CME \textbf{(Ours)} & 70.5    & 95.4  & 72.0 & 0    & 25.9   & 62.2   & 74.4 & 34.1  & 87.9  & 63.6 & 44.2     & 80.6  & N/A     & 59.2    \\
+            PointContrast       & 0    & 17.4          & 68.2          & \textbf{93.0} & 45.7          & 88.5          & 63.6          & 34.1          & 82.1          & 38.2          & 53.1 (+0.1)          \\
+            CME \textbf{(Ours)} & 0    & \textbf{35.0} & \textbf{70.0} & 83.4          & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
         \end{tabular}
     }
     \caption{S3DIS Instance Segmentation Results (mAP@0.5)}
