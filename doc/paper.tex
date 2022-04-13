@@ -206,7 +206,8 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
             Scratch                     & 90.34           & \textbf{96.84} & 80.63          & 0              & 25.5           & 56.95          & 62.93          & 75.14          & 86.21          & 65.77          & 72.12          & 76.91          & 56.4           & 65.06                   \\
             Supervised                  & \textbf{91.81}  & 96.74          & \textbf{84.11} & \textbf{0.21}  & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82} & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} (+5.16)  \\
             \hline
-            PointContrast               & \textbf{92.118} & \textbf{96.93} & 82.2           & 0              & 24.94          & 53.78          & \textbf{76.91} & \textbf{75.94} & 87.93          & 70.27          & 71.2           & \textbf{77.76} & 56.36          & \textbf{66.641} (+1.58) \\
+            PointContrast               & \textbf{92.118} & \textbf{96.93} & 82.2           & 0              & 24.94          & 53.78          & \textbf{76.91} & 75.94          & 87.93          & 70.27          & 71.2           & \textbf{77.76} & 56.36          & \textbf{66.641} (+1.58) \\
+            PointContrast - theirs      & 91.97           & 96.67          & 82.4           & 0              & 17.84          & 56.49          & 75.39          & \textbf{77.63} & 87.35          & 63.3           & 73.53          & 79.55          & 58.76          & 66.22 (+1.16)           \\
             PointContrast - No Overhang & 91.624          & 96.86          & 82.02          & 0              & 29.37          & \textbf{57.5}  & 64.93          & 75.49          & 87.36          & 59.32          & 71.42          & 76.61          & 56.11          & 65.28 (+0.22)           \\
             CME \textbf{(Ours)}         & 90.8            & 96.57          & \textbf{82.52} & \textbf{0.110} & \textbf{30.94} & 56.94          & 68.71          & 75.12          & \textbf{88.48} & \textbf{71.7}  & \textbf{72.17} & 73.783         & \textbf{56.35} & 66.48 (+1.42)           \\
         \end{tabular}
@@ -219,13 +220,14 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \centering
     \resizebox{0.8\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c | c }
-                                & beam & column        & window        & door          & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
+                                   & beam & column        & window        & door          & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
             \hline
-            Scratch             & 0    & 12.8          & 61.7          & 92.0          & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
-            Supervised          & 0    & 26.0          & 74.3          & 84.5          & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
+            Scratch                & 0    & 12.8          & 61.7          & 92.0          & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
+            Supervised             & 0    & 26.0          & 74.3          & 84.5          & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
             \hline
-            PointContrast       & 0    & 17.4          & 68.2          & \textbf{93.0} & 45.7          & 88.5          & 63.6          & 34.1          & 82.1          & 38.2          & 53.1 (+0.1)          \\
-            CME \textbf{(Ours)} & 0    & \textbf{35.0} & \textbf{70.0} & 83.4          & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
+            PointContrast - theirs &      & 24.7          & 67.9          & 90.7          & 43.8          & 92.0          & 72.7          & 32.3          & 85.6          & 38.0          & 54.8 (+1.8)          \\
+            PointContrast          & 0    & 17.4          & 68.2          & \textbf{93.0} & 45.7          & 88.5          & 63.6          & 34.1          & 82.1          & 38.2          & 53.1 (+0.1)          \\
+            CME \textbf{(Ours)}    & 0    & \textbf{35.0} & \textbf{70.0} & 83.4          & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
         \end{tabular}
     }
     \caption{S3DIS Instance Segmentation Results (mAP@0.5)}
