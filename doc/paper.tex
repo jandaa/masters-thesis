@@ -201,15 +201,16 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \centering
     \resizebox{\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c c c c | c }
-                                       & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU                   \\
+                                         & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU                   \\
             \hline
-            Scratch                    & 90.34          & \textbf{96.84} & 80.63          & 0              & 25.5           & 56.95          & 62.93          & 75.14          & 86.21          & 65.77          & 72.12          & 76.91          & 56.4           & 65.06                  \\
-            Supervised                 & \textbf{91.81} & 96.74          & \textbf{84.11} & \textbf{0.21}  & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82} & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} (+5.16) \\
+            Scratch                      & 90.34          & \textbf{96.84} & 80.63          & 0              & 25.5           & 56.95          & 62.93          & 75.14          & 86.21          & 65.77          & 72.12          & 76.91          & 56.4           & 65.06                  \\
+            Supervised                   & \textbf{91.81} & 96.74          & \textbf{84.11} & \textbf{0.21}  & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82} & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} (+5.16) \\
             \hline
-            PointContrast              & 91.97          & \textbf{96.67} & 82.4           & 0              & 17.84          & 56.49          & \textbf{75.39} & \textbf{77.63} & 87.35          & 63.3           & 73.53          & \textbf{79.55} & 58.76          & 66.22 (+1.16)          \\
-            PointContrast - Same Scan  & 91.03          & 96.27          & \textbf{82.8}  & 0              & 31.53          & 57.27          & 69.33          & 76.97          & \textbf{88.83} & 45.49          & 71.02          & 77.09          & 57.06          & 64.97 (-0.09)          \\
-            Contrastive Scene Contexts & \textbf{92.34} & 96.02          & 83.53          & 0              & \textbf{40.88} & \textbf{57.73} & 72.11          & 77.5           & 88.15          & \textbf{74.61} & \textbf{74.52} & 76.45          & \textbf{62.64} & \textbf{68.96} (+3.9)  \\
-            CME \textbf{(Ours)}        & 90.8           & 96.57          & 82.52          & \textbf{0.110} & 30.94          & 56.94          & 68.71          & 75.12          & 88.48          & 71.7           & 72.17          & 73.783         & 56.35          & 66.48 (+1.42)          \\
+            PointContrast                & 91.97          & \textbf{96.67} & 82.4           & 0              & 17.84          & 56.49          & \textbf{75.39} & \textbf{77.63} & 87.35          & 63.3           & 73.53          & \textbf{79.55} & 58.76          & 66.22 (+1.16)          \\
+            PointContrast - Same Scan    & 91.03          & 96.27          & \textbf{82.8}  & 0              & 31.53          & 57.27          & 69.33          & 76.97          & \textbf{88.83} & 45.49          & 71.02          & 77.09          & 57.06          & 64.97 (-0.09)          \\
+            PointContrast - 70\% overlap & 91.85          & 96.56          & 83.55          & 0              & 28.25          & 59.36          & 73.53          & 78.51          & 88.28          & 79.95          & 74.61          & 76             & 61.08          & 68.58 (+3.52)          \\
+            Contrastive Scene Contexts   & \textbf{92.34} & 96.02          & 83.53          & 0              & \textbf{40.88} & \textbf{57.73} & 72.11          & 77.5           & 88.15          & \textbf{74.61} & \textbf{74.52} & 76.45          & \textbf{62.64} & \textbf{68.96} (+3.9)  \\
+            CME \textbf{(Ours)}          & 90.8           & 96.57          & 82.52          & \textbf{0.110} & 30.94          & 56.94          & 68.71          & 75.12          & 88.48          & 71.7           & 72.17          & 73.783         & 56.35          & 66.48 (+1.42)          \\
         \end{tabular}
     }
     \caption{S3DIS Semantic Segmentation results (mIOU)}
@@ -220,50 +221,53 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \centering
     \resizebox{0.8\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c | c }
-                                & beam & column        & window        & door & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
+                                       & beam & column        & window        & door & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
             \hline
-            Scratch             & 0    & 12.8          & 61.7          & 92.0 & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
-            Supervised          & 0    & 26.0          & 74.3          & 84.5 & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
+            Scratch                    & 0    & 12.8          & 61.7          & 92.0 & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
+            Supervised                 & 0    & 26.0          & 74.3          & 84.5 & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
             \hline
-            PointContrast       & 0    & 24.7          & 67.9          & 90.7 & 43.8          & 92.0          & 72.7          & 32.3          & 85.6          & 38.0          & 54.8 (+1.8)          \\
-            CME \textbf{(Ours)} & 0    & \textbf{35.0} & \textbf{70.0} & 83.4 & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
+            PointContrast              & 0    & 24.7          & 67.9          & 90.7 & 43.8          & 92.0          & 72.7          & 32.3          & 85.6          & 38.0          & 54.8 (+1.8)          \\
+            Contrastive Scene Contexts & 0    & 32.9          & 69.2          & 93.0 & 47.6          & 87.5          & 80.9          & 39.6          & 87.5          & 40.4          & 57.8 (+4.8)          \\
+            CME \textbf{(Ours)}        & 0    & \textbf{35.0} & \textbf{70.0} & 83.4 & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
         \end{tabular}
     }
     \caption{S3DIS Instance Segmentation Results (mAP@0.5)}
     \label{table:s3disInstanceSegmention}
 \end{table*}
 
-% \begin{table}[t!]
-%     \centering
-
-%     \begin{tabular}{ c | c c c c c c}
-%                             & 5\%  & 10\% & 20\% & 30\% & 40\% & 100\% \\
-%         \hline
-%         Scratch             & 56.9 &      & 64.1 &      & 65.6 &       \\
-%         \hline
-%         PointContrast       &      &      &      &      &      &       \\
-%         CME \textbf{(Ours)} & 60.8 &      & 64.8 &      & 64.7 &       \\
-%     \end{tabular}
-
-%     \caption{Scannet Semantic Segmentation with Partial Data  (mIOU)}
-%     \label{table:scannetVaryingDataAmount}
-% \end{table}
-
-\begin{table}[t!]
+\begin{table*}[t!]
     \centering
-    \resizebox{0.4\textwidth}{!}{
+    \resizebox{0.8\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c}
-                                & 5\%   & 10\%  & 20\%  & 30\%  & 40\%  & 100\% \\
+                                       & 5\%           & 10\%          & 20\%          & 30\%          & 40\%          & 100\%         \\
             \hline
-            Scratch             & 42.2  & 51.09 & 58.23 & 59.23 & 62.17 & 67.43 \\
+            Scratch                    & 42.2          & 51.09         & 58.23         & 59.23         & 62.17         & 67.43         \\
             \hline
-            PointContrast       & 44.79 & 55.28 & 57.98 & 58.97 & 63.17 &       \\
-            CME \textbf{(Ours)} & 44.04 & 51.19 & 57.3  & 60.73 & 63.31 & 67.71 \\
+            PointContrast              & 44.79 (+2.59) & 55.28 (+4.19) & 57.98 (-0.25) & 58.97 (-0.26) & 63.17 (+1.00) & 66.88 (-0.55) \\
+            Contrastive Scene Contexts &               &               &               & 62.15 (+2.92) & 65.15 (+2.98) & 67.62 (+0.19) \\
+            CME \textbf{(Ours)}        & 44.04 (+1.84) & 52.97 (+1.88) & 58.6 (+0.37)  & 60.73 (+1.5)  & 63.31 (+1.14) & 67.71 (+0.28) \\
         \end{tabular}
     }
     \caption{Scannet Semantic Segmentation with Partial Data  (mIOU)}
     \label{table:scannetVaryingDataAmount}
-\end{table}
+\end{table*}
+
+\begin{table*}[t!]
+    \centering
+    \resizebox{0.25\textwidth}{!}{
+        \begin{tabular}{c | c}
+                                       & mAP  \\
+            \hline
+            Scratch                    & 35.2 \\
+            \hline
+            PointContrast              & 36.7 \\
+            Contrastive Scene Contexts & 36.1 \\
+            CME \textbf{(Ours)}        & 37.7 \\
+        \end{tabular}
+    }
+    \caption{Scannet Object Detection using VoteNet  (mAP)}
+    \label{table:scannetObjectDetection}
+\end{table*}
 
 \section{Experiment Results}
 \label{sec:results}
