@@ -203,7 +203,7 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
 \section{Experiment Results}
 \label{sec:results}
 
-This section will analyze the performance of our pre-trained backbone on a variety of datasets from indoor stereo to outdoor lidar scenes. It will also compare our method to state of the art baselines on three different downstream tasks; these being semantic segmentation, instance segmentation and object detection.
+This section will analyze the performance of our pre-trained backbone on a variety of datasets from indoor stereo to outdoor lidar scenes. It will also compare our method to state of the art baselines on three different downstream tasks: semantic segmentation, instance segmentation and object detection.
 
 \subsection{Datasets}
 \label{sec:results:datasets}
@@ -227,9 +227,11 @@ In some experiments, we vary the amount of training labeled data on downstream t
 
 To verify the effectiveness of our method, we compare against three state of the art baselines. These being PointContrast \cite{xie2020pointcontrast}, Contrastive Scene Contexts (CSC) \cite{hou2021Exploring} and DepthContrast \cite{zhang2021Self}.
 
-Both PointContrast and Contrastive Scene Contexts require pairs of scans with known poses and at least 30\% overlap while DepthContrast and our method operate on single scans. To test more fairly, we tried variations of PointContrast and CSC using the same scan for both positive pairs. We also tried another variation with a more strict overlap threshold of 70\% to see whether they were learning to extrapolate global scene contexts. Note also that due to resource limitations because DepthContrast originally requires 32 GPUs to train, we
+Both PointContrast and Contrastive Scene Contexts require pairs of scans with known poses and at least 30\% overlap while DepthContrast and our method operate on single scans. For ablations, we tried variations of PointContrast and CSC using the same scan for both positive pairs. We also tried another variation with a more strict overlap threshold of 70\% to see whether they were learning to extrapolate global scene contexts.
 
-In cases where it's applicable, we also compare against a fully-supervised backbone, to give us an idea of a reasonable upper-bound.
+Due to our own resource limitations, we had to run DepthContrast with a batch size of 32 on a single GPU instead of a batch size of 1024 split across 32 GPUs. We also ran it for 40 epochs instead of 400, which still takes twice as long as any other method. Since they claim to match PointContrast on semantic segmentation with their original setup, we are already comparing against state of the art and so any performance degradation would suggest using the less computationally intensive method is better.
+
+In cases where it's applicable, we also compare against a fully-supervised backbone, to give us an idea of a reasonable upper-bound on performance improvement.
 
 \subsection{Implementation Details}
 \label{sec:results:implementation}
@@ -287,6 +289,70 @@ We first test the case of pretraining our model on ScannetV2 and finetuning on S
 
 When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
 
+\begin{table*}[t]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{ c | c c | c c c c c c | c c c c c c |}
+                                &          &      & \multicolumn{6}{|c|}{Semantic Segmentation (mIOU)} & \multicolumn{6}{|c|}{Instance Segmentation (mAP@0.5)}                                                                                                                                                                                                                               \\
+                                & overlap  & Scan & 5\%                                                & 10\%                                                  & 20\%                   & 30\%                   & 40\%                   & 100\%                  & 5\%                  & 10\%          & 20\%                 & 30\%                 & 40\%        & 100\%                \\
+            \hline
+            Scratch             & --       & --   & 42.2                                               & 51.09                                                 & 58.23                  & 59.23                  & 62.17                  & 67.43                  & 26.9                 & \textbf{31.1} & 40.7                 & 42.2                 & 45.7        & 49.0                 \\
+            \hline
+            PointContrast       & $>$ 30\% & Pair & 44.79 \textbf{(+2.59)}                             & 55.28 \textbf{(+4.19)}                                & 57.98 (-0.25)          & 58.97 (-0.26)          & 63.17 \textbf{(+1.00)} & 66.88 (-0.55)          & 27.0 \textbf{(+0.1)} & 35.3          & 40.5 (-0.2)          & 43.0 \textbf{(+0.8)} & 43.9 (-1.8) & 49.1 \textbf{(+0.1)} \\
+            CSC                 & $>$ 30\% & Pair & 42.6 \textbf{(+0.4)}                               & 53.03 \textbf{(+1.94)}                                & 57.28 (-0.95)          & 62.15 \textbf{(+2.92)} & 65.15 \textbf{(+2.98)} & 67.62 \textbf{(+0.19)} & 29.8 \textbf{(+2.9)} & 35.5          & 41.6 \textbf{(+0.9)} & 42.9 \textbf{(+0.7)} & 44.6 (-1.1) & 49.3 \textbf{(+0.3)} \\
+            CSC                 & $>$ 70\% & Pair & 45.44 \textbf{(+3.24)}                             & 50.84 (-0.25)                                         & 59.26 \textbf{(+1.03)} & 59.72 \textbf{(+0.49)} & 62.72 \textbf{(+0.55)} & 68.01 \textbf{(+0.58)} & --                   & --            & --                   & --                   & --          & --                   \\
+            CSC                 & --       & Same & 44.09 \textbf{(+1.89)}                             & 50.88 (-0.21)                                         & 56.64 (-1.59)          & 58.9 (-0.33)           & 61.50 (-0.67)          & 67.37 (-0.06)          & --                   & --            & --                   & --                   & --          & --                   \\
+            CME \textbf{(Ours)} & --       & Same & 44.04 \textbf{(+1.84)}                             & 52.97 \textbf{(+1.88)}                                & 58.6 \textbf{(+0.37)}  & 60.73 \textbf{(+1.5)}  & 63.31 \textbf{(+1.14)} & 67.71 \textbf{(+0.28)} & 25.5 (-1.4)          & 35.5          & 39.1 (-1.6)          & 42.4 \textbf{(+0.2)} & 43.6 (-2.1) & 48.5 (-0.5)          \\
+        \end{tabular}
+    }
+    \caption{Scannet downstream semantic (mIOU) and instance (mAP@0.5) segmentation performance using weights pre-trained in Scannet)}
+    \label{table:scannetVaryingDataAmount}
+\end{table*}
+
+\begin{table}
+    \centering
+    \resizebox{0.45\textwidth}{!}{
+        \begin{tabular}{ c | c c c c }
+                                & min overlap & Same Scan  & Semantic (mIOU)                 & Instance (mAP@0.5)            \\
+            \hline
+            Scratch             & --          & --         & 65.06                           & 53.0                          \\
+            Supervised          & --          & --         & \textbf{70.22} \textbf{(+5.16)} & \textbf{56.2} \textbf{(+3.2)} \\
+            \hline
+            PointContrast       & 30\%        &            & 66.22 \textbf{(+1.16)}          & 54.8 \textbf{(+1.8)}          \\
+            PointContrast       & 70\%        &            & 68.58 \textbf{(+3.52)}          & 55.3 \textbf{(+2.3)}          \\
+            PointContrast       &             & \checkmark & 64.97 (-0.09)                   & 56.6 \textbf{(+3.6)}          \\
+            CSC                 & 30\%        &            & 68.96 \textbf{(+3.9)}           & 57.8 \textbf{(+4.8)}          \\
+            CSC                 & 70\%        &            & \textbf{70.12} \textbf{(+5.06)} & \textbf{58.9} \textbf{(+5.9)} \\
+            CSC                 &             & \checkmark & 67.94 \textbf{(+2.88)}          & 57.2 \textbf{(+4.2)}          \\
+            DepthContrast       &             & \checkmark & 64.91 (-0.15)                   & 52.3 (-0.7)                   \\
+            CME \textbf{(Ours)} &             & \checkmark & 66.48 \textbf{(+1.42)}          & 55.8 \textbf{(+2.8)}          \\
+        \end{tabular}
+    }
+    \caption{S3DIS downstream semantic (mIOU) and instance (mAP@0.5) segmentation performance using weights pre-trained in Scannet}
+    \label{table:s3disResults}
+\end{table}
+
+
+
+
+\begin{table*}[t]
+    \centering
+    \resizebox{0.7\textwidth}{!}{
+        \begin{tabular}{ c | c c c c c c}
+                                       & 5\%                  & 10\%          & 20\%                 & 30\%                 & 40\%        & 100\%                \\
+            \hline
+            Scratch                    & 26.9                 & \textbf{31.1} & 40.7                 & 42.2                 & 45.7        & 49.0                 \\
+            \hline
+            PointContrast              & 27.0 \textbf{(+0.1)} & 35.3          & 40.5 (-0.2)          & 43.0 \textbf{(+0.8)} & 43.9 (-1.8) & 49.1 \textbf{(+0.1)} \\
+            Contrastive Scene Contexts & 29.8 \textbf{(+2.9)} & 35.5          & 41.6 \textbf{(+0.9)} & 42.9 \textbf{(+0.7)} & 44.6 (-1.1) & 49.3 \textbf{(+0.3)} \\
+            CME \textbf{(Ours)}        & 25.5 (-1.4)          & 35.5          & 39.1 (-1.6)          & 42.4 \textbf{(+0.2)} & 43.6 (-2.1) & 48.5 (-0.5)          \\
+        \end{tabular}
+    }
+    \caption{Scannet Instance Segmentation with Partial Data  (mAP@0.5)}
+    \label{table:scannetInstanceVaryingDataAmount}
+\end{table*}
+
+
 \subsection{Instance Segmentation}
 \label{sec:results:instance}
 
@@ -316,7 +382,7 @@ Things to include in results
 \end{itemize}
 
 
-\newpage
+\clearpage
 %%%%%%%%% REFERENCES
 {\small
     \bibliographystyle{ieee_fullname}
