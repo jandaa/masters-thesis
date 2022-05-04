@@ -15,6 +15,8 @@
 \usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{rotating}
+\usepackage{caption}
+\usepackage{subcaption}
 
 % It is strongly recommended to use hyperref, especially for the review version.
 % hyperref with option pagebackref eases the reviewers' job.
@@ -197,22 +199,150 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
 
 \AJ{Need to look at not using a projection head in 3D model.}
 
+\clearpage
+\section{Experiment Results}
+\label{sec:results}
+
+This section will analyze the performance of our pre-trained backbone on a variety of datasets from indoor stereo to outdoor lidar scenes. It will also compare our method to state of the art baselines on three different downstream tasks; these being semantic segmentation, instance segmentation and object detection.
+
+\subsection{Datasets}
+\label{sec:results:datasets}
+
+Following the common practice of 3D contrastive learning \cite{xie2020pointcontrast, hou2021Exploring, zhang2021Self, jiang2021Guided}, we use the following indoor stereo datasets and add an extra outdoor lidar dataset.
+
+\textbf{Scannet \cite{Dai2017ScanNet}:} Comprises of roughly 1600 reconstructed scenes of indoor environments captured using a stereo camera. The scenes are mostly of individual rooms and range in the square floor size of 2 meters to 10 meters with a standard ceiling height of about 3 meters. It contains 20 different classes. We use the dataset-defined train and validation split, using the validation as our test set.
+
+\textbf{S3DIS \cite{armeni20163D}:} Much smaller than Scannet, it comprises of only 300 reconstructed scenes however their size varies quite drastically as some are of rooms and others are of entire auditoriums. The scenes were also captured using a stereo camera and are mainly of indoor office scenes. There are 13 different semantic classes and all scenes contain point level semantic and instance labels. As is commonly done \cite{xie2020pointcontrast, hou2021Exploring} we use the Area 5 split as our validation and test set.
+
+\textbf{SunRGBD \cite{song2015sunrgbd, janoch2011category, xiao2013database, silberman2012indoor}:} Similar to Scannet and S3DIS, this dataset contains roughly 10k RGBD scans of indoor office environments. It has 3D bounding box annotations for 10 different classes, with large class overlap with Scannet and S3DIS. There is no scene reconstruction available. We use the dataset-defined train and validation split.
+
+\textbf{semanticKITTI \cite{behley2019semantic, geiger2012are}: } Contains roughly 25k laser scans of outdoor driving environments. It contains 20 different classes with 3D semantic and instance labels. The scans are of a full rotation around the vehicle, going out to a range of about 20 meters with the spatial resolution decreasing with distance. We use the sequences 1-7 and 9-10 as our training set and sequence 8 as our validation.
+
+We use Scannet to pretrain our backbone network as it is the largest indoor dataset. It shares many of the same classes and types of indoor scenes as S3DIS and SUNRBGD and so is a perfect candidate to show the use case of collecting large amounts of unlabeled data for a task and then labeling only a partial amount. We also use it to pre-train for downstream tasks with semanticKITTI. This is meant to explore how versatile the learned features are, since semanticKITTI uses a different sensor type in a different environment and with different object types than Scannet.
+
+In some experiments, we vary the amount of training labeled data on downstream tasks to see the effectiveness of dataset size on the self-supervised pre-training.
+
+\subsection{Baselines}
+\label{sec:results:baselines}
+
+To verify the effectiveness of our method, we compare against three state of the art baselines. These being PointContrast \cite{xie2020pointcontrast}, Contrastive Scene Contexts (CSC) \cite{hou2021Exploring} and DepthContrast \cite{zhang2021Self}.
+
+Both PointContrast and Contrastive Scene Contexts require pairs of scans with known poses and at least 30\% overlap while DepthContrast and our method operate on single scans. To test more fairly, we tried variations of PointContrast and CSC using the same scan for both positive pairs. We also tried another variation with a more strict overlap threshold of 70\% to see whether they were learning to extrapolate global scene contexts. Note also that due to resource limitations because DepthContrast originally requires 32 GPUs to train, we
+
+In cases where it's applicable, we also compare against a fully-supervised backbone, to give us an idea of a reasonable upper-bound.
+
+\subsection{Implementation Details}
+\label{sec:results:implementation}
+
+\textbf{Model:} The backbone network used is the same as that used in \cite{xie2020pointcontrast, hou2021Exploring} using the sparse convolutional library developed by \cite{choy20194d}. The backbone uses a Res16UNet34 structure with non-bottleneck blocks and a maximum feature embedding size of 256. The outputs of the model are directly used for semantic segmentation.
+
+Instance segmentation is done using the same backbone to extract features which are subsequently fed into the algorithm from \cite{jiang2020pointgroup}.
+
+Object detection is performed with VoteNet \cite{qi2019deep}, using the sparse voxel backbone instead of PointNet++. For more information regarding the network structure for these tasks, please refer to the supplementary material.
+
+\textbf{Pretraining on 2D:} We use a batch size of 64 image pairs. For each pair we sample 4092 pixels to contrast in our loss function from eqn. \ref{eq:contrastive_loss}. The loss function uses a $\tau$ of 0.4, a learning rate of 0.01, SGD optimizer with a momentum of 0.9, dampening of 0.1 and weight decay of 0.004. We decay the learning rate according to an exponential scheduler with an exponential rate of 0.99. Positive samples are generated using the following transformations: random resized crop, random horizontal flip, color jitter, random gray scale, gaussian blur and color normalization. We pre-train the image network for 20k iterations.
+
+\textbf{Transfer from 2D to 3D:} Transfer learning is done using the scannet dataset. We use a batch size of 8 scan-image pairs and select 2000 point-pixel correspondences per pair. The images are only center cropped to fit into the 2D model. We voxelize the points using a size of 5cm and transform them using a Random horizontal flip and random rotation around the z-axis. The colors are also transformed randomly with chromatic autocontrast, translation and jitter. The hyperparameters are the same as those in 2D except the learning rate is set to 0.1. It is trained for 20k iterations same as pre-training on 2D.
+
+\textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. It may be noted that we get slightly different numbers from those oringinaly reported. This comes down to a couple of factors, mainly an update to the core sparse convolution library that is required to run on modern GPUs, as well as using a single GPU instead of 8. Because of the library update, all pre-training was run from scratch.
+
+\subsection{Contrastive Loss in 2D}
+\label{sec:results:2d}
+
+Before transferring features into 3D, we first want to verify that the features we are transferring have some connection to the original image. To do this we visualized the features by bringing them into a 1D color space using the t-SNE \cite{maaten2008Visualizing} algorithm. the colors are put together to make an image. The visualization along with the original image can be found in figure \ref{fig:features2dvis}. The visualizations show a clear mapping between input image and output feature. This suggests the features should act as a good baseline for initializing network backbones.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=7cm]{images/experiments/25.02.2022-image-pretrain-vis2.png}
+    \includegraphics[width=7cm]{images/experiments/25.02.2022-image-pretrain-vis1.png}
+    \caption{\textbf{Left} Input image. \textbf{Right} Visualization of features from the pre-trained 2D backbone}
+    \label{fig:features2dvis}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=7cm]{images/experiments/image-to-point-vis1.png}
+    \includegraphics[width=7cm]{images/experiments/image-to-point-vis2.png}
+    \caption{\textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
+    \label{fig:features2d-3dvis}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=4cm]{images/experiments/scratch-3d.png}
+    \includegraphics[width=4cm]{images/experiments/scratch-3d-2.png}
+    \caption{Visualization of point features without pre-training.}
+    \label{fig:features2dScratchvis}
+\end{figure}
+
+\subsection{Transfering 2D features to 3D}
+\label{sec:results:2d3d}
+
+To verify that the features were transferred correctly, we used the same visualization approach taken in section \ref{sec:results:2d} but instead applied it to points. Figure \ref{fig:features2d-3dvis} shows the relation between the 2D and 3D features. Although the features did not transfer perfectly, they did on certain key areas. For example, on the wall and table in the top image and on the bookshelves in the bottom image.
+
+\subsection{Semantic Segmentation}
+\label{sec:results:semantic}
+
+We first test the case of pretraining our model on ScannetV2 and finetuning on S3DIS. Our results are shown in table \ref{table:s3disResults}. Fully supervised pretraining has a drastic impact on the final downstream performance and is used as an upperbound on expected performance. Our algorithm is comparable to the performance of \cite{xie2020pointcontrast} however, that is without using overlapping 3D scans.
+
+When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
+
+\subsection{Instance Segmentation}
+\label{sec:results:instance}
+
+\subsection{Object Detection}
+\label{sec:results:object}
+
+\subsection{Object Detection}
+\label{sec:results:object}
+
+Things to include in results
+\begin{itemize}
+    \item Training and validation curves
+    \item Ablation studies
+\end{itemize}
+
+\section{Discussion}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+\begin{itemize}
+    \item that transferring 2D features to 3D improves performance across different domains.
+    \item that although some algorithms perform extremely well in some domains, they fail in others. Or they might work well on one task but not another.
+    \item PointContrast \& CSC both ideally require overlapping scenes to perform properly whereas our algorithm does not.
+    \item Pre-training does little when large labeled datasets are used but are more effective when datasets are very small
+    \item Pre-training can help speed up training time on smaller datasets but has no impact on larger datasets.
+\end{itemize}
+
+
+\newpage
+%%%%%%%%% REFERENCES
+{\small
+    \bibliographystyle{ieee_fullname}
+    \bibliography{contrastive-learning}
+}
+
+\clearpage
+\section{Supplement}
+
 \begin{table*}[t!]
     \centering
     \resizebox{\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c c c c | c }
-                                                      & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU                   \\
+                                                      & ceiling        & floor          & wall           & beam           & column         & window         & door           & table          & chair          & sofa           & bookcase       & board          & clutter        & mIOU                            \\
             \hline
-            Scratch                                   & 90.34          & \textbf{96.84} & 80.63          & 0              & 25.5           & 56.95          & 62.93          & 75.14          & 86.21          & 65.77          & 72.12          & 76.91          & 56.4           & 65.06                  \\
-            Supervised                                & \textbf{91.81} & 96.74          & \textbf{84.11} & \textbf{0.21}  & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82} & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} (+5.16) \\
+            Scratch                                   & 90.34          & \textbf{96.84} & 80.63          & 0              & 25.5           & 56.95          & 62.93          & 75.14          & 86.21          & 65.77          & 72.12          & 76.91          & 56.4           & 65.06                           \\
+            Supervised                                & \textbf{91.81} & 96.74          & \textbf{84.11} & \textbf{0.21}  & \textbf{34.68} & \textbf{57.64} & \textbf{81.53} & \textbf{77.63} & \textbf{89.82} & \textbf{85.76} & \textbf{76.03} & \textbf{79.27} & \textbf{57.67} & \textbf{70.22} \textbf{(+5.16)} \\
             \hline
-            PointContrast                             & 91.97          & \textbf{96.67} & 82.4           & 0              & 17.84          & 56.49          & \textbf{75.39} & \textbf{77.63} & 87.35          & 63.3           & 73.53          & \textbf{79.55} & 58.76          & 66.22 (+1.16)          \\
-            PointContrast - Same Scan                 & 91.03          & 96.27          & \textbf{82.8}  & 0              & 31.53          & 57.27          & 69.33          & 76.97          & \textbf{88.83} & 45.49          & 71.02          & 77.09          & 57.06          & 64.97 (-0.09)          \\
-            PointContrast - 70\% overlap              & 91.85          & 96.56          & 83.55          & 0              & 28.25          & 59.36          & 73.53          & 78.51          & 88.28          & 79.95          & 74.61          & 76             & 61.08          & 68.58 (+3.52)          \\
-            Contrastive Scene Contexts                & \textbf{92.34} & 96.02          & 83.53          & 0              & \textbf{40.88} & \textbf{57.73} & 72.11          & 77.5           & 88.15          & \textbf{74.61} & \textbf{74.52} & 76.45          & \textbf{62.64} & 68.96 (+3.9)           \\
-            Contrastive Scene Contexts - Same Scan    & 91.68          & 96.59          & 83.21          & 0              & 40.38          & 58.12          & 70.42          & 76.77          & 87.13          & 69.33          & 68.77          & 82.34          & 58.45          & 67.94 (+2.88)          \\
-            Contrastive Scene Contexts - 70\% overlap & 92.68          & 96.63          & 83.99          & 0              & 42.37          & 55.95          & 77.17          & 75.74          & 89.57          & 82.74          & 73.45          & 80.67          & 60.55          & \textbf{70.12} (+5.06) \\
-            CME \textbf{(Ours)}                       & 90.8           & 96.57          & 82.52          & \textbf{0.110} & 30.94          & 56.94          & 68.71          & 75.12          & 88.48          & 71.7           & 72.17          & 73.783         & 56.35          & 66.48 (+1.42)          \\
+            PointContrast                             & 91.97          & \textbf{96.67} & 82.4           & 0              & 17.84          & 56.49          & \textbf{75.39} & \textbf{77.63} & 87.35          & 63.3           & 73.53          & \textbf{79.55} & 58.76          & 66.22 \textbf{(+1.16)}          \\
+            PointContrast - Same Scan                 & 91.03          & 96.27          & \textbf{82.8}  & 0              & 31.53          & 57.27          & 69.33          & 76.97          & \textbf{88.83} & 45.49          & 71.02          & 77.09          & 57.06          & 64.97 (-0.09)                   \\
+            PointContrast - 70\% overlap              & 91.85          & 96.56          & 83.55          & 0              & 28.25          & 59.36          & 73.53          & 78.51          & 88.28          & 79.95          & 74.61          & 76             & 61.08          & 68.58 \textbf{(+3.52)}          \\
+            Contrastive Scene Contexts                & \textbf{92.34} & 96.02          & 83.53          & 0              & \textbf{40.88} & \textbf{57.73} & 72.11          & 77.5           & 88.15          & \textbf{74.61} & \textbf{74.52} & 76.45          & \textbf{62.64} & 68.96 \textbf{(+3.9)}           \\
+            Contrastive Scene Contexts - Same Scan    & 91.68          & 96.59          & 83.21          & 0              & 40.38          & 58.12          & 70.42          & 76.77          & 87.13          & 69.33          & 68.77          & 82.34          & 58.45          & 67.94 \textbf{(+2.88)}          \\
+            Contrastive Scene Contexts - 70\% overlap & 92.68          & 96.63          & 83.99          & 0              & 42.37          & 55.95          & 77.17          & 75.74          & 89.57          & 82.74          & 73.45          & 80.67          & 60.55          & \textbf{70.12} \textbf{(+5.06)} \\
+            DepthContrast                             & 90.99          & 95.45          & 80.99          & 0              & 32.52          & 51.94          & 61.57          & 74.55          & 87.28          & 71.62          & 71.34          & 67.71          & 57.85          & 64.91 (-0.15)                   \\
+            CME \textbf{(Ours)}                       & 90.8           & 96.57          & 82.52          & \textbf{0.110} & 30.94          & 56.94          & 68.71          & 75.12          & 88.48          & 71.7           & 72.17          & 73.783         & 56.35          & 66.48 \textbf{(+1.42)}          \\
         \end{tabular}
     }
     \caption{S3DIS Semantic Segmentation results (mIOU)}
@@ -223,18 +353,19 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \centering
     \resizebox{0.8\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c c c c c | c }
-                                                      & beam & column        & window        & door & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5              \\
+                                                      & beam & column        & window        & door & table         & chair         & sofa          & bookcase      & board         & clutter       & mAP@0.5                       \\
             \hline
-            Scratch                                   & 0    & 12.8          & 61.7          & 92.0 & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                 \\
-            Supervised                                & 0    & 26.0          & 74.3          & 84.5 & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2) \\
+            Scratch                                   & 0    & 12.8          & 61.7          & 92.0 & 51.4          & 87.3          & 62.4          & 38.5          & 87.0          & 37.1          & 53.0                          \\
+            Supervised                                & 0    & 26.0          & 74.3          & 84.5 & 43.3          & 87.3          & \textbf{81.8} & 37.4          & \textbf{85.4} & \textbf{41.2} & \textbf{56.2} (+3.2)          \\
             \hline
-            PointContrast                             & 0    & 24.7          & 67.9          & 90.7 & 43.8          & 92.0          & 72.7          & 32.3          & 85.6          & 38.0          & 54.8 (+1.8)          \\
-            PointContrast - Same Scan                 & 0    & 19.8          & 70.7          & 92.1 & 48.4          & 90.5          & 81.8          & 38.4          & 90.4          & 34.1          & 56.6 (+3.6)          \\
-            PointContrast - 70\% overlap              & 0    & 22.6          & 71.6          & 94.6 & 45.8          & 87.9          & 71.7          & 37.0          & 81.0          & 40.9          & 55.3 (+2.3)          \\
-            Contrastive Scene Contexts                & 0    & 32.9          & 69.2          & 93.0 & 47.6          & 87.5          & 80.9          & 39.6          & 87.5          & 40.4          & 57.8 (+4.8)          \\
-            Contrastive Scene Contexts - Same Scan    & 0    & 32.0          & 69.3          & 96.1 & 38.7          & 89.4          & 87.6          & 38.8          & 81.3          & 38.8          & 57.2 (+4.2)          \\
-            Contrastive Scene Contexts - 70\% overlap & 0    & 27.2          & 76.9          & 95.4 & 42.2          & 90.3          & 90.9          & 42.6          & 84.7          & 38.7          & \textbf{58.9} (+5.9) \\
-            CME \textbf{(Ours)}                       & 0    & \textbf{35.0} & \textbf{70.0} & 83.4 & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 (+2.8)          \\
+            PointContrast                             & 0    & 24.7          & 67.9          & 90.7 & 43.8          & 92.0          & 72.7          & 32.3          & 85.6          & 38.0          & 54.8 \textbf{(+1.8)}          \\
+            PointContrast - Same Scan                 & 0    & 19.8          & 70.7          & 92.1 & 48.4          & 90.5          & 81.8          & 38.4          & 90.4          & 34.1          & 56.6 \textbf{(+3.6)}          \\
+            PointContrast - 70\% overlap              & 0    & 22.6          & 71.6          & 94.6 & 45.8          & 87.9          & 71.7          & 37.0          & 81.0          & 40.9          & 55.3 \textbf{(+2.3)}          \\
+            Contrastive Scene Contexts                & 0    & 32.9          & 69.2          & 93.0 & 47.6          & 87.5          & 80.9          & 39.6          & 87.5          & 40.4          & 57.8 \textbf{(+4.8)}          \\
+            Contrastive Scene Contexts - Same Scan    & 0    & 32.0          & 69.3          & 96.1 & 38.7          & 89.4          & 87.6          & 38.8          & 81.3          & 38.8          & 57.2 \textbf{(+4.2)}          \\
+            Contrastive Scene Contexts - 70\% overlap & 0    & 27.2          & 76.9          & 95.4 & 42.2          & 90.3          & 90.9          & 42.6          & 84.7          & 38.7          & \textbf{58.9} \textbf{(+5.9)} \\
+            DepthContrast                             & 0    & 40.3          & 68.4          & 74.9 & 42.2          & 87.8          & 62.4          & 33.3          & 78.1          & 35.5          & 52.3 (-0.7)                   \\
+            CME \textbf{(Ours)}                       & 0    & \textbf{35.0} & \textbf{70.0} & 83.4 & \textbf{53.9} & \textbf{88.9} & 71.7          & \textbf{42.2} & 76.1          & 36.7          & 55.8 \textbf{(+2.8)}          \\
         \end{tabular}
     }
     \caption{S3DIS Instance Segmentation Results (mAP@0.5)}
@@ -277,24 +408,6 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
     \label{table:scannetInstanceVaryingDataAmount}
 \end{table*}
 
-% \begin{table*}[t!]
-%     \centering
-%     \resizebox{\textwidth}{!}{
-%         \begin{tabular}[b]{ c | l c c c c c c c c c c c c c c c c c | c }
-%                                        & \begin{turn}{-90}cabinet \end{turn} & \begin{turn}{-90} bed  \end{turn} & \begin{turn}{-90} chair \end{turn} & \begin{turn}{-90} sofa \end{turn} & \begin{turn}{-90} table \end{turn} & \begin{turn}{-90} door \end{turn} & \begin{turn}{-90}  window \end{turn} & \begin{turn}{-90} bookshelf \end{turn} & \begin{turn}{-90} picture \end{turn} & \begin{turn}{-90} counter \end{turn} & \begin{turn}{-90} desk \end{turn} & \begin{turn}{-90} curtain \end{turn} & \begin{turn}{-90} refrigerator \end{turn} & \begin{turn}{-90}  Shower curtain \end{turn} & \begin{turn}{-90}  toilet \end{turn} & \begin{turn}{-90} sink  \end{turn} & \begin{turn}{-90} bathtub  \end{turn} & \begin{turn}{-90} otherfurniture \end{turn} & mAP@0.5     \\
-
-%             scratch                    & 45.8                       & 72.7                       & 79.8                       & 60.6                       & 69.5                       & 37.8                       & 28.9                       & 44.2                       & 17.8                       & 16.6                       & 24.8                       & 24.0                       & 45.3                       & 63.4                       & 93.1                       & 46.6                       & 78.5                       & 33.4                       & 49.0        \\
-%             \hline
-%             PointContrast              & 45.6                       & 68.9                       & 76.0                       & 62.7                       & 65.2                       & 38.5                       & 33.2                       & 53.7                       & 15.9                       & 20.9                       & 31.6                       & 23.2                       & 36.6                       & 55.5                       & 1.0                        & 48.0                       & 76.9                       & 31.6                       & 49.1 (+0.1) \\
-%             Contrastive Scene Contexts & 48.6                       & 63.5                       & 79.0                       & 64.3                       & 65.0                       & 35.9                       & 32.8                       & 48.8                       & 15.0                       & 27.1                       & 38.3                       & 19.1                       & 44.9                       & 50.4                       & 94.6                       & 49.1                       & 76.3                       & 34.3                       & 49.3 (+0.3) \\
-%             CME \textbf{(Ours)}        & 45.3                       & 72.8                       & 76.2                       & 66.2                       & 63.2                       & 38.2                       & 25.4                       & 49.7                       & 18.6                       & 21.0                       & 34.3                       & 20.2                       & 39.2                       & 58.9                       & 94.8                       & 45.0                       & 73.9                       & 30.0                       & 48.5 (-0.5) \\
-%             \hline
-%         \end{tabular}
-%     }
-%     \caption{Scannet Instance Segmentation Results (mAP@0.5)}
-%     \label{table:scannetInstanceSegmention}
-% \end{table*}
-
 \begin{table*}[t!]
     \centering
     \resizebox{0.7\textwidth}{!}{
@@ -322,113 +435,12 @@ We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks
             \hline
             PointContrast              & 36.7 \textbf{(+1.5)} & 34.2 \textbf{(+2.2)} \\
             Contrastive Scene Contexts & 36.1 \textbf{(+0.9)} & 35.1 \textbf{(+3.1)} \\
+            DepthContrast              & 33.9 (-1.3)          &                      \\
             CME \textbf{(Ours)}        & 37.7 \textbf{(+2.5)} & 33.1 \textbf{(+1.1)} \\
         \end{tabular}
     }
     \caption{Object Detection using VoteNet  (mAP)}
     \label{table:scannetObjectDetection}
 \end{table*}
-
-\section{Experiment Results}
-\label{sec:results}
-
-This section will show (1) that the learned 2D features improve 2D segmentation performance as well as show a clear mapping to their input image when visualized. Therefore these features serve as good candidates for initializing our 3D network. (2) That the transfer of features from 2D to 3D improve performance on various 3D tasks against training from scratch. (3) That the performance of PointContrast is wholly dependant on the use of overlapping scans that allow it to extrapolate data.
-
-\subsection{Datasets}
-\label{sec:results:datasets}
-
-Following the common practice of 3D contrastive learning \cite{xie2020pointcontrast,hou2021Exploring, zhang2021Self, jiang2021Guided}, we use the following the datasets.
-
-\textbf{Scannet \cite{Dai2017ScanNet}:} Comprises of roughly 1600 reconstructed scans of indoor scenes captured using a stereo camera, reconstructed using a pose graph and then formed into a mesh. The scenes are mostly of individual rooms and range in the square floor size of 2 meters to 10 meters with a standard ceiling height of about 3 meters. Included in the dataset is the raw data of individual scans with their corresponding images along with the semantic and instance labels for the reconstructed scenes. It contains 20 different classes. We use the predefined train and validation split, using the validation as our test set as well as is done in previous works.
-
-\textbf{S3DIS \cite{armeni20163D}}: Much smaller than Scannet, it comprises of only 300 scenes however their size varies quite drastically as some are of rooms and others are of entire auditoriums. The scenes were also captured using a stereo camera and are mainly of indoor office scenes. There are 13 different semantic classes and all scenes contain point level semantic and instance labels. As is commonly done \cite{xie2020pointcontrast, hou2021Exploring} we use the Area 5 split as our validation and test set.
-
-\textbf{semanticKITTI}: Time allowing.
-
-We use Scannet to pretrain out network as it is the largest. It shares many of the same classes and types of indoor scenes as S3DIS and so is a perfect candidate to show the use case of collecting large amounts of unlabeled data for a task and then labeling only a partial amount.
-
-\subsection{Implementation}
-\label{sec:results:implementation}
-
-\textbf{Model:} The backbone network used is the same as that used in \cite{xie2020pointcontrast, hou2021Exploring} using the sparse convolutional library developed by \cite{choy20194d}. The backbone uses a Res16UNet34 structure with non-bottleneck blocks and a maximum feature embedding size of 256. The outputs of the model are directly used for semantic segmentation.
-
-Instance segmentation is done using the same backbone with the head from \cite{jiang2020pointgroup}.
-
-\textbf{Pretraining on 2D:} Batch size of 64 image pairs where for each image pair we select 4092 pixels to contrast in our loss function. The loss function uses a tau of 0.4, a learning rate of 0.01, SGD optimizer with a momentum of 0.9, dampning of 0.1 and weight decay of 0.004. We decay the learning rate according to an exponential scheduler with an exponential rate of 0.99. Trained for 20k iterations.
-
-\textbf{Transfer:} Transfer learning is done using the scannet dataset. We use a batch size of 8 and select 2000 point-pixel combinations per datapoint. The images are only center cropped to fit into the 2D model. The 3D model uses a voxel size of 5cm. The hyperparameters are the same al those in 2D except the learning rate is set to 0.1. It is trained for 20k iterations same as pre-training on 2D.
-
-\textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. The only difference is that we train instead on a single GPU for 20k iterations
-
-\subsection{Contrastive Loss in 2D}
-\label{sec:results:2d}
-
-Before transferring features into 3D, we first want to verify that the features we are transferring are useful. To do this we first visualized the features by bringing them into a 1D color space using the t-SNE \cite{maaten2008Visualizing} algorithm. the colors are put together to make an image. The visualization along with the original image can be found in figure \ref{fig:features2dvis}.
-
-\AJ{Need to train a 2D segmentation with and without pre-training.}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=8cm]{images/experiments/25.02.2022-image-pretrain-vis2.png}
-    \includegraphics[width=8cm]{images/experiments/25.02.2022-image-pretrain-vis1.png}
-    \caption{Visualization of features from the pre-trained 2D backbone. Images on the left are the input and right are the output.}
-    \label{fig:features2dvis}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=8cm]{images/experiments/image-to-point-vis1.png}
-    \includegraphics[width=8cm]{images/experiments/image-to-point-vis2.png}
-    \caption{\textbf{left} shows features of the 2D images and \textbf{right} shows the features that were transfered to the 3D point cloud.}
-    \label{fig:features2d-3dvis}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=4cm]{images/experiments/scratch-3d.png}
-    \includegraphics[width=4cm]{images/experiments/scratch-3d-2.png}
-    \caption{Visualization of point features without pre-training.}
-    \label{fig:features2dScratchvis}
-\end{figure}
-
-\subsection{Transfering 2D features to 3D}
-\label{sec:results:2d3d}
-
-To verify that the features were trasnfered correctly, we used the same visualization approach taken in section \ref{sec:results:2d} but instead applied it to points. Figure \ref{fig:features2d-3dvis} shows the relation between the 2D and 3D features. Although they didn't transfer perfectly, they did on certain key areas for example on the bookshelves in the top image and the wall and table in the lower image.
-
-\subsection{Semantic Segmentation}
-\label{sec:results:3d}
-
-We first test the case of pretraining our model on ScannetV2 and finetuning on S3DIS. Our results are shown in table \ref{table:s3disResults}. Fully supervised pretraining has a drastic impact on the final downstream performance and is used as an upperbound on expected performance. Our algorithm is comparable to the performance of \cite{xie2020pointcontrast} however, that is without using overlapping 3D scans.
-
-When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
-
-\textbf{IDEA:} To test the overlap hypothesis, try upping the min overlap ratio from 0.3 to 0.9.
-
-Things to include in results
-\begin{itemize}
-    \item S3DIS semantic segmentation
-    \item S3DIS instance segmentation
-    \item Scannet semantic segmentation
-    \item Scannet semantic segmentation with different amounts of data
-    \item Visualization of features in 2D
-    \item Visualization of features in 3D
-          % \item Pretraining and training without colour information
-    \item Using projection of 3D points instead of direct scan using \cite{katz2007Direct}
-    \item Training and validation curves
-    \item Ablation studies
-\end{itemize}
-
-\section{Conclusion}
-\label{sec:conclusion}
-
-
-
-\newpage
-%%%%%%%%% REFERENCES
-{\small
-    \bibliographystyle{ieee_fullname}
-    \bibliography{contrastive-learning}
-}
 
 \end{document}
