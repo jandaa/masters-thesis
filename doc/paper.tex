@@ -248,6 +248,10 @@ Object detection is performed with VoteNet \cite{qi2019deep}, using the sparse v
 
 \textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. It may be noted that we get slightly different numbers from those oringinaly reported. This comes down to a couple of factors, mainly an update to the core sparse convolution library that is required to run on modern GPUs, as well as using a single GPU instead of 8. Because of the library update, all pre-training was run from scratch.
 
+% \subsection{Evaluation Metrics}
+% \label{sec:results:metrics}
+% \dots
+
 \subsection{Contrastive Loss in 2D}
 \label{sec:results:2d}
 
@@ -289,7 +293,7 @@ We first test the case of pretraining our model on ScannetV2 and finetuning on S
 
 When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
 
-\begin{table*}[t]
+\begin{table*}[t!]
     \centering
     \resizebox{\textwidth}{!}{
         \begin{tabular}{ c | c c | c c c c c c | c c c c c c |}
@@ -302,6 +306,7 @@ When using point correspondences without overlapping scans, the performance gain
             CSC                 & $>$ 30\% & Pair & 42.6 \textbf{(+0.4)}                               & 53.03 \textbf{(+1.94)}                                & 57.28 (-0.95)          & 62.15 \textbf{(+2.92)} & 65.15 \textbf{(+2.98)} & 67.62 \textbf{(+0.19)} & 29.8 \textbf{(+2.9)} & 35.5          & 41.6 \textbf{(+0.9)} & 42.9 \textbf{(+0.7)} & 44.6 (-1.1) & 49.3 \textbf{(+0.3)} \\
             CSC                 & $>$ 70\% & Pair & 45.44 \textbf{(+3.24)}                             & 50.84 (-0.25)                                         & 59.26 \textbf{(+1.03)} & 59.72 \textbf{(+0.49)} & 62.72 \textbf{(+0.55)} & 68.01 \textbf{(+0.58)} & --                   & --            & --                   & --                   & --          & --                   \\
             CSC                 & --       & Same & 44.09 \textbf{(+1.89)}                             & 50.88 (-0.21)                                         & 56.64 (-1.59)          & 58.9 (-0.33)           & 61.50 (-0.67)          & 67.37 (-0.06)          & --                   & --            & --                   & --                   & --          & --                   \\
+            DepthContrast       & --       & Same & 49.27 \textbf{(+7.07)}                             & 54.27 \textbf{(+3.18)}                                & 58.21 (-0.02)          &                        &                        &                        & 24.9 (-2.0)          & 33.8          & 38.2 (-2.5)          & --                   & --          & --                   \\
             CME \textbf{(Ours)} & --       & Same & 44.04 \textbf{(+1.84)}                             & 52.97 \textbf{(+1.88)}                                & 58.6 \textbf{(+0.37)}  & 60.73 \textbf{(+1.5)}  & 63.31 \textbf{(+1.14)} & 67.71 \textbf{(+0.28)} & 25.5 (-1.4)          & 35.5          & 39.1 (-1.6)          & 42.4 \textbf{(+0.2)} & 43.6 (-2.1) & 48.5 (-0.5)          \\
         \end{tabular}
     }
@@ -313,26 +318,42 @@ When using point correspondences without overlapping scans, the performance gain
     \centering
     \resizebox{0.45\textwidth}{!}{
         \begin{tabular}{ c | c c c c }
-                                & min overlap & Same Scan  & Semantic (mIOU)                 & Instance (mAP@0.5)            \\
+                                & overlap  & Scan & Semantic (mIOU)                 & Instance (mAP@0.5)            \\
             \hline
-            Scratch             & --          & --         & 65.06                           & 53.0                          \\
-            Supervised          & --          & --         & \textbf{70.22} \textbf{(+5.16)} & \textbf{56.2} \textbf{(+3.2)} \\
+            Scratch             & --       & --   & 65.06                           & 53.0                          \\
+            Supervised          & --       & --   & \textbf{70.22} \textbf{(+5.16)} & \textbf{56.2} \textbf{(+3.2)} \\
             \hline
-            PointContrast       & 30\%        &            & 66.22 \textbf{(+1.16)}          & 54.8 \textbf{(+1.8)}          \\
-            PointContrast       & 70\%        &            & 68.58 \textbf{(+3.52)}          & 55.3 \textbf{(+2.3)}          \\
-            PointContrast       &             & \checkmark & 64.97 (-0.09)                   & 56.6 \textbf{(+3.6)}          \\
-            CSC                 & 30\%        &            & 68.96 \textbf{(+3.9)}           & 57.8 \textbf{(+4.8)}          \\
-            CSC                 & 70\%        &            & \textbf{70.12} \textbf{(+5.06)} & \textbf{58.9} \textbf{(+5.9)} \\
-            CSC                 &             & \checkmark & 67.94 \textbf{(+2.88)}          & 57.2 \textbf{(+4.2)}          \\
-            DepthContrast       &             & \checkmark & 64.91 (-0.15)                   & 52.3 (-0.7)                   \\
-            CME \textbf{(Ours)} &             & \checkmark & 66.48 \textbf{(+1.42)}          & 55.8 \textbf{(+2.8)}          \\
+            PointContrast       & $>$ 30\% & Pair & 66.22 \textbf{(+1.16)}          & 54.8 \textbf{(+1.8)}          \\
+            PointContrast       & $>$ 70\% & Pair & 68.58 \textbf{(+3.52)}          & 55.3 \textbf{(+2.3)}          \\
+            PointContrast       &          & Same & 64.97 (-0.09)                   & 56.6 \textbf{(+3.6)}          \\
+            CSC                 & $>$ 30\% & Pair & 68.96 \textbf{(+3.9)}           & 57.8 \textbf{(+4.8)}          \\
+            CSC                 & $>$ 70\% & Pair & \textbf{70.12} \textbf{(+5.06)} & \textbf{58.9} \textbf{(+5.9)} \\
+            CSC                 &          & Same & 67.94 \textbf{(+2.88)}          & 57.2 \textbf{(+4.2)}          \\
+            DepthContrast       &          & Same & 64.91 (-0.15)                   & 52.3 (-0.7)                   \\
+            CME \textbf{(Ours)} &          & Same & 66.48 \textbf{(+1.42)}          & 55.8 \textbf{(+2.8)}          \\
         \end{tabular}
     }
     \caption{S3DIS downstream semantic (mIOU) and instance (mAP@0.5) segmentation performance using weights pre-trained in Scannet}
     \label{table:s3disResults}
 \end{table}
 
-
+\begin{table}
+    \centering
+    \resizebox{0.4\textwidth}{!}{
+        \begin{tabular}{c | c c c}
+                                       & Scannet              & SunRGBD              \\
+            \hline
+            Scratch                    & 35.2                 & 32.0                 \\
+            \hline
+            PointContrast              & 36.7 \textbf{(+1.5)} & 34.2 \textbf{(+2.2)} \\
+            Contrastive Scene Contexts & 36.1 \textbf{(+0.9)} & 35.1 \textbf{(+3.1)} \\
+            DepthContrast              & 33.9 (-1.3)          & 32.9 \textbf{(+0.9)} \\
+            CME \textbf{(Ours)}        & 37.7 \textbf{(+2.5)} & 33.1 \textbf{(+1.1)} \\
+        \end{tabular}
+    }
+    \caption{Object Detection using VoteNet  (mAP)}
+    \label{table:scannetObjectDetection}
+\end{table}
 
 
 \begin{table*}[t]
