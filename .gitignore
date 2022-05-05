@@ -133,6 +133,7 @@ outputs/
 
 *sens
 *.out
+*.csv
 
 doc/*.aux
 doc/*.bbl
