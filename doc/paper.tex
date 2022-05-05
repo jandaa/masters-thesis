@@ -341,7 +341,7 @@ When using point correspondences without overlapping scans, the performance gain
 
 \begin{table}
     \centering
-    \resizebox{0.5\textwidth}{!}{
+    \resizebox{0.47\textwidth}{!}{
         \begin{tabular}{ c | c c c c c c }
                                 & 5\%                  & 10\%                 & 20\%                  & 30\%                 & 40\%                 & 100\%                \\
             \hline
@@ -374,6 +374,15 @@ When using point correspondences without overlapping scans, the performance gain
     \caption{Object Detection using VoteNet  (mAP)}
     \label{table:scannetObjectDetection}
 \end{table}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=8cm]{images/plots/s3dis_semantic.pdf}
+    \includegraphics[width=8cm]{images/plots/scannet_0.05_semantic.pdf}
+    \includegraphics[width=8cm]{images/plots/scannet_semantic.pdf}
+    \caption{\textbf{Top} Comparison of validation performance over training steps.}
+    \label{fig:validationComparison}
+\end{figure}
 
 \subsection{Instance Segmentation}
 \label{sec:results:instance}
