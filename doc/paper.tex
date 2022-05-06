@@ -358,15 +358,24 @@ Similarly, we also test varying data amounts on the semanticKITTI dataset which 
             $\dagger$ CME \textbf{(Ours)}                       & Same & --       & 44.0 \textbf{(+1.8)}                               & 53.0 \textbf{(+1.9)}                                  & 58.6 \textbf{(+0.4)} & 60.7 \textbf{(+1.5)} & 63.3 \textbf{(+1.1)} & 67.7 \textbf{(+0.28)} & 25.5 (-1.4)          & 35.5 (-0.8)          & 39.1 (-1.6)          & 42.4 \textbf{(+0.2)} & 43.6 (-2.1) & 48.5 (-0.5)          \\
         \end{tabular}
     }
-    \caption{Scannet downstream semantic (mIOU) and instance (mAP@0.5) segmentation performance using weights pre-trained in Scannet}
+    \caption{\textbf{Scannet downstream performance.} All methods use weights pre-trained on Scannet. Those with a † indicate the original algorithm whereas all others are variants. The difference in brackets is with respect to training from scratch. }
     \label{table:scannetVaryingDataAmount}
 \end{table*}
 
 \subsection{Instance Segmentation}
 \label{sec:results:instance}
 
+As in the previous section, we evaluate the performance of pre-training on Scannet and training on S3DIS for instance segmentation which can be found in table \ref{table:s3disResults}. Almost all pre-training methods get close or even surpass supervised results with the exception again being DepthContrast. The best performing method, as before, is Contrastive Scene Contexts which gets a performance boost of 4.8 mAP@0.5. However, our own method gets very close to supervised level performance with a boost of 2.8.
+
+However, looking at the effects on Scannet in table \ref{table:scannetVaryingDataAmount}, all methods struggle to improve upon training from scratch. In many cases they even perform substantially worse, with out method not being able to improve in almost all scenarios. Contrastive Scene Contexts is the only method that shows some consistent improvement. It is interesting to note that even though semantic segmentation receives a boost, this does not necessarily translate into instance segmentation.
+
 \subsection{Object Detection}
 \label{sec:results:object}
+
+Object detection is an interesting downstream task because it operates at an object level instead of a point level like the pre-training objective. Here we investigated the performance on Scannet and SunRGBD, which can be found in table \ref{table:scannetObjectDetection}.
+
+All methods besides DepthContrast show a strong improvement in both datasets. Contrastive Scene Contexts perform get the largest boost on SunRGBD of 3.1 mAP while our method gets the largest boost on Scannet with an increase of 2.5 mAP. All methods are still pre-trained on Scannet only and so to see performance improvements when using the entire Scannet dataset indicated that in the case of object detection, pre-training can help even on larger datasets.
+
 
 \begin{table}
     \centering
@@ -419,6 +428,8 @@ The performance gains are unpredictable as the fraction of labeled data is varie
     \item Overal can expect about a 1\% increase in performance
     \item Our method, which is easy to implement and does not require a pose transformation between frames, is a good start in trying to find best performance.
     \item Also when using PointContrast \& CSC, you can experiment with overlap ratio and using tha same scan to get better results
+    \item It may be worth trying a self-supervised method to see performance boost before spending extra time labeling the entire dataset
+    \item Using out-of-distribution data for pre-training can have a bigger impact that pre-training on in-distribution.
 \end{itemize}
 
 \begin{figure}[h!]
