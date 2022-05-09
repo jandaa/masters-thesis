@@ -92,7 +92,7 @@ These algorithms work exclusively with point clouds but throw away the correspon
 This paper has the following contributions.
 
 \begin{itemize}
-    \item Demonstrates that previous work in 3D \cite{xie2020pointcontrast} works by learning to extrapolate 3D scenes. When purely learning improved features on fully-overlapping regions the performance gain disapears.
+    \item Demonstrates that previous work in 3D \cite{xie2020pointcontrast} works by learning to extrapolate 3D scenes. When purely learning improved features on fully-overlapping regions the performance gain disappears.
     \item Provide a 2D feature extractor and pre-training algorithm. Demonstrate that these features can improve 2D segmentation.
     \item Transfer learned 2D features onto a 3D model
 \end{itemize}
@@ -101,12 +101,21 @@ This paper has the following contributions.
 \label{sec:relatedWork}
 
 
-\textbf{Sparse 3D convolutions.} Talk about submanifold networks, Minkowski Engine, etc
+\textbf{Sparse 3D convolutions.} Talk about submanifold networks, Minkowski Engine \cite{choy20194d}, pointnet \cite{charles2017PointNet} PointNet++ \cite{qi2017pointnet++}.
 
-\textbf{Contrastive Learning.} Talk about SimCLR, BOYL, etc. Then talk about PointContrast.
+\textbf{Downstream tasks.} PointGroup \cite{}
 
-\textbf{Knowledge Distilation} Need to read up on this
+\textbf{Contrastive Learning.} Talk about SimCLR \cite{chen_simple_2020}, BOYL \cite{grill_bootstrap_nodate}, Moco \cite{he_momentum_2020}. Then talk about PointContrast. \cite{choy2019Fully}
 
+\textbf{Contrastive learning variations}
+Supervised contrastive losses \cite{khosla_supervised_2021} Guided contrastive learning in 3D \cite{jiang2021Guided}. Prototypical learning \cite{li_prototypical_2021}
+
+\textbf{Contrastive Learning in 3D}
+DepthContrast \cite{zhang2021Self}
+
+\textbf{Using 2D images.} 3D-sis \cite{hou20193d}, Using 2D images to learn 3D segmentation \cite{genova2021learning} \cite{frey_continual_2021}. 3dmv \cite{angela2018joint}
+
+Closest to my work: \cite{yunze2020p4contrast}. Their approach is to augment 3D points with features from 2D images and use their combined multi-modal features as the output of their model. They require however that their model always have access to 2D images and cannot operate on solely colorized point clouds at runtime.
 
 \section{Self-Supervised Contrastive learning}
 \label{sec:contrastiveLearning}

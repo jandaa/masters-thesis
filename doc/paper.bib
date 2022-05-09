@@ -229,13 +229,22 @@
   file     = {arXiv Fulltext PDF:/home/andrej/Zotero/storage/E3FWTJII/Khosla et al. - 2021 - Supervised Contrastive Learning.pdf:application/pdf;arXiv.org Snapshot:/home/andrej/Zotero/storage/FDXUI23F/2004.html:text/html}
 }
 
-@article{chen_simple_nodate,
-  title    = {A {Simple} {Framework} for {Contrastive} {Learning} of {Visual} {Representations}},
-  language = {en},
-  author   = {Chen, Ting and Kornblith, Simon and Norouzi, Mohammad and Hinton, Geoffrey},
-  pages    = {11},
-  file     = {Chen et al. - A Simple Framework for Contrastive Learning of Vis.pdf:/home/andrej/Zotero/storage/E6JLV5VL/Chen et al. - A Simple Framework for Contrastive Learning of Vis.pdf:application/pdf}
+@inproceedings{chen_simple_2020,
+  title     = {A Simple Framework for Contrastive Learning of Visual Representations},
+  author    = {Chen, Ting and Kornblith, Simon and Norouzi, Mohammad and Hinton, Geoffrey},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  pages     = {1597--1607},
+  year      = {2020},
+  editor    = {III, Hal Daumé and Singh, Aarti},
+  volume    = {119},
+  series    = {Proceedings of Machine Learning Research},
+  month     = {13--18 Jul},
+  publisher = {PMLR},
+  pdf       = {http://proceedings.mlr.press/v119/chen20j/chen20j.pdf},
+  url       = {https://proceedings.mlr.press/v119/chen20j.html},
+  abstract  = {This paper presents SimCLR: a simple framework for contrastive learning of visual representations. We simplify recently proposed contrastive self-supervised learning algorithms without requiring specialized architectures or a memory bank. In order to understand what enables the contrastive prediction tasks to learn useful representations, we systematically study the major components of our framework. We show that (1) composition of data augmentations plays a critical role in defining effective predictive tasks, (2) introducing a learnable nonlinear transformation between the representation and the contrastive loss substantially improves the quality of the learned representations, and (3) contrastive learning benefits from larger batch sizes and more training steps compared to supervised learning. By combining these findings, we are able to considerably outperform previous methods for self-supervised and semi-supervised learning on ImageNet. A linear classifier trained on self-supervised representations learned by SimCLR achieves 76.5% top-1 accuracy, which is a 7% relative improvement over previous state-of-the-art, matching the performance of a supervised ResNet-50. When fine-tuned on only 1% of the labels, we achieve 85.8% top-5 accuracy, outperforming AlexNet with 100X fewer labels.}
 }
+
 
 @inproceedings{lang_samplenet_2020,
   address    = {Seattle, WA, USA},
@@ -1356,3 +1365,49 @@
   booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
   year      = {2019}
 }
+
+@inproceedings{genova2021learning,
+  author    = {Genova, Kyle and Yin, Xiaoqi and Kundu, Abhijit and Pantofaru, Caroline and Cole, Forrester and Sud, Avneesh and Brewington, Brian and Shucker, Brian and Funkhouser, Thomas},
+  booktitle = {2021 International Conference on 3D Vision (3DV)},
+  title     = {Learning 3D Semantic Segmentation with only 2D Image Supervision},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {361-372},
+  doi       = {10.1109/3DV53792.2021.00046}
+}
+
+@inproceedings{hou20193d,
+  author    = {Hou, Ji and Dai, Angela and Nießner, Matthias},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {3D-SIS: 3D Semantic Instance Segmentation of RGB-D Scans},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {4416-4425},
+  doi       = {10.1109/CVPR.2019.00455}
+}
+
+@misc{yunze2020p4contrast,
+  doi       = {10.48550/ARXIV.2012.13089},
+  url       = {https://arxiv.org/abs/2012.13089},
+  author    = {Liu, Yunze and Yi, Li and Zhang, Shanghang and Fan, Qingnan and Funkhouser, Thomas and Dong, Hao},
+  keywords  = {Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title     = {P4Contrast: Contrastive Learning with Pairs of Point-Pixel Pairs for RGB-D Scene Understanding},
+  publisher = {arXiv},
+  year      = {2020},
+  copyright = {arXiv.org perpetual, non-exclusive license}
+}
+
+@inproceedings{angela2018joint,
+  author    = {Dai, Angela and Nie{\ss}ner, Matthias},
+  editor    = {Ferrari, Vittorio and Hebert, Martial and Sminchisescu, Cristian and Weiss, Yair},
+  title     = {3DMV: Joint 3D-Multi-view Prediction for 3D Semantic Scene Segmentation},
+  booktitle = {Computer Vision -- ECCV 2018},
+  year      = {2018},
+  publisher = {Springer International Publishing},
+  address   = {Cham},
+  pages     = {458--474},
+  isbn      = {978-3-030-01249-6}
+}
+
