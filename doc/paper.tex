@@ -289,7 +289,7 @@ To verify that the features were transferred correctly, we used the same visuali
 \subsection{Semantic Segmentation}
 \label{sec:results:semantic}
 
-We first test the case of pre-training our model on ScannetV2 and fine-tuning on S3DIS. Detailed results are shown in table \ref{table:s3disResults}. Fully supervised pre-training has a drastic impact on the final downstream performance ($+5.1$ mIOU) and is used as a pseudo upper bound on expected performance. Almost all base algorithms improve downstream results, except DepthContrast. Our algorithm is comparable to PointContrast, both achieving a 1\% mIOU increase but perform worse than CSC.
+We first test the case of pre-training our model on ScannetV2 and fine-tuning on S3DIS. Detailed results are shown in table \ref{table:s3disResults}. Fully supervised pre-training on Scannet has a drastic impact on the final downstream performance ($+5.1$ mIOU) and is used as a pseudo upper bound on expected performance. Almost all base algorithms improve downstream results, except DepthContrast. Our algorithm is comparable to PointContrast, both achieving a 1\% mIOU increase but perform worse than CSC.
 
 To simulate the use-case of capturing a large amount of un-labeled data for pre-training and only labeling a subset of it, we took Scannet and partitioned it into different portions of labeled data. The results can be found in table \ref{table:scannetVaryingDataAmount}. All methods show no improvement when given access to labels for the entire dataset. However, as the labeled data is restricted, the pre-trained models start to have an impact, with all methods improving upon training from scratch when given access to only 5\% of the labels.
 
@@ -367,7 +367,7 @@ Similarly, we also test varying data amounts on the semanticKITTI dataset which 
 
 As in the previous section, we evaluate the performance of pre-training on Scannet and training on S3DIS for instance segmentation which can be found in table \ref{table:s3disResults}. Almost all pre-training methods get close or even surpass supervised results with the exception again being DepthContrast. The best performing method, as before, is Contrastive Scene Contexts which gets a performance boost of 4.8 mAP@0.5. However, our own method gets very close to supervised level performance with a boost of 2.8.
 
-However, looking at the effects on Scannet in table \ref{table:scannetVaryingDataAmount}, all methods struggle to improve upon training from scratch. In many cases they even perform substantially worse, with out method not being able to improve in almost all scenarios. Contrastive Scene Contexts is the only method that shows some consistent improvement. It is interesting to note that even though semantic segmentation receives a boost, this does not necessarily translate into instance segmentation.
+However, looking at the effects on Scannet in table \ref{table:scannetVaryingDataAmount}, all methods struggle to improve upon training from scratch. In many cases they even perform substantially worse, with our method not being able to improve in almost all scenarios. Contrastive Scene Contexts is the only method that shows some consistent improvement. It is interesting to note that even though semantic segmentation receives a boost, this does not necessarily translate into instance segmentation.
 
 \subsection{Object Detection}
 \label{sec:results:object}
@@ -402,13 +402,24 @@ All methods besides DepthContrast show a strong improvement in both datasets. Co
 \subsection{Varying Overlap}
 \label{sec:results:varying}
 
+Since our method does not rely on registered point clouds, we wanted to see how sensitive PointContrast and CSC are to using the same scan for both embeddings. We present out findings in tables \ref{table:s3disResults} and \ref{table:scannetVaryingDataAmount}. We found that for S3DIS using the same scan only performed worse overall however was able to do better in a few areas. Contrastive Scene Contexts also saw a small drop in performance. This was also noted in \cite{xie2020pointcontrast}. However, using a smaller minimum overlap ratio in most cases improved performance. Our method is easier to implement as it does not rely on knowing the transformation between point-clouds and generally gets more consistent increases across the range on available data labels than using the same scan for PointContrast and Contrastive Scene contexts.
+
+\subsection{Pre-training on Out-of-Distribution data}
+\label{sec:results:varying}
+
+Although the performance of using Scannet as the pre-training and downstream dataset has relatively low gains, those same weights have a much larger impact on S3DIS and consistently improve on KITTI across all data ratios. This discrepancy suggests that using a pre-training dataset which is out-of-distribution of the downstream dataset has a more consistent and larger performance gain than using the same dataset. This is potentially because using the same dataset already exposes the network to the same information, thus it is not learning as much new information as it could from a different dataset.
+
+Also, on KITTI, when using more of the data we see a larger performance improvement. Since the pre-training is done on different data, the algorithms benefit more from a larger labeled dataset. Unlike when using the same dataset for both pre-training and training where the two overlap more.
+
 \subsection{Training Speedup}
 \label{sec:results:speedup}
 
-Talk about graphs showing that you can get close to final performance within a fraction of the time.
+Table \ref{fig:validationComparison} shows the validation curves over the training steps of training from scratch vs other methods. All methods show an immediate improvement early on in the training cycle. This is potentially useful during development on downstream tasks as the final performance can be known within the first 2000 cycles instead of 20000. In S3DIS for example, algorithms like point contrast can get to within 1 mIOU of the final scratch performance in just 1000 cycles. This can drastically reduce training time and development time.
 
 \subsection{Inconsistencies in Performance Boost}
 \label{sec:results:inconsistencies}
+
+Across all of our experiments, its been impossible to see a consistent improvement in performance of each method across different datasets and labeled data ratios. For example, DepthContrast might get the largest increase by far when using 5\% of semantic Scannet labels but fails when applied to Scannet.
 
 When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
 
@@ -430,6 +441,7 @@ The performance gains are unpredictable as the fraction of labeled data is varie
     \item Also when using PointContrast \& CSC, you can experiment with overlap ratio and using tha same scan to get better results
     \item It may be worth trying a self-supervised method to see performance boost before spending extra time labeling the entire dataset
     \item Using out-of-distribution data for pre-training can have a bigger impact that pre-training on in-distribution.
+    \item Weights that work on one task could be detrimental to performance on another task.
 \end{itemize}
 
 \begin{figure}[h!]
