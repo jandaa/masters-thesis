@@ -248,10 +248,6 @@ Object detection is performed with VoteNet \cite{qi2019deep}, using the sparse v
 
 \textbf{Downstream Tasks:} All downstream tasks are run using the pipeline and parameters from \cite{hou2021Exploring}. It may be noted that we get slightly different numbers from those originally reported. This comes down to a couple of factors, mainly an update to the core sparse convolution library that is required to run on modern GPUs, as well as using a single GPU instead of 8. Because of the library update, all pre-training was run from scratch.
 
-% \subsection{Evaluation Metrics}
-% \label{sec:results:metrics}
-% \dots
-
 \subsection{Contrastive Loss in 2D}
 \label{sec:results:2d}
 
@@ -405,7 +401,7 @@ All methods besides DepthContrast show a strong improvement in both datasets. Co
 Since our method does not rely on registered point clouds, we wanted to see how sensitive PointContrast and CSC are to using the same scan for both embeddings. We present out findings in tables \ref{table:s3disResults} and \ref{table:scannetVaryingDataAmount}. We found that for S3DIS using the same scan only performed worse overall however was able to do better in a few areas. Contrastive Scene Contexts also saw a small drop in performance. This was also noted in \cite{xie2020pointcontrast}. However, using a smaller minimum overlap ratio in most cases improved performance. Our method is easier to implement as it does not rely on knowing the transformation between point-clouds and generally gets more consistent increases across the range on available data labels than using the same scan for PointContrast and Contrastive Scene contexts.
 
 \subsection{Pre-training on Out-of-Distribution data}
-\label{sec:results:varying}
+\label{sec:results:out-of-distribution}
 
 Although the performance of using Scannet as the pre-training and downstream dataset has relatively low gains, those same weights have a much larger impact on S3DIS and consistently improve on KITTI across all data ratios. This discrepancy suggests that using a pre-training dataset which is out-of-distribution of the downstream dataset has a more consistent and larger performance gain than using the same dataset. This is potentially because using the same dataset already exposes the network to the same information, thus it is not learning as much new information as it could from a different dataset.
 
@@ -421,28 +417,22 @@ Table \ref{fig:validationComparison} shows the validation curves over the traini
 
 Across all of our experiments, its been impossible to see a consistent improvement in performance of each method across different datasets and labeled data ratios. For example, DepthContrast might get the largest increase by far when using 5\% of semantic Scannet labels but fails when applied to Scannet.
 
-When using point correspondences without overlapping scans, the performance gain disappears almost entirely. This was noted in their original work and suggests to us that it is learning better features only due to its ability to better extrapolate surfaces.
+In table \ref{table:scannetVaryingDataAmount}, the performance gains are unpredictable as the fraction of labeled data is varied. A performance boost of 3\% at 30\% labeled data can turn into a performance drop at 20\% labeled data. At the extreme of using 5\% labeled data, all algorithms have a performance boost. This further reinforces the idea that pre-training is most useful when the amount of labeled data is extremely limited. Interestingly, DepthContrast which was the worst performing on S3DIS is the best performing by a large margin on Scannet at 5\% labeled data, again showing the unpredictability of the results.
 
 Our algorithm is the only one that shows a consistent increase across varying Scannet data portions as well as S3DIS. Unlike PointContrast and CSC, our algorithm does not require pose transformations between adjacent scans making it easier to implement.
-
-The performance gains are unpredictable as the fraction of labeled data is varied. A performance boost of 3\% at 30\% labeled data can turn into a performance drop at 20\% labeled data. At the extreme of using 5\% labeled data, all algorithms have a performance boost. This further reinforces the idea that pre-training is most useful when the amount of labeled data is extremely limited. Interestingly, DepthContrast which was the worst performing on S3DIS is the best performing by a large margin on Scannet at 5\% labeled data, again showing the unpredictability of the results.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-\begin{itemize}
-    \item that transferring 2D features to 3D improves performance across different domains.
-    \item that although some algorithms perform extremely well in some domains, they fail in others. Or they might work well on one task but not another.
-    \item PointContrast \& CSC both ideally require overlapping scenes to perform properly whereas our algorithm does not.
-    \item Pre-training does little when large labeled datasets are used but are more effective when datasets are very small
-    \item Pre-training can help speed up training time on smaller datasets but has no impact on larger datasets.
-    \item Overal can expect about a 1\% increase in performance
-    \item Our method, which is easy to implement and does not require a pose transformation between frames, is a good start in trying to find best performance.
-    \item Also when using PointContrast \& CSC, you can experiment with overlap ratio and using tha same scan to get better results
-    \item It may be worth trying a self-supervised method to see performance boost before spending extra time labeling the entire dataset
-    \item Using out-of-distribution data for pre-training can have a bigger impact that pre-training on in-distribution.
-    \item Weights that work on one task could be detrimental to performance on another task.
-\end{itemize}
+In this work, we presented a method of transferring self-supervised features derived from dense images to models working on sparse point clouds. We showed how these features performed on three different downstream tasks and three different datasets. We also compared our approach to other methods.
+
+We found that our method was relatively consistent at improving downstream performance when compared to state of the art, with around a 1\% increase in performance on average. On larger datasets, using all labeled data for pre-training and training showed no performance increase, however when pre-trained on another dataset, performance did improve.
+
+It is very hard to tell which weights will perform best on which downstream task. From our experiments we found that using images had a benefit much more often than methods that used only point clouds. Since it works on raw captured 3D data, it is also easier to implement than those on registered point clouds. When looking for pre-training weights, our method is the best starting point to see if it can improve on a specific downstream task.
+
+Across all methods, using different datasets for pre-training than for training offered a bigger performance boost than using the same dataset. However, it the effects are still very inconsistent across domains.
+
+When starting to work on a problem, it may be worth while to try a self-supervised technique on a smaller labeled dataset before labeling it entirely. It can also be used to improve development iterations as it achieves close to final performance in a fraction of the training steps.
 
 \begin{figure}[h!]
     \centering
@@ -574,5 +564,21 @@ The performance gains are unpredictable as the fraction of labeled data is varie
     }
     \caption{Object Detection using VoteNet  (mAP)}
 \end{table*}
+
+\section{Conclusion}
+
+\begin{itemize}
+    \item that transferring 2D features to 3D improves performance across different domains.
+    \item that although some algorithms perform extremely well in some domains, they fail in others. Or they might work well on one task but not another.
+    \item PointContrast \& CSC both ideally require overlapping scenes to perform properly whereas our algorithm does not.
+    \item Pre-training does little when large labeled datasets are used but are more effective when datasets are very small
+    \item Pre-training can help speed up training time on smaller datasets but has no impact on larger datasets.
+    \item Overal can expect about a 1\% increase in performance
+    \item Our method, which is easy to implement and does not require a pose transformation between frames, is a good start in trying to find best performance.
+    \item Also when using PointContrast \& CSC, you can experiment with overlap ratio and using tha same scan to get better results
+    \item It may be worth trying a self-supervised method to see performance boost before spending extra time labeling the entire dataset
+    \item Using out-of-distribution data for pre-training can have a bigger impact that pre-training on in-distribution.
+    \item Weights that work on one task could be detrimental to performance on another task.
+\end{itemize}
 
 \end{document}
