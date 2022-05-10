@@ -83,6 +83,14 @@ Alternatively, segmentation of 2D images has come a long way. But it does not gi
 
 In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web. Still, the hardest component is annotation which requires users to manipulate 3D scenes and select only those points that belong to a particular object. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
 
+\begin{figure}
+    \centering
+    \includegraphics[width=7cm]{images/experiments/image-to-point-vis1.png}
+    \includegraphics[width=7cm]{images/experiments/image-to-point-vis2.png}
+    \caption{\textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
+    \label{fig:features2d-3dvis}
+\end{figure}
+
 It is common practice in image tasks to use a model that was pre-trained in a supervised way on a larger but different dataset. However, recent works have been exploring the use of self-supervised objectives without labels in 2D image classification and found that they can greatly improve downstream accuracy, even matching fully supervised training \cite{}.
 
 Recently, works such as \cite{xie2020pointcontrast} have shown that these methods also work with 3D data. Similar to 2D methods they use a contrastive loss objective where the goal is to learn distinguishing features between different datapoints and their respective augmentations.
@@ -100,30 +108,34 @@ This paper has the following contributions.
 \section{Related Work}
 \label{sec:relatedWork}
 
+Our approach builds upon work on feature extraction and self-supervised learning in images and point clouds. Here we provide a brief summary of work in these fields.
 
-\textbf{Sparse 3D convolutions.} Talk about submanifold networks, Minkowski Engine \cite{choy20194d}, pointnet \cite{charles2017PointNet} PointNet++ \cite{qi2017pointnet++}.
+\textbf{Feature Extraction in 3D.} Raw sensor measurements capture 3D scenes as either depth or points. These points require processing for downstream tasks such as semantic segmentation or object detection. This can be accomplished in two ways. The first is to use the raw points themselves \cite{charles2017PointNet, qi2017pointnet++, Tatarchenko2018TangentConvolutions, thomas2019KPConv, wu2019PointConv, engelmann2020Dilated, zhao2020point} which does not require any other expensive transformations. The other is to transform these points into an intermediate representation, such as discrete voxels \cite{cicek20163d, riegler2017octnet, graham20183D, choy20194d}. Any of these approaches can equally be used for extracting meaningful features for downstream tasks. However, in this work we chose to use the 3D U-Net voxel-based convolution presented in Chow \etal \cite{choy20194d}. Not only does it offer close to state of the art performance but many recent state of the art methods \cite{jiang2020pointgroup, chen2021hierarchical} have adopted this voxel-based feature extractor.
 
-\textbf{Downstream tasks.} PointGroup \cite{}
+\textbf{Self-Supervised Transfer learning.} Self-supervised learning uses a pretext task that operates on raw data directly to form a loss function that learns meaningful representations. It can take the form of generative models such as auto-encoders \cite{goodfellow2014generative, Kingma2014}, which learn how to model the input and make examples that are close to the real distribution. Or discriminative models, that aim to discriminative between inputs in high dimensional space.
 
-\textbf{Contrastive Learning.} Talk about SimCLR \cite{chen_simple_2020}, BOYL \cite{grill_bootstrap_nodate}, Moco \cite{he_momentum_2020}. Then talk about PointContrast. \cite{choy2019Fully}
+Contrastive learning is a discriminative learning approach which contrasts different inputs to learn how to discriminate between positive and negative samples. It has been shown to be incredibly powerful in image classification. SimCLR \cite{chen_simple_2020}  uses a very simple framework which achieves close to supervised level performance. Some methods focus on increasing the batch size through a memory bank \cite{wu2018unsupervied} or momentum encoder \cite{he_momentum_2020}.
 
-DenseCL \cite{wang_dense_2021} Does contrastive learning at the pixel level of images giving a good background into extracting image level features.
+Choosing which points to contrast is a huge challenge as some points are uninformative and others may belong to the same class. To address this issue, some methods select samples in a more informative way using negative mining techniques \cite{robinson_contrastive_2021, kalantidis_hard_nodate, chuang_debiased_2020, ho_contrastive_nodate} to improve the strength of the self-supervised signal. Other methods try to bootstrap which points should be contrasted. Li \etal \cite{li2021prototypical} iteratively groups representations into prototypes to avoid contrasting points from the same cluster. Khosla \etal \cite{khosla_supervised_2021} use a mix of supervised learning to generate pseudo labels that inform the selection of points during self-supervised learning.
 
-\textbf{Contrastive learning variations}
-Supervised contrastive losses \cite{khosla_supervised_2021} Guided contrastive learning in 3D \cite{jiang2021Guided}. Prototypical learning \cite{li_prototypical_2021}
+The bulk of this work has been on high-level image classification, but it has proved useful in pixel level image segmentation as well \cite{wang_dense_2021, xie2021propagate, wang2021exploring}. Since these features were useful in 2D segmentation, it suggests that they can be equally as useful in 3D.
 
 \textbf{Contrastive Learning in 3D}
-DepthContrast \cite{zhang2021Self}, PointContrast \cite{xie2020pointcontrast}, Contrastive scene contexts \cite{hou2021Exploring}
 
-Occlusion completion \cite{wang_unsupervised_nodate}
+The same techniques that were used in images can translate directly into 3D point clouds. This was first used for generating unique features for point clouds registration \cite{choy2019Fully}. This was subsequently adapted by PointContrast \cite{xie2020pointcontrast} to work for semantic segmentation. Point pairs are generated using two scans of registered overlapping point clouds and finding points which are spatially close in both. The scans are randomly transformed to learn transformation invariant features. Contrastive scene contexts \cite{hou2021Exploring} expands on this idea by sampling points from partitioned spatial contexts. This work extends point contrast to use instead of a second scan, to use features from an image of the same scan.
 
-\textbf{Using 2D images.} 3D-sis \cite{hou20193d}, Using 2D images to learn 3D segmentation \cite{genova2021learning} \cite{frey_continual_2021}. 3dmv \cite{angela2018joint}
+Alternatively, DepthContrast \cite{zhang2021Self} seeks to learn point-level representations using scan level features. They implement a momentum encoder \cite{he_momentum_2020} to operate on scene level descriptors generated from individual scans which are then contrasted with each other. Using other high level tasks like occlusion completion \cite{wang_unsupervised_nodate} has also proven useful.
 
-Closest to my work: \cite{yunze2020p4contrast}. Their approach is to augment 3D points with features from 2D images and use their combined multi-modal features as the output of their model. They require however that their model always have access to 2D images and cannot operate on solely colorized point clouds at runtime.
+The same sampling challenges exist in point clouds as they do for images. To handle this \cite{jiang2021Guided} use pseudo labels to pick points to avoid contrasting from the same class.
+
+\textbf{Sensor Fusion.} Our work seeks to leverage features learned exclusively from images and transfer them to a 3D model. Combining the two modalities has proven successful in learning 3D segmentation \cite{hou20193d, genova2021learning, frey_continual_2021, angela2018joint} as well as using multiple images of a single scene in multi-view fusion \cite{kundu2020virtual}.
+
+P4Contrast \cite{yunze2020p4contrast} combines sensor fusion with self-supervised pre-training. Their approach is to augment 3D points with features from 2D images and use their combined multi-modal features as the output of their model. Their approach is to fuse both modalities during pre-training and runtime and so always require access to 2D images. This means they cannot operate on solely colorized point clouds at runtime. Our method seeks to only take learned 2D representations and transfer them to a 3D model during pre-training.
 
 \section{Self-Supervised Contrastive learning}
 \label{sec:contrastiveLearning}
 
+This section will layout a theoretical framework for contrastive learning that will be used throughout the rest of this work.
 The goal of self-supervised transfer learning is to learn from unlabeled data using a self-supervised objective which in turn initializes a model's backbone. The initialization is meant to improve performance of downstream tasks. Specifically, contrastive learning uses an objective function that encourages the outputs of a model on similar datapoints to be close together while keeping those of dissimilar datapoints to be far apart, in some metric space.
 
 Defining what datapoints are similar and dissimilar depends on the pretext task. Image colorization for example defines color pixels and their grayscale equivalent as similar and all other pixels as dissimilar. In this work, we adopt the instance discrimination task as in \cite{} whereby each input individually is taken to belong to its own class.
@@ -157,10 +169,6 @@ Images are selected from the desired pre-training dataset. Positive samples are 
 Only pixels found in the overlap of the two crops are used in the objective function. Corresponding pixels are taken as positive samples while all others, including from other images in a batch are taken as negatives.
 
 This is then passed through the loss function described in \ref{eq:contrastive_loss}.
-
-\AJ{Add figure of what your feature extractor looks like}
-
-\AJ{Need to review how I do this in the code, I think I use a projector left over from BYOL}
 
 \subsection{Feature projection}
 \label{sec:featureProjection}
@@ -199,8 +207,6 @@ If the viewpoints are slightly off or the point cloud is a reconstruction from m
 
 After passing in the image through the model, the output is a scaled version of the original image. To complete the mapping, we can either take the feature with the closest feature pixel or interpolate the features using bi-linear interpolation. We will show an analysis of these two methods in section \ref{sec:results}
 
-\AJ{Do I need to give the equation for Bi-linear interpolation or is this also considered basic knowledge}
-
 \subsection{Feature Transfer}
 \label{sec:featureTransfer}
 
@@ -210,9 +216,6 @@ Only the required transformations are applied to the 2D image. These being: resi
 
 We use the same 3D model as in \cite{xie2020pointcontrast}. For downstream tasks, the final $1\times1$ convolution is thrown away as the decoder.
 
-\AJ{Need to look at not using a projection head in 3D model.}
-
-\clearpage
 \section{Experiments}
 \label{sec:results}
 
@@ -272,14 +275,6 @@ Before transferring features into 3D, we first want to verify that the features 
     \includegraphics[width=6.5cm]{images/experiments/25.02.2022-image-pretrain-vis1.png}
     \caption{\textbf{Left} Input image. \textbf{Right} Visualization of features from the pre-trained 2D backbone}
     \label{fig:features2dvis}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=7cm]{images/experiments/image-to-point-vis1.png}
-    \includegraphics[width=7cm]{images/experiments/image-to-point-vis2.png}
-    \caption{\textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
-    \label{fig:features2d-3dvis}
 \end{figure}
 
 \begin{figure}
@@ -434,6 +429,15 @@ In table \ref{table:scannetVaryingDataAmount}, the performance gains are unpredi
 
 Our algorithm is the only one that shows a consistent increase across varying Scannet data portions as well as S3DIS. Unlike PointContrast and CSC, our algorithm does not require pose transformations between adjacent scans making it easier to implement.
 
+\begin{figure}
+    \centering
+    \includegraphics[width=8cm]{images/plots/s3dis_semantic.pdf}
+    \includegraphics[width=8cm]{images/plots/scannet_0.05_semantic.pdf}
+    % \includegraphics[width=8cm]{images/plots/scannet_semantic.pdf}
+    \caption{Comparison of validation performance over training steps for models pre-trained on Scannet and fine-tuned for semantic segmentation on: \textbf{Top:} S3DIS, \textbf{Bottom:} Scannet with only 5\% labeled data}
+    \label{fig:validationComparison}
+\end{figure}
+
 \section{Conclusion}
 \label{sec:conclusion}
 
@@ -447,14 +451,7 @@ Across all methods, using different datasets for pre-training than for training 
 
 When starting to work on a problem, it may be worth while to try a self-supervised technique on a smaller labeled dataset before labeling it entirely. It can also be used to improve development iterations as it achieves close to final performance in a fraction of the training steps.
 
-\begin{figure}[h!]
-    \centering
-    \includegraphics[width=8cm]{images/plots/s3dis_semantic.pdf}
-    \includegraphics[width=8cm]{images/plots/scannet_0.05_semantic.pdf}
-    \includegraphics[width=8cm]{images/plots/scannet_semantic.pdf}
-    \caption{Comparison of validation performance over training steps for models pre-trained on Scannet and fine-tuned for semantic segmentation on: \textbf{Top:} S3DIS, \textbf{Middle:} Scannet with only 5\% labeled data, \textbf{Bottom:} Scannet}
-    \label{fig:validationComparison}
-\end{figure}
+
 
 
 \clearpage
