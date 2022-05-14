@@ -91,6 +91,8 @@ In contrast to 2D images which are bountiful, easy to collect and annotate, 3D s
     \label{fig:features2d-3dvis}
 \end{figure}
 
+Labeling effort: SemanticKITTI had 518 tiles of 100m x 100m and took 4.5 hours per residential tile and 1.5 hours per highway. Total of 1700 hours. Scannet took 20 people 1 month just to capture data.
+
 It is common practice in image tasks to use a model that was pre-trained in a supervised way on a larger but different dataset. However, recent works have been exploring the use of self-supervised objectives without labels in 2D image classification and found that they can greatly improve downstream accuracy, even matching fully supervised training \cite{}.
 
 Recently, works such as \cite{xie2020pointcontrast} have shown that these methods also work with 3D data. Similar to 2D methods they use a contrastive loss objective where the goal is to learn distinguishing features between different datapoints and their respective augmentations.
@@ -142,9 +144,10 @@ Defining what datapoints are similar and dissimilar depends on the pretext task.
 
 \begin{figure}
     \centering
-    %angle=-90,origin=c
     \includegraphics[width=8.5cm]{images/overview.pdf}
-    \caption{Overview of }
+    \caption{
+        \textbf{Overview of our pre-training pipeline.} \textbf{Stage 1:} A 2D model is pre-trained by applying a contrastive infoNCE loss on two augmentations of a single image at pixel level. \textbf{Stage 2:} The same loss is applied on the outputs of the pre-trained 2D model and raw 3D model by mapping the point features into the image. Above, black represents the sample query point, while green represents the positive point and red represents negative points to be contrasted against.
+    }
     \label{fig:overview}
 \end{figure}
 
