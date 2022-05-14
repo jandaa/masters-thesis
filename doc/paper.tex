@@ -74,34 +74,32 @@ University of Toronto Institute for Aerospace Studies\\
 \section{Introduction}
 \label{sec:intro}
 
-Segmentation of indoor 3D scenes has the potential to allow robots to navigate and interact with complicated industrial environments, such as warehouses and production facilities. Although robots already play a limited role in these facilities, understanding their surroundings would give them much greater autonomy. For instance, through segmentation, an accurate up-to-date digital twin of a physical area can be maintained for the purposes of inventory management, item retrieval, and item routing. Advances in segmentation of 3D point clouds \cite{choy20194d} has made this closer to reality.
-
-Alternatively, segmentation of 2D images has come a long way. But it does not give us information about the 3D world and so we are left with projecting these predictions into 3D. This was the approach taken by \cite{} but has recently been overtaken by methods operating purely in 3D.
+Our world exists in three spatial dimensions. By processing data that also exists in three dimensions, we are able to get a more cohesive understanding of our environment which cannot be generated from images alone. This unlocks applications particularly in robotics, by allowing machines to interact with the physical world in a meaningful way. Through point-cloud segmentation, robots can navigate and interact within complicated settings, such as streets, warehouses, and production facilities. Recent advances in 3D vision have made this closer to reality, however, often require large datasets to function adequately.
 
 \begin{figure}
     \centering
     \includegraphics[width=7cm]{images/experiments/image-to-point-vis1.png}
     \includegraphics[width=7cm]{images/experiments/image-to-point-vis2.png}
-    \caption{\textbf{Visualization of the impact transfering pixel features onto pointclouds.} \textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
+    \caption{\textbf{Visualization of the how pixel features have transferred into the 3D model.} \textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
     \label{fig:features2d-3dvis}
 \end{figure}
 
-In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web. Even so, the hardest component is annotation which requires users to manipulate 3D scenes and select only those points that belong to a particular object. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
+In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web like with images. The hardest part, however, is annotation, which requires users to manipulate 3D scenes and select only those points that belong to a particular object.
 
-Labeling effort: SemanticKITTI had 518 tiles of 100m x 100m and took 4.5 hours per residential tile and 1.5 hours per highway. Total of 1700 hours. Scannet took 20 people 1 month just to capture data.
+This has been a challenge faced by the existing 3D datasets. The semanticKITTI dataset \cite{behley2019semantic} that has 518 square tiles of 100m each took 1700 hours to label. Scannet took 20 individuals 1 month just to capture all the scenes. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
 
-It is common practice in image tasks to use a model that was pre-trained in a supervised way on a larger but different dataset. However, recent works have been exploring the use of self-supervised objectives without labels in 2D image classification and found that they can greatly improve downstream accuracy, even matching fully supervised training \cite{}.
+It is common practice in image tasks to use a model that was pre-trained in a supervised way on a larger but different dataset. However, recent works have been exploring the use of self-supervised objectives without labels in 2D image classification and found that they can greatly improve downstream accuracy, even matching fully supervised training \cite{grill_bootstrap_nodate}.
 
 Recently, works such as \cite{xie2020pointcontrast} have shown that these methods also work with 3D data. Similar to 2D methods they use a contrastive loss objective where the goal is to learn distinguishing features between different datapoints and their respective augmentations.
 
-These algorithms work exclusively with point clouds but throw away the corresponding images of the scene which provide a rich and dense source in extra information that can be used in downstream training. This paper investigates how this extra data modality can be leveraged. Additionally, it investigates the properties of an existing 3D pre-training algorithm.
+These algorithms work exclusively with point clouds but throw away the corresponding images of the scene which provide a rich and dense source in extra information that can be used in downstream training. This work investigates how this extra data modality can be leveraged and how it compares to methods that use point clouds exclusively.
 
 This paper has the following contributions.
 
 \begin{itemize}
-    \item Demonstrates that previous work in 3D \cite{xie2020pointcontrast} works by learning to extrapolate 3D scenes. When purely learning improved features on fully-overlapping regions the performance gain disappears.
-    \item Provide a 2D feature extractor and pre-training algorithm. Demonstrate that these features can improve 2D segmentation.
-    \item Transfer learned 2D features onto a 3D model
+    \item A method for extracting 2D self-supervised features and transferring them to a 3D model.
+    \item Shows that features transferred from images can be beneficial in many 3D computer vision tasks
+    \item An analysis of how various pre-training methods perform on different datasets and across various tasks in 3D.
 \end{itemize}
 
 \section{Related Work}
