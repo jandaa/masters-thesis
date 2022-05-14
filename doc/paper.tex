@@ -52,7 +52,6 @@
 
 \author{Andrej Janda\\
 University of Toronto Institute for Aerospace Studies\\
-Institution1 address\\
 {\tt\small andrej.janda@robotics.utias.utoronto.ca}
 % For a paper whose authors are all at the same institution,
 % omit the following lines up until the closing ``}''.
@@ -62,34 +61,32 @@ Institution1 address\\
 \and
 Jonathan Kelly\\
 University of Toronto Institute for Aerospace Studies\\
-First line of institution2 address\\
 {\tt\small jonathan.kelly@robotics.utias.utoronto.ca}
 }
 \maketitle
 
 %%%%%%%%% ABSTRACT
 \begin{abstract}
-    We show that previous work \cite{xie2020pointcontrast} on self-supervised contrastive learning of 3D point clouds relies on extrapolating points in the scene and not from learning noise as was claimed in the original paper. We then investigate if using 2D pre-trained features transfered to 3D can do as well as fully supervised learning.
+    Self-supervised pre-training on large unlabeled datasets has proven to be incredibly successful in 2D vision tasks. Reducing the amount of annotations allows models to be applied in more areas where, due to resource constraints, it was not possible before. This is especially true for 3D vision tasks as the datasets are much smaller owing mainly to the difficulty of annotating 3D scenes. Previous works have shown that pre-training on point clouds alone can improve downstream performance. In this work, we investigate how well 2D self-supervised features transfer to 3D tasks, as they offer much higher resolutions. They can also leverage information learned on a large array of labeled 2D datasets and unlike some 3D methods, do not require point cloud registration. We compare how these features perform against other 3D pre-training algorithms. We find that the downstream performance improvement was more consistent across datasets than other point only based methods. However, all methods were beneficial when access to labels was severely limited.
 \end{abstract}
 
 %%%%%%%%% BODY TEXT
 \section{Introduction}
 \label{sec:intro}
 
-% Write topic sentences and go from there
 Segmentation of indoor 3D scenes has the potential to allow robots to navigate and interact with complicated industrial environments, such as warehouses and production facilities. Although robots already play a limited role in these facilities, understanding their surroundings would give them much greater autonomy. For instance, through segmentation, an accurate up-to-date digital twin of a physical area can be maintained for the purposes of inventory management, item retrieval, and item routing. Advances in segmentation of 3D point clouds \cite{choy20194d} has made this closer to reality.
 
 Alternatively, segmentation of 2D images has come a long way. But it does not give us information about the 3D world and so we are left with projecting these predictions into 3D. This was the approach taken by \cite{} but has recently been overtaken by methods operating purely in 3D.
-
-In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web. Still, the hardest component is annotation which requires users to manipulate 3D scenes and select only those points that belong to a particular object. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
 
 \begin{figure}
     \centering
     \includegraphics[width=7cm]{images/experiments/image-to-point-vis1.png}
     \includegraphics[width=7cm]{images/experiments/image-to-point-vis2.png}
-    \caption{\textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
+    \caption{\textbf{Visualization of the impact transfering pixel features onto pointclouds.} \textbf{Left} Visualization of transferred features on the 3D point cloud. \textbf{Right}  Visualization of features from the pre-trained 2D backbone.}
     \label{fig:features2d-3dvis}
 \end{figure}
+
+In contrast to 2D images which are bountiful, easy to collect and annotate, 3D scenes are hard to collect, not very abundant and notoriously hard to annotate. Collecting 3D scenes requires a user to physically scan different environments with complicated sensors (\eg stereo cameras, Lidar) and estimate the mapping between measurements to generate a completed scene. Since not everyone has access to these sensors, they cannot be easily scrapped off of the web. Even so, the hardest component is annotation which requires users to manipulate 3D scenes and select only those points that belong to a particular object. This motivates us to look for ways of avoiding the annotation process and leverage un-labeled 3D data instead.
 
 Labeling effort: SemanticKITTI had 518 tiles of 100m x 100m and took 4.5 hours per residential tile and 1.5 hours per highway. Total of 1700 hours. Scannet took 20 people 1 month just to capture data.
 
@@ -167,9 +164,7 @@ Where $\tau \in (0,1]$ and represents the temperature parameter that controls th
 \section{Feature Extraction}
 \label{sec:featureExtraction}
 
-This section goes through the types of backbones used as well as how features are extracted from 2D images and transferred to a 3D model.
-
-\AJ{Need a picture depicting the pipeline}
+This section goes through the types of backbones used as well as how features are extracted from 2D images and transferred to a 3D model. For an overview of our pipeline, please refer to figure \ref{fig:overview}.
 
 \subsection{Extracting 2D features}
 \label{sec:method:features2d}
@@ -179,6 +174,8 @@ We follow the ResUNet architecture from Godard \etal \cite{godard2019Digging}, w
 Images are selected from the desired pre-training dataset. Positive samples are generated by randomly cropping the image, and then applying the following transformations: random horizontal flip, random gray-scale, gaussian blur and color jitter.
 
 Only pixels found in the overlap of the two crops are used in the objective function. Corresponding pixels are taken as positive samples while all others, including from other images in a batch are taken as negatives.
+
+\AJ{Add Kd-tree mapping to get the correct pixels after transformation.}
 
 This is then passed through the loss function described in \ref{eq:contrastive_loss}.
 
