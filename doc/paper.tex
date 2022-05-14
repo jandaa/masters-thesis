@@ -5,7 +5,7 @@
 \documentclass[10pt,twocolumn,letterpaper]{article}
 
 %%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
-\usepackage[review]{cvpr}      % To produce the REVIEW version
+\usepackage{cvpr}      % To produce the REVIEW version
 % \usepackage{cvpr}              % To produce the CAMERA-READY version
 %\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
 
@@ -139,6 +139,15 @@ This section will layout a theoretical framework for contrastive learning that w
 The goal of self-supervised transfer learning is to learn from unlabeled data using a self-supervised objective which in turn initializes a model's backbone. The initialization is meant to improve performance of downstream tasks. Specifically, contrastive learning uses an objective function that encourages the outputs of a model on similar datapoints to be close together while keeping those of dissimilar datapoints to be far apart, in some metric space.
 
 Defining what datapoints are similar and dissimilar depends on the pretext task. Image colorization for example defines color pixels and their grayscale equivalent as similar and all other pixels as dissimilar. In this work, we adopt the instance discrimination task as in \cite{} whereby each input individually is taken to belong to its own class.
+
+\begin{figure}
+    \centering
+    %angle=-90,origin=c
+    \includegraphics[width=8.5cm]{images/overview.pdf}
+    \caption{Overview of }
+    \label{fig:overview}
+\end{figure}
+
 
 We follow the formulation from \cite{le-khac_contrastive_2020}. Given a sampled point $\mathbf{x}$, positive points are sampled according to a positive distribution $\mathbf{x}^{+} \sim p^{+}( \cdot | \mathbf{x})$ which is commonly defined as a set of transformations $t$ of the original point. Often, positive pairs are derived by applying two different augmentations to the input point, $\mathbf{x}^{+} = t_{1}(\mathbf{x}), \, \mathbf{x} = t_{2}(\mathbf{x})$. Conversely, negative points are sampled according to $\mathbf{x}^{-} \sim p^{-}( \cdot | \mathbf{x})$ which in the context of an instance discriminative task means that they are taken as any other point not derived from the input point, regardless of its augmentation.
 
@@ -451,9 +460,6 @@ Across all methods, using different datasets for pre-training than for training 
 
 When starting to work on a problem, it may be worth while to try a self-supervised technique on a smaller labeled dataset before labeling it entirely. It can also be used to improve development iterations as it achieves close to final performance in a fraction of the training steps.
 
-
-
-
 \clearpage
 %%%%%%%%% REFERENCES
 {\small
@@ -590,5 +596,17 @@ When starting to work on a problem, it may be worth while to try a self-supervis
     \item Using out-of-distribution data for pre-training can have a bigger impact that pre-training on in-distribution.
     \item Weights that work on one task could be detrimental to performance on another task.
 \end{itemize}
+
+\section{Notes from Edwin}
+
+\begin{itemize}
+    \item Augmentations are random
+    \item Explaining that it's a two step process, and thats how its different from prior work
+    \item Goal is to see how 2D self-supervised features transferred to a 3D model work
+    \item Mention that it uses a single image
+\end{itemize}
+
+\textbf{description:} Three steps. First step is pre-training, random combinations of a single image pixel contrast. Second stage is try to get 2D to 3D features match. Third is fine-tuning on 3D data.
+
 
 \end{document}
