@@ -110,14 +110,15 @@ class ImageSegmentationDataset(PretrainDataset):
             return self[new_ind]
 
         # Normalize image
-        labels = scene.label_image[:, :, 0]
+        labels = scene.label_image
         inds = labels > 20
         labels = labels.astype(np.float64)
         labels[inds] = self.ignore_label
         unique_labels = np.unique(labels)
 
-        inds = labels > 20
+        inds = labels >= 20
         if labels[inds].size > 0:
+            labels[inds] = -100
             waithere = 1
         # # Visualize label image
         # label_to_color_map = []
@@ -170,7 +171,7 @@ class ImagePretrainDataset(PretrainDataset):
                 T.RandomGrayscale(p=0.2),
                 T.RandomApply([transforms.GaussianBlur([0.1, 2.0])], p=0.5),
                 T.ToTensor(),
-                T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+                # T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
 
@@ -219,10 +220,18 @@ class ImagePretrainDataset(PretrainDataset):
         image2, coords2 = self.image_augmentations(image)
 
         # # Visualize image
-        # image1 = image1.transpose(2, 0) * 255.0
-        # image1 = image1.transpose(1, 0)
-        # image1 = image1.to(torch.uint8)
-        # vis = PIL.Image.fromarray(image1.detach().cpu().numpy())
+        # image.show()
+
+        # tmp = image1.transpose(2, 0) * 255.0
+        # tmp = tmp.transpose(1, 0)
+        # tmp = tmp.to(torch.uint8)
+        # vis = PIL.Image.fromarray(tmp.detach().cpu().numpy())
+        # vis.show()
+
+        # tmp = image2.transpose(2, 0) * 255.0
+        # tmp = tmp.transpose(1, 0)
+        # tmp = tmp.to(torch.uint8)
+        # vis = PIL.Image.fromarray(tmp.detach().cpu().numpy())
         # vis.show()
 
         # Generate a mapping
@@ -458,6 +467,7 @@ class MinkowskiPretrainDataset(PretrainDataset):
             (-np.pi, np.pi),
         )
 
+        # self.augmentations = transforms.Compose([])
         self.augmentations = transforms.Compose(
             [
                 transforms.RandomHorizontalFlip("z", False),

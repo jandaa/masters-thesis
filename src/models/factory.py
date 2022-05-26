@@ -55,7 +55,9 @@ class ModelFactory:
     def get_model(self):
         if self.model_name == image_seg_name:
             return ImageSegmentationTrainer(
-                self.cfg, checkpoint_2d_path=self.checkpoint_2d_path
+                self.cfg,
+                self.data_interface,
+                checkpoint_2d_path=self.checkpoint_2d_path,
             )
         else:
             return MinkowskiTrainer(

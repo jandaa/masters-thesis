@@ -8,6 +8,7 @@ from datasets.scannetv2 import ScannetDataInterface
 from datasets.scannetv2_small import ScannetPretrainDataInterface
 from datasets.scannetv2_new import NewScannetPretrainDataInterface
 from datasets.s3dis import S3DISDataInterface
+from datasets.still import StillDataInterface
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ class DataInterfaceFactory:
             return self._get_interface_scannet_pretrain_new()
         elif self.dataset_cfg.name == "S3DIS":
             return self._get_interface_s3dis()
+        elif self.dataset_cfg.name == "still":
+            return self._get_interface_still()
         else:
             log.error(f"Unsupported dataset: {self.dataset_cfg.name}")
             raise ValueError(self.dataset_cfg.name)
@@ -156,4 +159,13 @@ class DataInterfaceFactory:
             train_split=self.dataset_cfg.train_split,
             val_split=self.dataset_cfg.val_split,
             test_split=self.dataset_cfg.test_split,
+        )
+
+    def _get_interface_still(self) -> DataInterface:
+        return StillDataInterface(
+            dataset_dir=Path(self.dataset_dir),
+            preprocessed_path=Path(self.output_dir),
+            semantic_categories=self.dataset_cfg.categories,
+            ignore_label=self.dataset_cfg.ignore_label,
+            instance_ignore_classes=self.dataset_cfg.instance_ignore_categories,
         )

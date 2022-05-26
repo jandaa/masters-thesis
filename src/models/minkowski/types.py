@@ -38,7 +38,7 @@ class ImagePretrainInput:
     images2: torch.Tensor
     coords1: torch.Tensor
     coords2: torch.Tensor
-    labels: torch.Tensor
+    # labels: torch.Tensor
     correspondences: list
 
     batch_size: int

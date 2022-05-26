@@ -10,7 +10,7 @@ import numpy as np
 # 2D
 from torchvision import models
 
-from models.trainers import SegmentationTrainer, BackboneTrainer
+from models.trainers import SegmentationTrainer, Segmentation2DTrainer, BackboneTrainer
 from models.minkowski.modules.res16unet import Res16UNet34C
 from models.minkowski.modules.common import NormType
 
@@ -22,9 +22,8 @@ from models.minkowski.types import (
     MinkowskiPretrainInput,
     MinkowskiPretrainInputNew,
     ImagePretrainInput,
+    SemanticOutput,
 )
-from util.utils import NCESoftmaxLoss, set_seed
-import matplotlib.pyplot as plt
 
 # Visualization
 from sklearn.manifold import TSNE
@@ -272,9 +271,11 @@ class CMEBackboneTrainerFull(BackboneTrainer):
         return self._loss_fn(online_features, target_features)
 
 
-class ImageSegmentationTrainer(BackboneTrainer):
-    def __init__(self, cfg: DictConfig, checkpoint_2d_path=None):
-        super(ImageSegmentationTrainer, self).__init__(cfg)
+class ImageSegmentationTrainer(Segmentation2DTrainer):
+    def __init__(
+        self, cfg: DictConfig, data_interface: DataInterface, checkpoint_2d_path=None
+    ):
+        super(ImageSegmentationTrainer, self).__init__(cfg, data_interface)
 
         # 2D feature extraction
         if checkpoint_2d_path:
@@ -283,8 +284,9 @@ class ImageSegmentationTrainer(BackboneTrainer):
             ).model
         else:
             self.model = FeatureDecoder()
+        self.model.unfreeze_encoder()
 
-        self.head = MLP2d(16, inner_dim=16, out_dim=cfg.dataset.classes + 1)
+        self.head = MLP2d(16, inner_dim=16, out_dim=cfg.dataset.classes)
 
         self.semantic_criterion = nn.CrossEntropyLoss(
             ignore_index=cfg.dataset.ignore_label
@@ -296,9 +298,7 @@ class ImageSegmentationTrainer(BackboneTrainer):
         z1 = self.model(batch.images1)
         output = self.head(z1)
 
-        semantic_predictions = output.reshape((-1, output.shape[1]))
-        semantic_labels = batch.labels.reshape((-1,)).long()
-        loss = self.semantic_criterion(semantic_predictions, semantic_labels)
+        loss = self.loss_fn(batch, output)
 
         # Log losses
         log = functools.partial(self.log, on_step=True, on_epoch=True)
@@ -312,54 +312,29 @@ class ImageSegmentationTrainer(BackboneTrainer):
         z1 = self.model(batch.images1)
         output = self.head(z1)
 
-        semantic_predictions = output.reshape((-1, output.shape[1]))
-        semantic_labels = batch.labels.reshape((-1,)).long()
-        loss = self.semantic_criterion(semantic_predictions, semantic_labels)
-
+        loss = self.loss_fn(batch, output)
         self.log("val_loss", loss, sync_dist=True)
 
-    def _loss_fn(self, output_online, output_target):
-        q = nn.functional.normalize(output_online, dim=-1, p=2)
-        k = nn.functional.normalize(output_target, dim=-1, p=2)
+        semantic_scores = output.reshape((-1, output.shape[1]))
+        semantic_predictions = SemanticOutput(semantic_scores=semantic_scores)
+        return self.get_matches_val(batch, semantic_predictions)
 
-        tau = 0.4
+    def test_step(self, batch: ImagePretrainInput, batch_idx: int):
 
-        # Labels
-        npos = q.shape[0]
-        labels = torch.arange(npos).to(q.device).long()
+        # Get Encoder values
+        z1 = self.model(batch.images1)
+        output = self.head(z1)
 
-        logits = torch.mm(q, k.transpose(1, 0))  # npos by npos
-        out = torch.div(logits, tau)
-        out = out.squeeze().contiguous()
+        semantic_scores = output.reshape((-1, output.shape[1]))
+        semantic_predictions = SemanticOutput(semantic_scores=semantic_scores)
+        return self.get_matches_val(batch, semantic_predictions)
 
-        return self.criterion(out, labels)
-
-    def loss_fn(self, p, z, correspondances):
-
-        max_pos = 4092
-        N, C, H, W = p.shape
-
-        # [bs, feat_dim, 224x224]
-        p = p.view(N, C, -1)
-        z = z.view(N, C, -1)
-
-        loss = 0
-        for batch_ind, matches in enumerate(correspondances):
-            if len(matches) == 0:
-                continue
-
-            # limit max size per image
-            # Randomly select matches
-            if matches.shape[0] > max_pos:
-                inds = np.random.choice(matches.shape[0], max_pos, replace=False)
-                matches = matches[inds, :]
-
-            online = p[batch_ind, :, matches[:, 0]]
-            target = z[batch_ind, :, matches[:, 1]]
-
-            loss += self._loss_fn(online.T, target.T).mean()
-
-        return loss / len(correspondances)
+    def loss_fn(self, batch, output):
+        """Just return the semantic loss"""
+        semantic_scores = output.reshape((-1, output.shape[1]))
+        semantic_labels = batch.labels.reshape((-1,)).long()
+        loss = self.semantic_criterion(semantic_scores, semantic_labels)
+        return loss
 
 
 class ImageTrainer(BackboneTrainer):
@@ -647,13 +622,14 @@ class MinkowskiTrainer(SegmentationTrainer):
 
     def test_step(self, batch: MinkowskiInput, batch_idx: int):
         model_input = ME.SparseTensor(batch.features, batch.points)
-        preds = self.model(model_input)
+        output = self.model(model_input)
+        output = MinkowskiOutput(output=output, semantic_scores=output.F)
 
         # Remove batch index from points
         batch.points = batch.points[:, 1:4]
 
         # Save point cloud
         if self.test_cfg.save_point_cloud:
-            self.save_pointcloud(batch, preds)
+            self.save_pointcloud(batch, output)
 
-        return self.get_matches_test(batch, preds)
+        return self.get_matches_test(batch, output)

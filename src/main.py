@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.plugins import DDPPlugin
 
 from util import utils
 from models.factory import ModelFactory
@@ -171,7 +172,6 @@ class Trainer:
             accumulate_grad_batches=self.cfg.dataset.pretrain.accumulate_grad_batches,
             deterministic=True,
             max_time=self.cfg.max_time,
-            # sync_batchnorm=True,
             val_check_interval=self.cfg.val_check_interval,
         )
 
@@ -272,11 +272,11 @@ class Trainer:
 
         # Load model
         backbone_wrapper_type = self.model_factory.get_backbone_wrapper_type()
-        if self.pretrain_checkpoint:
+        if self.checkpoint_2d_path:
             log.info("Continuing pretraining from checkpoint.")
             backbonewraper = backbone_wrapper_type.load_from_checkpoint(
                 cfg=self.cfg,
-                checkpoint_path=self.pretrain_checkpoint,
+                checkpoint_path=self.checkpoint_2d_path,
             )
         else:
             backbonewraper = backbone_wrapper_type(self.cfg)
@@ -285,10 +285,10 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[9759]])
+        scene = collate_fn([dataset[2100]])
 
         # Generate feature embeddings
-        z1 = backbonewraper.model(scene.images1).detach().cpu().numpy()
+        z1 = backbonewraper.model(scene.images2).detach().cpu().numpy()
 
         # TSNE
         test = z1.reshape(16, -1).T
@@ -321,7 +321,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[9759]])
+        scene = collate_fn([dataset[2100]])
 
         # Generate feature embeddings
         input_3d_1 = ME.SparseTensor(scene.features1, scene.points1)
@@ -332,6 +332,11 @@ class Trainer:
             scene.points1[:, 1:4].detach().cpu().numpy()
         )
         pcd.colors = o3d.utility.Vector3dVector(scene.features1.detach().cpu().numpy())
+
+        # from util.utils import mesh_sphere
+
+        # pcd = mesh_sphere(pcd, 0.02)
+        # o3d.visualization.draw_geometries([pcd])
 
         vis_pcd = utils.get_colored_point_cloud_feature(
             pcd,

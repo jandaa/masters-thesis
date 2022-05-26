@@ -59,7 +59,7 @@ class MLP2d(nn.Module):
 
 
 class FeatureDecoder(nn.Module):
-    def __init__(self, freeze_encoder=True):
+    def __init__(self, freeze_encoder=True, output_size=16):
         super(FeatureDecoder, self).__init__()
 
         self.freeze_encoder = freeze_encoder
@@ -78,7 +78,7 @@ class FeatureDecoder(nn.Module):
         for param in self.encoder.parameters():
             param.requires_grad = False
 
-        self.planes = np.array([512, 256, 128, 64, 32, 16])
+        self.planes = np.array([512, 256, 128, 64, 32, output_size])
         self.skip_planes = np.array([0, 256, 128, 64, 0, 0])
         self.conv = OrderedDict()
         self.encoder_order = ["layer4", "layer3", "layer2", "layer1"]

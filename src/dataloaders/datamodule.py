@@ -17,13 +17,16 @@ from dataloaders.datasets import SegmentationDataset
 
 log = logging.getLogger(__name__)
 
+
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2**32
     numpy.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
 g = torch.Generator()
 g.manual_seed(0)
+
 
 class DataModule(pl.LightningDataModule):
     def __init__(
