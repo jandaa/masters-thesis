@@ -1,5 +1,5 @@
 export S3DIS_DIR=/home/andrej/datasets/Stanford3dDataset_v1.2
-export OUTPUT_DIR=/home/andrej/datasets/S3DIS_preprocessed
+export OUTPUT_DIR=/home/andrej/datasets/S3DIS_preprocessed_new
 export HYDRA_FULL_ERROR=1
 
 preprocess() {

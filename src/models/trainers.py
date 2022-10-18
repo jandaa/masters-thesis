@@ -123,8 +123,26 @@ class SegmentationTrainer(pl.LightningModule):
             for i in range(cfg.dataset.classes + 1)
         ]
 
+        # from PIL import Image
+
+        # iter = len(self.semantic_colours) + 1
+        # width_px = 1000
+        # new = Image.new(mode="RGB", size=(width_px, 120))
+
+        # for i in range(iter - 1):
+
+        #     color = (tuple((self.semantic_colours[i] * 255).astype(np.uint8)),)
+        #     newt = Image.new(mode="RGB", size=(width_px // iter, 100), color=color)
+        #     new.paste(newt, (i * width_px // iter, 10))
+
         self.ignore_label_id = data_interface.ignore_label
         self.ignore_label_colour = utils.get_random_colour()
+
+        # color = (tuple((self.ignore_label_colour * 255).astype(np.uint8)),)
+        # newt = Image.new(mode="RGB", size=(width_px // iter, 100), color=color)
+        # new.paste(newt, (iter * width_px // iter, 10))
+        # new.show()
+        # waithere = 1
 
     @property
     def return_instances(self):

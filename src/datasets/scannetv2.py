@@ -165,6 +165,21 @@ class ScannetDataInterface(DataInterface):
             index: label_name for label_name, index in self.label_to_index_map.items()
         }
 
+        # Make map from class to material
+        self.label_to_material = {
+            self.label_to_index_map[label]: material_ind
+            for material_ind, (_, labels) in enumerate(
+                self.dataset_cfg.materials.items()
+            )
+            for label in labels
+        }
+
+        # Normalize the label to material value to be between -1 and 1
+        max_material_label = max(self.label_to_material.values())
+        for label in self.label_to_material.keys():
+            self.label_to_material[label] -= max_material_label / 2
+            self.label_to_material[label] /= max_material_label
+
         # Make scans directory if it doesnt exist already
         self.preprocessed_path /= "scans"
         if not self.preprocessed_path.exists():
@@ -254,6 +269,14 @@ class ScannetDataInterface(DataInterface):
         semantic_labels = self.extract_semantic_labels(datapoint.scene_path)
         instance_labels = self.extract_instance_labels(datapoint.scene_path)
 
+        # # Add material properties
+        # material_labels = -1 * np.ones(semantic_labels.shape, dtype=np.int32)
+        # for label_ind in self.index_to_label_map.keys():
+        #     material_labels[semantic_labels == label_ind] = self.label_to_material[
+        #         label_ind
+        #     ]
+        # features = np.concatenate([features, material_labels.reshape(-1, 1)], axis=1)
+
         # Save data to avoid re-computation in the future
         log.info(f"Saving scene: {datapoint.scene_name}")
         torch.save(
@@ -265,9 +288,9 @@ class ScannetDataInterface(DataInterface):
         with datapoint.scene_details_file.open(mode="w") as fp:
             json.dump(details, fp)
 
-        # Extract sensor measurements if available
-        if self.do_sensor_files_exist_in_scene(datapoint.scene_path):
-            self.preprocess_measurements(datapoint)
+        # # Extract sensor measurements if available
+        # if self.do_sensor_files_exist_in_scene(datapoint.scene_path):
+        #     self.preprocess_measurements(datapoint)
 
     def preprocess_measurements(self, datapoint: ScannetDataPoint):
         """Preprocess raw sensor measurements of a scene including it's semantic and

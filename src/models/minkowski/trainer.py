@@ -11,7 +11,7 @@ import numpy as np
 from torchvision import models
 
 from models.trainers import SegmentationTrainer, Segmentation2DTrainer, BackboneTrainer
-from models.minkowski.modules.res16unet import Res16UNet34C
+from models.minkowski.modules.res16unet import Res16UNet34C, Res16UNet34
 from models.minkowski.modules.common import NormType
 
 from models.minkowski.decoder import FeatureDecoder, MLP2d
@@ -571,7 +571,10 @@ class MinkowskiTrainer(SegmentationTrainer):
     def __init__(self, cfg: DictConfig, data_interface: DataInterface, backbone=None):
         super(MinkowskiTrainer, self).__init__(cfg, data_interface)
 
-        self.model = Res16UNet34C(3, cfg.dataset.classes, cfg.model, D=3)
+        self.model = Res16UNet34(
+            cfg.dataset.input_channels, cfg.dataset.classes, cfg.model, D=3
+        )
+        # self.model = Res16UNet34C(3, cfg.dataset.classes, cfg.model, D=3)
         if backbone:
             state_dict = backbone.state_dict()
             head_params = [key for key in state_dict if "final" in key]
