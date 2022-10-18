@@ -5,6 +5,9 @@ import math
 import logging
 from omegaconf import DictConfig, listconfig
 
+import torch
+import numpy
+import random
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
@@ -15,12 +18,23 @@ from dataloaders.datasets import SegmentationDataset
 log = logging.getLogger(__name__)
 
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2**32
+    numpy.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+g = torch.Generator()
+g.manual_seed(0)
+
+
 class DataModule(pl.LightningDataModule):
     def __init__(
         self,
         data_interface: DataInterface,
         cfg: DictConfig,
         dataset_type: SegmentationDataset,
+        is_pretrain: bool = False,
     ):
         super().__init__()
 
@@ -48,11 +62,18 @@ class DataModule(pl.LightningDataModule):
         self.num_workers = cfg.model.train.train_workers
 
         # Load data from interface
-        self.pretrain_data = data_interface.pretrain_data
-        self.pretrain_val_data = data_interface.pretrain_val_data
-        self.train_data = data_interface.train_data
-        self.val_data = data_interface.val_data
-        self.test_data = data_interface.test_data
+        if is_pretrain:
+            self.pretrain_data = data_interface.pretrain_data
+            self.pretrain_val_data = data_interface.pretrain_val_data
+            self.train_data = []
+            self.val_data = []
+            self.test_data = []
+        else:
+            self.pretrain_data = []
+            self.pretrain_val_data = []
+            self.train_data = data_interface.train_data
+            self.val_data = data_interface.val_data
+            self.test_data = data_interface.test_data
 
         # Grab label to index map
         self.label_to_index_map = data_interface.label_to_index_map
@@ -75,6 +96,8 @@ class DataModule(pl.LightningDataModule):
             sampler=None,
             drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def pretrain_val_dataloader(self):
@@ -87,6 +110,8 @@ class DataModule(pl.LightningDataModule):
             shuffle=False,
             drop_last=False,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def train_dataloader(self):
@@ -100,18 +125,22 @@ class DataModule(pl.LightningDataModule):
             sampler=None,
             drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def val_dataloader(self):
-        dataset = self.dataset_type(self.val_data, self.cfg, is_test=False)
+        dataset = self.dataset_type(self.val_data, self.cfg, is_test=True)
         return DataLoader(
             dataset,
-            batch_size=self.batch_size,
+            batch_size=1,
             collate_fn=dataset.collate,
             num_workers=self.num_workers,
             shuffle=False,
-            drop_last=False,
+            drop_last=True,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )
 
     def test_dataloader(self):
@@ -124,4 +153,6 @@ class DataModule(pl.LightningDataModule):
             shuffle=False,
             drop_last=False,
             pin_memory=True,
+            worker_init_fn=seed_worker,
+            generator=g,
         )

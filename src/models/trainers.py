@@ -8,6 +8,7 @@ from omegaconf import DictConfig
 
 import torch
 from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import LambdaLR
 import pytorch_lightning as pl
 import numpy as np
 import open3d as o3d
@@ -21,6 +22,31 @@ import util.eval_semantic as eval_semantic
 log = logging.getLogger(__name__)
 
 
+class LambdaStepLR(LambdaLR):
+    def __init__(self, optimizer, lr_lambda, last_step=-1):
+        super(LambdaStepLR, self).__init__(
+            optimizer, lr_lambda, last_step, verbose=True
+        )
+
+    @property
+    def last_step(self):
+        """Use last_epoch for the step counter"""
+        return self.last_epoch
+
+    @last_step.setter
+    def last_step(self, v):
+        self.last_epoch = v
+
+
+class PolyLR(LambdaStepLR):
+    """DeepLab learning rate policy"""
+
+    def __init__(self, optimizer, max_iter, power=0.9, last_step=-1):
+        super(PolyLR, self).__init__(
+            optimizer, lambda s: (1 - s / (max_iter + 1)) ** power, last_step
+        )
+
+
 def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
     if optimizer_cfg.type == "Adam":
         optimizer = torch.optim.Adam(
@@ -32,6 +58,7 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
             parameters,
             lr=optimizer_cfg.lr,
             momentum=optimizer_cfg.momentum,
+            dampening=optimizer_cfg.dampening,
             weight_decay=optimizer_cfg.weight_decay,
         )
     else:
@@ -45,6 +72,10 @@ def configure_optimizers(parameters, optimizer_cfg, scheduler_cfg):
         return optimizer
     elif scheduler_cfg.type == "ExpLR":
         scheduler = ExponentialLR(optimizer, scheduler_cfg.exp_gamma)
+    elif scheduler_cfg.type == "PolyLR":
+        scheduler = PolyLR(
+            optimizer, max_iter=scheduler_cfg.max_iter, power=scheduler_cfg.poly_power
+        )
     else:
         log.error(f"Invalid scheduler type: {scheduler_cfg.type}")
         raise ValueError(f"Invalid scheduler type: {scheduler_cfg.type}")
@@ -308,3 +339,87 @@ class BackboneTrainer(pl.LightningModule):
     def configure_optimizers(self):
         parameters = self.parameters()
         return configure_optimizers(parameters, self.optimizer_cfg, self.scheduler_cfg)
+
+
+class Segmentation2DTrainer(pl.LightningModule):
+    def __init__(
+        self,
+        cfg: DictConfig,
+        data_interface: DataInterface,
+    ):
+        super().__init__()
+
+        self.optimizer_cfg = cfg.model.optimizer
+        self.scheduler_cfg = cfg.model.scheduler
+
+        # Dataset configuration
+        self.dataset_dir = cfg.dataset_dir
+        self.dataset_cfg = cfg.dataset
+
+        # Model configuration
+        self.train_cfg = cfg.model.train
+        self.test_cfg = cfg.model.test
+
+        self.semantic_categories = data_interface.semantic_categories
+        self.instance_categories = data_interface.instance_categories
+        self.index_to_label_map = data_interface.index_to_label_map
+        self.instance_index_to_label_map = {
+            k: v
+            for k, v in data_interface.index_to_label_map.items()
+            if v in self.instance_categories
+        }
+
+        self.semantic_colours = [
+            np.random.choice(range(256), size=3) / 255.0
+            for i in range(cfg.dataset.classes + 1)
+        ]
+
+        self.ignore_label_id = data_interface.ignore_label
+        self.ignore_label_colour = utils.get_random_colour()
+
+    def configure_optimizers(self):
+        parameters = filter(lambda p: p.requires_grad, self.parameters())
+        return configure_optimizers(parameters, self.optimizer_cfg, self.scheduler_cfg)
+
+    def validation_epoch_end(self, outputs):
+        semantic_matches = {}
+        for i, output in enumerate(outputs):
+            scene_name = f"scene{i}"
+            semantic_matches[scene_name] = output
+
+        mean_iou = eval_semantic.evaluate(
+            semantic_matches,
+            self.index_to_label_map,
+            self.ignore_label_id,
+            verbose=True,
+        )
+        self.log("val_semantic_mIOU", mean_iou, sync_dist=True)
+
+    def get_matches_val(self, batch, output):
+        """Get all gt and predictions for validation"""
+        semantic_pred = output.semantic_pred.detach().cpu().numpy()
+        semantic_gt = batch.labels.reshape((-1,)).detach().cpu().numpy().astype(np.int)
+        semantic_matches = {"gt": semantic_gt, "pred": semantic_pred}
+
+        return semantic_matches
+
+    def test_epoch_end(self, outputs) -> None:
+        semantic_matches = {}
+        for i, output in enumerate(outputs):
+            scene_name = f"scene{i}"
+            semantic_matches[scene_name] = output
+
+        eval_semantic.evaluate(
+            semantic_matches,
+            self.index_to_label_map,
+            self.ignore_label_id,
+            verbose=True,
+        )
+
+    def get_matches_test(self, batch, preds):
+        """Generate test-time prediction to gt matches"""
+        semantic_pred = preds.semantic_pred.detach().cpu().numpy()
+        semantic_gt = batch.labels.reshape((-1,)).detach().cpu().numpy().astype(np.int)
+        semantic_matches = {"gt": semantic_gt, "pred": semantic_pred}
+
+        return semantic_matches

@@ -1,14 +1,28 @@
 import sys
 import shutil
+import copy
 import math
+import random
+import pprint
 from pathlib import Path
 import concurrent.futures
 from omegaconf import DictConfig, OmegaConf
-
+from sklearn.manifold import TSNE
+from matplotlib import pyplot as plt
 import torch
 import torch.nn as nn
 import open3d as o3d
 import numpy as np
+import pytorch_lightning as pl
+
+
+def set_seed(curr_iteration):
+    # Set random seeds for reproductability
+    seed = 123 + curr_iteration
+    torch.manual_seed(seed)
+    random.seed(0)
+    np.random.seed(0)
+    pl.seed_everything(seed, workers=True)
 
 
 class NCESoftmaxLoss(nn.Module):
@@ -20,6 +34,75 @@ class NCESoftmaxLoss(nn.Module):
         x = x.squeeze()
         loss = self.criterion(x, label)
         return loss
+
+
+class NCELossMoco(nn.Module):
+    def __init__(self, config):
+        super(NCELossMoco, self).__init__()
+
+        self.K = (
+            config.pretrain.loss.num_neg_points * config.pretrain.loss.queue_multiple
+        )
+        self.dim = config.net.model_n_out
+        self.T = config.pretrain.loss.temperature
+        self.difficulty = config.pretrain.loss.difficulty
+
+        self.register_buffer("queue", torch.randn(self.dim, self.K))
+        self.queue = nn.functional.normalize(self.queue, dim=0)
+        self.register_buffer("queue_ptr", torch.zeros(1, dtype=torch.long))
+
+        # cross-entropy loss. Also called InfoNCE
+        self.xe_criterion = nn.CrossEntropyLoss()
+
+    @torch.no_grad()
+    def _dequeue_and_enqueue(self, keys):
+        # gather keys before updating queue
+        # keys = concat_all_gather(keys)
+
+        batch_size = keys.shape[0]
+
+        ptr = int(self.queue_ptr)
+        assert self.K % batch_size == 0  # for simplicity
+
+        # replace the keys at ptr (dequeue and enqueue)
+        self.queue[:, ptr : ptr + batch_size] = torch.transpose(keys, 0, 1)
+        ptr = (ptr + batch_size) % self.K  # move pointer
+
+        self.queue_ptr[0] = ptr
+
+    def forward(self, output):
+
+        normalized_output1 = nn.functional.normalize(output[0], dim=1, p=2)
+        normalized_output2 = nn.functional.normalize(output[1], dim=1, p=2)
+
+        # positive logits: Nx1
+        l_pos = torch.einsum(
+            "nc,nc->n", [normalized_output1, normalized_output2]
+        ).unsqueeze(-1)
+
+        # negative logits: NxK
+        neg_features = self.queue.clone().detach()
+        l_neg = torch.einsum("nc,ck->nk", [normalized_output1, neg_features])
+
+        # logits: Nx(1+K)
+        logits = torch.cat([l_pos, l_neg], dim=1)
+
+        # apply temperature
+        logits /= self.T
+
+        # Why do this at the end?
+        self._dequeue_and_enqueue(normalized_output2)
+
+        labels = torch.zeros(logits.shape[0], device=logits.device, dtype=torch.int64)
+
+        return self.xe_criterion(torch.squeeze(logits), labels)
+
+    def __repr__(self):
+        repr_dict = {
+            "name": self._get_name(),
+            "loss_type": self.loss_type,
+        }
+        return pprint.pformat(repr_dict, indent=2)
 
 
 class Visualizer:
@@ -130,7 +213,7 @@ class Visualizer:
 
 
 def get_random_colour():
-    return np.random.choice(range(256), size=3).astype(np.float) / 255.0
+    return np.random.choice(range(256), size=3).astype(np.float) / 256.0
 
 
 def visualize_pointcloud(points, colours):
@@ -146,112 +229,59 @@ def visualize_pointcloud(points, colours):
     o3d.visualization.draw_geometries([pcd])
 
 
-def split_data_amount_threads(data, num_threads):
-    """Spread the data accross all the threads as equally as possible."""
-
-    num_threads = min(len(data), num_threads)
-    if num_threads == 0:
-        return []
-    num_rooms_per_thread = math.floor(len(data) / num_threads)
-
-    def start_index(thread_ind):
-        return thread_ind * num_rooms_per_thread
-
-    def end_index(thread_ind):
-        if thread_ind == num_threads - 1:
-            return None
-        return start_index(thread_ind) + num_rooms_per_thread
-
-    return [
-        data[start_index(thread_ind) : end_index(thread_ind)]
-        for thread_ind in range(num_threads)
-    ]
-
-
-def apply_data_operation_in_parallel(callback, datapoints, num_threads):
-    """Apply an operation on all datapoints in parallel"""
-    data_per_thread = split_data_amount_threads(datapoints, num_threads)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        threads = [
-            executor.submit(callback, thread_data) for thread_data in data_per_thread
-        ]
-
-    outputs = []
-    for thread in threads:
-        result = thread.result()
-        if result:
-            outputs += result
-
-    return outputs
-
-
-def get_batch_offsets(batch_idxs, bs):
-    """
-    :param batch_idxs: (N), int
-    :param bs: int
-    :return: batch_offsets: (bs + 1)
-    """
-    batch_offsets = torch.zeros(bs + 1).int().cuda()
-    for i in range(bs):
-        batch_offsets[i + 1] = batch_offsets[i] + (batch_idxs == i).sum()
-    assert batch_offsets[-1] == batch_idxs.shape[0]
-    return batch_offsets
-
-
-def get_cli_override_arguments():
-    """Returns a list of config arguements being overriden from the current command line"""
-    override_args = []
-    for arg in sys.argv:
-        arg.replace(" ", "")
-        if "=" in arg:
-            override_args.append(arg.split("=")[0])
-
-    return override_args
-
-
-def add_previous_override_args_to_cli(previous_cli_override):
-    """Adds override arguments to the cli if they are not already overriden"""
-    for override in previous_cli_override:
-        override_key, override_value = override.split("=", 1)
-        if override_key not in previous_cli_override:
-            sys.argv.append(override)
-
-
-def load_previous_config(previous_dir: Path, current_dir: Path) -> DictConfig:
-
-    for copy_folder in [".hydra", "lightning_logs"]:
-        src_dir = previous_dir / copy_folder
-        dest_dir = current_dir / copy_folder
-        if dest_dir.exists():
-            shutil.rmtree(dest_dir)
-        shutil.copytree(src_dir, dest_dir)
-
-    # Load overrides config and convert to Dict
-    # with command line arguments taking precedence
-    override_args = get_cli_override_arguments()
-
-    overrides_cfg = OmegaConf.load(str(current_dir / ".hydra/overrides.yaml"))
-    add_previous_override_args_to_cli(overrides_cfg)
-    # save_current_overrides()
-
-    cli_conf = OmegaConf.from_cli()
-    main_cfg = OmegaConf.load(str(current_dir / ".hydra/config.yaml"))
-    conf = OmegaConf.merge(main_cfg, cli_conf)
-    print(OmegaConf.to_yaml(conf))
-
-
-def load_previous_training(previous_dir: Path, current_dir: Path) -> DictConfig:
-
-    for copy_folder in ["lightning_logs"]:
-        src_dir = previous_dir / copy_folder
-        dest_dir = current_dir / copy_folder
-        if dest_dir.exists():
-            shutil.rmtree(dest_dir)
-        shutil.copytree(src_dir, dest_dir)
-
-
 def print_error(message, user_fault=False):
     sys.stderr.write("ERROR: " + str(message) + "\n")
     if user_fault:
         sys.exit(2)
     sys.exit(-1)
+
+
+def get_color_map(x):
+    colours = plt.cm.Spectral(x)
+    return colours[:, :3]
+
+
+def mesh_sphere(pcd, voxel_size, sphere_size=40.0):
+    # Create a mesh sphere
+    spheres = o3d.geometry.TriangleMesh()
+    s = o3d.geometry.TriangleMesh.create_sphere(radius=voxel_size * sphere_size)
+    s.compute_vertex_normals()
+
+    for i, p in enumerate(pcd.points):
+        si = copy.deepcopy(s)
+        trans = np.identity(4)
+        trans[:3, 3] = p
+        si.transform(trans)
+        si.paint_uniform_color(pcd.colors[i])
+        spheres += si
+    return spheres
+
+
+def get_colored_point_cloud_feature(
+    pcd, feature, voxel_size, color_map=None, selected=None
+):
+    if type(color_map) != np.ndarray:
+        tsne_results = embed_tsne(feature)
+        color = get_color_map(tsne_results)
+    else:
+        color = get_color_map(color_map)
+
+    if selected:
+        color[selected] = np.array([0, 0, 0])
+
+    pcd.colors = o3d.utility.Vector3dVector(color)
+    spheres = mesh_sphere(pcd, voxel_size)
+
+    return spheres
+
+
+def embed_tsne(data):
+    """
+    N x D np.array data
+    """
+    tsne = TSNE(n_components=1, verbose=1, perplexity=40, n_iter=350, random_state=0)
+    tsne_results = tsne.fit_transform(data)
+    tsne_results = np.squeeze(tsne_results)
+    tsne_min = np.min(tsne_results)
+    tsne_max = np.max(tsne_results)
+    return (tsne_results - tsne_min) / (tsne_max - tsne_min)

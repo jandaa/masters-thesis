@@ -1,0 +1,106 @@
+\documentclass[12pt]{book}
+
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{lipsum} 
+
+\usepackage[lmargin=1.25in, rmargin=1.25in, bmargin=1.25in, tmargin=1.25in]{geometry}
+
+\pagestyle{fancy}
+\fancyhead{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyhead[R]{\fontsize{10}{12} \selectfont \thepage}   % page number on the right
+\fancyhead[L]{\fontsize{10}{12} \selectfont \textsc{\leftmark}} % chapter title on the left
+\setlength{\topmargin}{-0.25in}
+\setlength{\headsep}{0.4in}
+
+\title{Pretraining Objectives in 3D Learning}
+\author{Andrej Janda}
+\date{\today}
+
+\begin{document}
+\pagenumbering{roman}
+
+\begin{titlepage}
+    \begin{center}
+        \large
+        \vspace*{2cm}
+
+        PRETRAINING OBJECTIVES IN 3D LEARNING
+
+        \vspace{2.5cm}
+
+        by
+
+        \vspace{2.5cm}
+
+        Andrej Janda
+
+        \vspace{5.25cm}
+
+
+        A thesis submitted in conformity with the requirements \\
+        for the degree of Master of Applied Science \\
+        Graduate Department of Aerospace Science and Engineering \\
+        University of Toronto
+
+        \vspace{2.5cm}
+
+
+        \textcopyright \hspace{0.25em} Copyright by Andrej Janda
+
+
+    \end{center}
+\end{titlepage}
+
+\begin{spacing}{1.25}
+    \thispagestyle{plain}
+
+    \begin{center}
+        \Large
+        \textbf{Abstract}
+    \end{center}
+
+    \begin{center}
+        Pretraining objects in 3D Learning \\
+        Andrej Janda \\
+        Master of Applied Science \\
+        Graduate Department of Aerospace Science and Engineering \\
+        University of Toronto \\
+        2022
+    \end{center}
+
+    \lipsum[1]
+
+    \newpage
+
+    \thispagestyle{plain}
+    \begin{center}
+        \Large
+        \textbf{Acknowledgements}
+    \end{center}
+
+    \lipsum[1-3]
+
+
+    \tableofcontents
+    \thispagestyle{plain}
+    \newpage
+
+    \chapter{Introduction}
+    \pagenumbering{arabic}
+
+    \lipsum[2-10]
+
+
+    \chapter{Background}
+
+    \lipsum[2-10]
+\end{spacing}
+
+
+\newpage
+\bibliographystyle{plain}
+\bibliography{contrastive-learning}
+
+\end{document}

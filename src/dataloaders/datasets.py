@@ -20,8 +20,8 @@ class SegmentationDataset(Dataset):
         self.max_pointcloud_size = cfg.model.test.max_pointcloud_size
 
         # Duplicate large scenes because they will be
-        if not is_test:
-            scenes = self.duplicate_large_scenes(scenes)
+        # if not is_test:
+        #     scenes = self.duplicate_large_scenes(scenes)
         self.scenes = scenes
 
     def __len__(self):

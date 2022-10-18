@@ -8,16 +8,17 @@ val_split: [5]
 test_split: [5]
 
 input_channel: 3
-voxel_size: 0.02
-batch_size: 3
-max_npoint: 500000
+voxel_size: 0.05
+batch_size: 6
+accumulate_grad_batches: 8
+max_npoint: 750000
 mode: 4 # 4=mean
 
 pretrain:
   frame_skip: 25
-  batch_size: 16
+  batch_size: 4
   max_steps: 20000
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 4
 
 categories:
   [

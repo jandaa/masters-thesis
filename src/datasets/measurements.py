@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import open3d as o3d
 import cv2
+from math import log, e
 
 from scipy.spatial import KDTree
 
@@ -46,7 +47,14 @@ def get_point_cloud(depth, intrinsics):
 class SceneMeasurement:
     """Stores sensor measurements for a single frame"""
 
-    def __init__(self, directory: Path, output_dir: Path, info: dict, frame_id: str):
+    def __init__(
+        self,
+        directory: Path,
+        output_dir: Path,
+        info: dict,
+        frame_id: str,
+        cluster_model,
+    ):
         """
         Load all measurements of a single frame from a scene catpure
 
@@ -130,6 +138,26 @@ class SceneMeasurement:
         self.points = np.asarray(pcd.points)
         self.point_colors = np.asarray(pcd.colors)
 
+        # Compute FPFH features and entropy
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(self.points)
+        pcd.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=3, max_nn=100))
+
+        search_param = o3d.geometry.KDTreeSearchParamHybrid(radius=7, max_nn=200)
+        fpfh = o3d.pipelines.registration.compute_fpfh_feature(pcd, search_param)
+
+        # Store fpfh values as numpy array
+        self.fpfh = fpfh.data.T
+
+        # Compute entropies
+        entropies = np.array([self.entropy(feature) for feature in self.fpfh])
+        entropies = entropies - entropies.min()
+        entropies = entropies / entropies.max()
+        self.entropies = entropies
+
+        # Compute clusters
+        self.clusters = cluster_model.predict(self.fpfh)
+
         # save all processed data to file
         self.save_to_file(output_dir)
 
@@ -183,12 +211,34 @@ class SceneMeasurement:
         """Pickle the entire object into a single binary file."""
         pickle.dump(self, self.get_pickle_file(directory, self.frame_id).open("wb"))
 
+    def entropy(self, feature, base=None):
+        """Compute entropy of a feature vector."""
+
+        norm = feature.sum()
+        if norm == 0:
+            return 0
+
+        feature = feature / feature.sum()
+
+        entropy = 0
+
+        # Compute entropy
+        base = e if base is None else base
+        for i in feature:
+            if i != 0:
+                entropy -= i * log(i, base)
+
+        return entropy
+
     @staticmethod
     def load(directory: Path, frame_id):
         """Load from a previously pickled measurements file."""
-        return pickle.load(
+
+        measurement = pickle.load(
             SceneMeasurement.get_pickle_file(directory, frame_id).open("rb")
         )
+
+        return measurement
 
 
 class SceneMeasurements:
@@ -213,8 +263,13 @@ class SceneMeasurements:
         self.label_id_to_colour = {i: self.get_random_colour() for i in range(100)}
         self.instance_id_to_colour = {i: self.get_random_colour() for i in range(100)}
 
+        # Load cluster model
+        cluster_model = pickle.load(open("clustering.pkl", "rb"))
+
         measurements = [
-            SceneMeasurement(directory, output_dir, self.info, f"{frame:06d}")
+            SceneMeasurement(
+                directory, output_dir, self.info, f"{frame:06d}", cluster_model
+            )
             for frame in range(0, int(self.info["m_frames.size"]), frame_skip)
         ]
         self.num_measurements = len(measurements)
@@ -433,4 +488,5 @@ class SceneMeasurements:
         pickled_file = directory / (directory.name + "_measurements.pkl")
         scene = pickle.load(pickled_file.open("rb"))
         scene.set_directories(directory)
+
         return scene

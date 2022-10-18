@@ -6,26 +6,32 @@ net:
   conv1_kernel_size: 3
   normalize_feature: True
   dist_type: L2
-  bn_momentum: 0.05
+  bn_momentum: 0.02
+  freeze_backbone: False
+  warmup_steps: 
+  loss:
 
 optimizer:
-  type: Adam # Adam or SGD
-  lr: 1e-3
+  type: SGD # Adam or SGD
+  lr: 0.1
   momentum: 0.9
-  weight_decay: 1e-4
+  dampening: 0.1
+  weight_decay: 0.0001
 
 scheduler:
-  type: 
-  exp_gamma: 
-  interval:
-  frequency:
+  type: PolyLR
+  exp_gamma:
+  poly_power: 0.9
+  max_iter: 60000
+  interval: step
+  frequency: 10
 
 pretrain:
-
   optimizer:
     type: SGD # Adam or SGD
     lr: 1e-1
     momentum: 0.9
+    dampening: 0.1
     weight_decay: 1e-4
 
   scheduler:
@@ -33,18 +39,24 @@ pretrain:
     exp_gamma: 0.99
     interval: "step"
     frequency: 1000
-    
+
+  # For moco loss
+  loss:
+    num_neg_points: 4092 # Number negatives to select
+    queue_multiple: 10  # Multiple of batchsize
+    temperature: 0.4
+    momentum: 0.999
+    byol_tau: 0.99
+    projector_hidden_size: 16
+    projector_output_size: 32
+    predictor_hidden_size: 16
 
 train:
   epochs: 384
-  train_workers: 8 # data loader workers
+  train_workers: 6 # data loader workers
   multiplier: 0.5
-  prepare_epochs: 10000
 
 test:
-  split: val
-  test_workers: 4
-
   eval: True
   save_point_cloud: True
-  max_pointcloud_size: 2000000
+  max_pointcloud_size: 4000000

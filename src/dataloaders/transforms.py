@@ -6,6 +6,21 @@ import scipy.ndimage
 import scipy.interpolate
 from scipy.spatial import KDTree
 from scipy.linalg import expm, norm
+from PIL import ImageFilter
+
+##############################
+# Image transformations
+##############################
+class GaussianBlur(object):
+    """Gaussian blur augmentation in SimCLR https://arxiv.org/abs/2002.05709"""
+
+    def __init__(self, sigma=[0.1, 2.0]):
+        self.sigma = sigma
+
+    def __call__(self, x):
+        sigma = random.uniform(self.sigma[0], self.sigma[1])
+        x = x.filter(ImageFilter.GaussianBlur(radius=sigma))
+        return x
 
 
 ##############################
@@ -22,9 +37,8 @@ class ChromaticTranslation(object):
 
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
-            tr = (np.random.rand(1, 3) - 0.5) * 2 * self.trans_range_ratio
-            # tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
-            feats[:, :3] = np.clip(feats[:, :3] + tr, -0.5, 0.5)
+            tr = (np.random.rand(1, 3) - 0.5) * 255 * 2 * self.trans_range_ratio
+            feats[:, :3] = np.clip(feats[:, :3] + tr, 0, 255)
         return coords, feats, labels
 
 
@@ -39,11 +53,11 @@ class ChromaticAutoContrast(object):
             # std = np.std(feats, 0, keepdims=True)
             # lo = mean - std
             # hi = mean + std
-            lo = feats[:, :3].min(0, keepdims=True)
-            hi = feats[:, :3].max(0, keepdims=True)
+            lo = feats[:, :3].min(0, keepdims=True).values
+            hi = feats[:, :3].max(0, keepdims=True).values
             assert hi.max() > 1, f"invalid color value. Color is supposed to be [0-255]"
 
-            scale = 255 / (hi - lo)
+            scale = 255.0 / (hi - lo)
 
             contrast_feats = (feats[:, :3] - lo) * scale
 
@@ -61,8 +75,8 @@ class ChromaticJitter(object):
     def __call__(self, coords, feats, labels):
         if random.random() < 0.95:
             noise = np.random.randn(feats.shape[0], 3)
-            noise *= self.std
-            feats[:, :3] = np.clip(feats[:, :3] + noise, -1, 1)
+            noise *= self.std * 255
+            feats[:, :3] = np.clip(feats[:, :3] + noise, 0, 255)
         return coords, feats, labels
 
 
@@ -80,8 +94,8 @@ class RandomDropout(object):
     def __call__(self, coords, feats, labels):
         if random.random() < self.dropout_ratio:
             N = len(coords)
-            if N < 10:
-                return coords, feats, labels
+            # if N < 10:
+            #     return coords, feats, labels
             inds = np.random.choice(N, int(N * (1 - self.dropout_ratio)), replace=False)
             return coords[inds], feats[inds], labels[inds]
         return coords, feats, labels
@@ -119,15 +133,18 @@ class RandomRotate(object):
 
 
 class RandomRotateZ(object):
-    def __init__(self):
+    def __init__(self, ROTATION_AUGMENTATION_BOUND=None):
         """
         Randomly rotate the scene
         """
-        self.ROTATION_AUGMENTATION_BOUND = (
-            (-np.pi / 64, np.pi / 64),
-            (-np.pi / 64, np.pi / 64),
-            (-np.pi, np.pi),
-        )
+        if ROTATION_AUGMENTATION_BOUND == None:
+            self.ROTATION_AUGMENTATION_BOUND = (
+                (-np.pi / 64, np.pi / 64),
+                (-np.pi / 64, np.pi / 64),
+                (-np.pi, np.pi),
+            )
+        else:
+            self.ROTATION_AUGMENTATION_BOUND = ROTATION_AUGMENTATION_BOUND
 
     # Rotation matrix along axis with angle theta
     def M(self, axis, theta):
@@ -227,6 +244,91 @@ class ElasticDistortion:
                     coords, feats, labels = self.elastic_distortion(
                         coords, feats, labels, granularity, magnitude
                     )
+        return coords, feats, labels
+
+
+class Clip(object):
+    def __init__(self, clip_bound, translation_augmentation_ratio_bound, ignore_label):
+        """
+        clip point cloud if beyond max size
+        """
+        self.clip_bound = clip_bound
+        self.translation_augmentation_ratio_bound = translation_augmentation_ratio_bound
+        self.ignore_label = ignore_label
+
+    def __call__(self, coords, feats, labels):
+        """
+        clip the scene with a centered bounding box
+        """
+
+        # Get translation augmentation
+        trans_aug_ratio = np.zeros(3)
+        for axis_ind, trans_ratio_bound in enumerate(
+            self.translation_augmentation_ratio_bound
+        ):
+            trans_aug_ratio[axis_ind] = np.random.uniform(*trans_ratio_bound)
+
+        bound_min = np.min(coords, 0).astype(float)
+        bound_max = np.max(coords, 0).astype(float)
+        bound_size = bound_max - bound_min
+        center = bound_min + bound_size * 0.5
+        trans = np.multiply(trans_aug_ratio, bound_size)
+        center += trans
+        lim = self.clip_bound
+
+        if isinstance(self.clip_bound, (int, float)):
+            if bound_size.max() < self.clip_bound:
+                return coords, feats, labels
+            else:
+                clip_inds = (
+                    (coords[:, 0] >= (-lim + center[0]))
+                    & (coords[:, 0] < (lim + center[0]))
+                    & (coords[:, 1] >= (-lim + center[1]))
+                    & (coords[:, 1] < (lim + center[1]))
+                    & (coords[:, 2] >= (-lim + center[2]))
+                    & (coords[:, 2] < (lim + center[2]))
+                )
+        else:
+            # Clip points outside the limit
+            clip_inds = (
+                (coords[:, 0] >= (lim[0][0] + center[0]))
+                & (coords[:, 0] < (lim[0][1] + center[0]))
+                & (coords[:, 1] >= (lim[1][0] + center[1]))
+                & (coords[:, 1] < (lim[1][1] + center[1]))
+                & (coords[:, 2] >= (lim[2][0] + center[2]))
+                & (coords[:, 2] < (lim[2][1] + center[2]))
+            )
+
+        # Perform clip
+        instance_labels = labels[:, 1]
+
+        valid_instance_idx = instance_labels != self.ignore_label
+        unique_instance_labels = np.unique(instance_labels[valid_instance_idx])
+
+        if unique_instance_labels.size == 0:
+            return False
+
+        # Make sure there is at least one instance in the scene
+        current_instances = np.unique(instance_labels[clip_inds])
+        if current_instances.size == 1 and current_instances[0] == self.ignore_label:
+            raise RuntimeError("No instances in scene")
+
+        coords = coords[clip_inds]
+        feats = feats[clip_inds]
+        semantic_labels = labels[clip_inds, 0]
+        instance_labels = labels[clip_inds, 1]
+
+        # Remap instance numbers
+        instance_ids = np.unique(instance_labels)
+        new_index = 0
+        for old_index in instance_ids:
+            if old_index != self.ignore_label:
+                instance_indices = np.where(instance_labels == old_index)
+                instance_labels[instance_indices] = new_index
+                new_index += 1
+
+        labels = np.array([semantic_labels, instance_labels]).T
+
         return coords, feats, labels
 
 

@@ -1,6 +1,6 @@
 # general parameters
 dataset_dir: ??? # Must be provided at command line
-output_dir: 
+output_dir:
 
 # What tasks to run, Options
 # 1. train - train and run on test set
@@ -11,19 +11,25 @@ tasks:
 
 # Trainer configuration
 gpus: 1
-accelerator: "ddp"
-max_epochs: 384
-check_val_every_n_epoch: 10
+accelerator: ddp
+max_epochs: 2000
+max_steps:
+max_time: # Format DD:HH:MM:SS
+check_val_every_n_epoch: 20
+val_check_interval: 1.0
 precision: 32
 
 # Fraction of training set to use during training
 limit_train_batches: 1.0
+limit_val_batches: 1.0
+limit_test_batches: 1.0
 
 # Continue training from specific checkpoint
 # set to last.ckpt to use the latest checkpoint
 checkpoint:
 pretrain_checkpoint:
 supervised_pretrain_checkpoint:
+pretrain_checkpoint_2d:
 
 # whether to run the evaluation on the checkpoint with
 # lowest validation loss (otherwise use latest checkpoint)

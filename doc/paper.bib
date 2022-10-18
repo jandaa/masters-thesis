@@ -1,0 +1,1526 @@
+
+@article{cfen_hierarchical_nodate,
+  title    = {Hierarchical {Aggregation} for {3D} {Instance} {Segmentation}},
+  language = {en},
+  author   = {Chen, Shaoyu and Fang, Jiemin and Zhang, Qian and Liu, Wenyu and Wang, Xinggang},
+  pages    = {10},
+  file     = {Chen et al. - Hierarchical Aggregation for 3D Instance Segmentat.pdf:/home/andrej/Zotero/storage/PME6HDN3/Chen et al. - Hierarchical Aggregation for 3D Instance Segmentat.pdf:application/pdf}
+}
+
+@article{zhang2021Self,
+  title    = {Self-{Supervised} {Pretraining} of {3D} {Features} on any {Point}-{Cloud}},
+  url      = {http://arxiv.org/abs/2101.02691},
+  abstract = {Pretraining on large labeled datasets is a prerequisite to achieve good performance in many computer vision tasks like 2D object recognition, video classification etc. However, pretraining is not widely used for 3D recognition tasks where state-of-the-art methods train models from scratch. A primary reason is the lack of large annotated datasets because 3D data is both difficult to acquire and time consuming to label. We present a simple self-supervised pertaining method that can work with any 3D data - single or multiview, indoor or outdoor, acquired by varied sensors, without 3D registration. We pretrain standard point cloud and voxel based model architectures, and show that joint pretraining further improves performance. We evaluate our models on 9 benchmarks for object detection, semantic segmentation, and object classification, where they achieve state-of-the-art results and can outperform supervised pretraining. We set a new state-of-the-art for object detection on ScanNet (69.0\% mAP) and SUNRGBD (63.5\% mAP). Our pretrained models are label efficient and improve performance for classes with few examples.},
+  language = {en},
+  urldate  = {2021-10-28},
+  journal  = {arXiv:2101.02691 [cs]},
+  author   = {Zhang, Zaiwei and Girdhar, Rohit and Joulin, Armand and Misra, Ishan},
+  month    = jan,
+  year     = {2021},
+  note     = {arXiv: 2101.02691},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file     = {Zhang et al. - 2021 - Self-Supervised Pretraining of 3D Features on any .pdf:/home/andrej/Zotero/storage/CBJBEX48/Zhang et al. - 2021 - Self-Supervised Pretraining of 3D Features on any .pdf:application/pdf}
+}
+
+@inproceedings{he_momentum_2020,
+  address   = {Seattle, WA, USA},
+  title     = {Momentum {Contrast} for {Unsupervised} {Visual} {Representation} {Learning}},
+  isbn      = {978-1-72817-168-5},
+  url       = {https://ieeexplore.ieee.org/document/9157636/},
+  doi       = {10.1109/CVPR42600.2020.00975},
+  abstract  = {We present Momentum Contrast (MoCo) for unsupervised visual representation learning. From a perspective on contrastive learning [29] as dictionary look-up, we build a dynamic dictionary with a queue and a moving-averaged encoder. This enables building a large and consistent dictionary on-the-ﬂy that facilitates contrastive unsupervised learning. MoCo provides competitive results under the common linear protocol on ImageNet classiﬁcation. More importantly, the representations learned by MoCo transfer well to downstream tasks. MoCo can outperform its supervised pre-training counterpart in 7 detection/segmentation tasks on PASCAL VOC, COCO, and other datasets, sometimes surpassing it by large margins. This suggests that the gap between unsupervised and supervised representation learning has been largely closed in many vision tasks.},
+  language  = {en},
+  urldate   = {2021-10-28},
+  booktitle = {2020 {IEEE}/{CVF} {Conference} on {Computer} {Vision} and {Pattern} {Recognition} ({CVPR})},
+  publisher = {IEEE},
+  author    = {He, Kaiming and Fan, Haoqi and Wu, Yuxin and Xie, Saining and Girshick, Ross},
+  month     = jun,
+  year      = {2020},
+  pages     = {9726--9735},
+  file      = {He et al. - 2020 - Momentum Contrast for Unsupervised Visual Represen.pdf:/home/andrej/Zotero/storage/IPZWRI2D/He et al. - 2020 - Momentum Contrast for Unsupervised Visual Represen.pdf:application/pdf}
+}
+
+@article{oord_representation_2019,
+  title    = {Representation {Learning} with {Contrastive} {Predictive} {Coding}},
+  url      = {http://arxiv.org/abs/1807.03748},
+  abstract = {While supervised learning has enabled great progress in many applications, unsupervised learning has not seen such widespread adoption, and remains an important and challenging endeavor for artiﬁcial intelligence. In this work, we propose a universal unsupervised learning approach to extract useful representations from high-dimensional data, which we call Contrastive Predictive Coding. The key insight of our model is to learn such representations by predicting the future in latent space by using powerful autoregressive models. We use a probabilistic contrastive loss which induces the latent space to capture information that is maximally useful to predict future samples. It also makes the model tractable by using negative sampling. While most prior work has focused on evaluating representations for a particular modality, we demonstrate that our approach is able to learn useful representations achieving strong performance on four distinct domains: speech, images, text and reinforcement learning in 3D environments.},
+  language = {en},
+  urldate  = {2021-10-28},
+  journal  = {arXiv:1807.03748 [cs, stat]},
+  author   = {Oord, Aaron van den and Li, Yazhe and Vinyals, Oriol},
+  month    = jan,
+  year     = {2019},
+  note     = {arXiv: 1807.03748},
+  keywords = {Computer Science - Machine Learning, Statistics - Machine Learning},
+  file     = {Oord et al. - 2019 - Representation Learning with Contrastive Predictiv.pdf:/home/andrej/Zotero/storage/S5ZQVZXA/Oord et al. - 2019 - Representation Learning with Contrastive Predictiv.pdf:application/pdf}
+}
+
+@article{frey_continual_2021,
+  title    = {Continual {Learning} of {Semantic} {Segmentation} using {Complementary} {2D}-{3D} {Data} {Representations}},
+  url      = {http://arxiv.org/abs/2111.02156},
+  abstract = {Semantic segmentation networks are usually pretrained and not updated during deployment. As a consequence, misclassiﬁcations commonly occur if the distribution of the training data deviates from the one encountered during the robot’s operation. We propose to mitigate this problem by adapting the neural network to the robot’s environment during deployment, without any need for external supervision. Leveraging complementary data representations, we generate a supervision signal, by probabilistically accumulating consecutive 2D semantic predictions in a volumetric 3D map. We then retrain the network on renderings of the accumulated semantic map, effectively resolving ambiguities and enforcing multiview consistency through the 3D representation. To preserve the previously-learned knowledge while performing network adaptation, we employ a continual learning strategy based on experience replay. Through extensive experimental evaluation, we show successful adaptation to real-world indoor scenes both on the ScanNet dataset and on in-house data recorded with an RGB-D sensor. Our method increases the segmentation performance on average by 11.8\% compared to the ﬁxed pretrained neural network, while effectively retaining knowledge from the pre-training dataset.},
+  language = {en},
+  urldate  = {2021-11-12},
+  journal  = {arXiv:2111.02156 [cs]},
+  author   = {Frey, Jonas and Blum, Hermann and Milano, Francesco and Siegwart, Roland and Cadena, Cesar},
+  month    = nov,
+  year     = {2021},
+  note     = {arXiv: 2111.02156},
+  keywords = {Computer Science - Robotics},
+  file     = {Frey et al. - 2021 - Continual Learning of Semantic Segmentation using .pdf:/home/andrej/Zotero/storage/QTCA86VR/Frey et al. - 2021 - Continual Learning of Semantic Segmentation using .pdf:application/pdf}
+}
+
+@inproceedings{liu_contrastive_2021,
+  title    = {Contrastive {Multimodal} {Fusion} {With} {TupleInfoNCE}},
+  url      = {https://openaccess.thecvf.com/content/ICCV2021/html/Liu_Contrastive_Multimodal_Fusion_With_TupleInfoNCE_ICCV_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Liu, Yunze and Fan, Qingnan and Zhang, Shanghang and Dong, Hao and Funkhouser, Thomas and Yi, Li},
+  year     = {2021},
+  pages    = {754--763},
+  file     = {Snapshot:/home/andrej/Zotero/storage/IQ9C4WUN/Liu_Contrastive_Multimodal_Fusion_With_TupleInfoNCE_ICCV_2021_paper.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/UN36SJW7/Liu et al. - 2021 - Contrastive Multimodal Fusion With TupleInfoNCE.pdf:application/pdf}
+}
+
+@inproceedings{wang_dense_2021,
+  title    = {Dense {Contrastive} {Learning} for {Self}-{Supervised} {Visual} {Pre}-{Training}},
+  url      = {https://openaccess.thecvf.com/content/CVPR2021/html/Wang_Dense_Contrastive_Learning_for_Self-Supervised_Visual_Pre-Training_CVPR_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Wang, Xinlong and Zhang, Rufeng and Shen, Chunhua and Kong, Tao and Li, Lei},
+  year     = {2021},
+  pages    = {3024--3033},
+  file     = {Full Text PDF:/home/andrej/Zotero/storage/NCJTY3FU/Wang et al. - 2021 - Dense Contrastive Learning for Self-Supervised Vis.pdf:application/pdf;Snapshot:/home/andrej/Zotero/storage/ULQRA3FA/Wang_Dense_Contrastive_Learning_for_Self-Supervised_Visual_Pre-Training_CVPR_2021_paper.html:text/html}
+}
+
+@article{sun_canonical_nodate,
+  title    = {Canonical {Capsules}: {Self}-{Supervised} {Capsules} in {Canonical} {Pose}},
+  abstract = {We propose a self-supervised capsule architecture for 3D point clouds. We compute capsule decompositions of objects through permutation-equivariant attention, and self-supervise the process by training with pairs of randomly rotated objects. Our key idea is to aggregate the attention masks into semantic keypoints, and use these to supervise a decomposition that satisﬁes the capsule invariance/equivariance properties. This not only enables the training of a semantically consistent decomposition, but also allows us to learn a canonicalization operation that enables object-centric reasoning. To train our neural network we require neither classiﬁcation labels nor manually-aligned training datasets. Yet, by learning an object-centric representation in a self-supervised manner, our method outperforms the state-of-the-art on 3D point cloud reconstruction, canonicalization, and unsupervised classiﬁcation.},
+  language = {en},
+  author   = {Sun, Weiwei and Tagliasacchi, Andrea and Deng, Boyang and Sabour, Sara and Yazdani, Soroosh and Hinton, Geoffrey},
+  pages    = {13},
+  file     = {Sun et al. - Canonical Capsules Self-Supervised Capsules in Ca.pdf:/home/andrej/Zotero/storage/7VYRDFWV/Sun et al. - Canonical Capsules Self-Supervised Capsules in Ca.pdf:application/pdf}
+}
+
+@inproceedings{huang_spatio-temporal_2021,
+  title    = {Spatio-{Temporal} {Self}-{Supervised} {Representation} {Learning} for {3D} {Point} {Clouds}},
+  url      = {https://openaccess.thecvf.com/content/ICCV2021/html/Huang_Spatio-Temporal_Self-Supervised_Representation_Learning_for_3D_Point_Clouds_ICCV_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Huang, Siyuan and Xie, Yichen and Zhu, Song-Chun and Zhu, Yixin},
+  year     = {2021},
+  pages    = {6535--6545},
+  file     = {Snapshot:/home/andrej/Zotero/storage/XM85KP9Q/Huang_Spatio-Temporal_Self-Supervised_Representation_Learning_for_3D_Point_Clouds_ICCV_2021_pap.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/HAFPEA3J/Huang et al. - 2021 - Spatio-Temporal Self-Supervised Representation Lea.pdf:application/pdf}
+}
+
+@article{wang_unsupervised_nodate,
+  title    = {Unsupervised {Point} {Cloud} {Pre}-{Training} via {Occlusion} {Completion}},
+  language = {en},
+  author   = {Wang, Hanchen and Liu, Qi and Yue, Xiangyu and Lasenby, Joan and Kusner, Matt J},
+  pages    = {11},
+  file     = {Wang et al. - Unsupervised Point Cloud Pre-Training via Occlusio.pdf:/home/andrej/Zotero/storage/49G76UUA/Wang et al. - Unsupervised Point Cloud Pre-Training via Occlusio.pdf:application/pdf}
+}
+
+@inproceedings{jiang2021Guided,
+  title    = {Guided {Point} {Contrastive} {Learning} for {Semi}-{Supervised} {Point} {Cloud} {Semantic} {Segmentation}},
+  url      = {https://openaccess.thecvf.com/content/ICCV2021/html/Jiang_Guided_Point_Contrastive_Learning_for_Semi-Supervised_Point_Cloud_Semantic_Segmentation_ICCV_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Jiang, Li and Shi, Shaoshuai and Tian, Zhuotao and Lai, Xin and Liu, Shu and Fu, Chi-Wing and Jia, Jiaya},
+  year     = {2021},
+  pages    = {6423--6432},
+  file     = {Snapshot:/home/andrej/Zotero/storage/7H9LZC7Y/Jiang_Guided_Point_Contrastive_Learning_for_Semi-Supervised_Point_Cloud_Semantic_Segmentation_I.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/S9JNHG8K/Jiang et al. - 2021 - Guided Point Contrastive Learning for Semi-Supervi.pdf:application/pdf}
+}
+
+@inproceedings{eckart_self-supervised_2021,
+  title    = {Self-{Supervised} {Learning} on {3D} {Point} {Clouds} by {Learning} {Discrete} {Generative} {Models}},
+  url      = {https://openaccess.thecvf.com/content/CVPR2021/html/Eckart_Self-Supervised_Learning_on_3D_Point_Clouds_by_Learning_Discrete_Generative_CVPR_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Eckart, Benjamin and Yuan, Wentao and Liu, Chao and Kautz, Jan},
+  year     = {2021},
+  pages    = {8248--8257},
+  file     = {Snapshot:/home/andrej/Zotero/storage/WS5TEUBV/Eckart_Self-Supervised_Learning_on_3D_Point_Clouds_by_Learning_Discrete_Generative_CVPR_2021_pa.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/9HHDALVC/Eckart et al. - 2021 - Self-Supervised Learning on 3D Point Clouds by Lea.pdf:application/pdf}
+}
+
+@inproceedings{yang_unsupervised_2021,
+  title    = {Unsupervised {Point} {Cloud} {Object} {Co}-{Segmentation} by {Co}-{Contrastive} {Learning} and {Mutual} {Attention} {Sampling}},
+  url      = {https://openaccess.thecvf.com/content/ICCV2021/html/Yang_Unsupervised_Point_Cloud_Object_Co-Segmentation_by_Co-Contrastive_Learning_and_Mutual_ICCV_2021_paper.html},
+  language = {en},
+  urldate  = {2021-11-25},
+  author   = {Yang, Cheng-Kun and Chuang, Yung-Yu and Lin, Yen-Yu},
+  year     = {2021},
+  pages    = {7335--7344},
+  file     = {Snapshot:/home/andrej/Zotero/storage/L9E6DPBA/Yang_Unsupervised_Point_Cloud_Object_Co-Segmentation_by_Co-Contrastive_Learning_and_Mutual_ICCV.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/4VM3WLGY/Yang et al. - 2021 - Unsupervised Point Cloud Object Co-Segmentation by.pdf:application/pdf}
+}
+
+@inproceedings{lal_coconets_2021,
+  title      = {{CoCoNets}: {Continuous} {Contrastive} {3D} {Scene} {Representations}},
+  shorttitle = {{CoCoNets}},
+  doi        = {10.1109/CVPR46437.2021.01230},
+  abstract   = {This paper explores self-supervised learning of amodal 3D feature representations from RGB and RGB-D posed images and videos, agnostic to object and scene semantic content, and evaluates the resulting scene representations in the downstream tasks of visual correspondence, object tracking, and object detection. The model infers a latent 3D representation of the scene in the form of 3D feature points, where each continuous world 3D point is mapped to its corresponding feature vector. The model is trained for contrastive view prediction by rendering 3D feature clouds in queried viewpoints and matching against the 3D feature point cloud predicted from the query view. Notably, the representation can be queried for any 3D location, even if it is not visible from the input view. Our model brings together three powerful ideas of recent exciting research work: 3D feature grids as a neural bottleneck for view prediction, implicit functions for handling resolution limitations of 3D grids, and contrastive learning for unsupervised training of feature representations. We show the resulting 3D visual feature representations effectively scale across objects and scenes, imagine information occluded or missing from the input viewpoints, track objects over time, align semantically related objects in 3D, and improve 3D object detection. We outperform many existing state-of-the-art methods for 3D feature learning and view prediction, which are either limited by 3D grid spatial resolution, do not attempt to build amodal 3D representations, or do not handle combinatorial scene variability due to their non-convolutional bottlenecks.},
+  booktitle  = {2021 {IEEE}/{CVF} {Conference} on {Computer} {Vision} and {Pattern} {Recognition} ({CVPR})},
+  author     = {Lal, Shamit and Prabhudesai, Mihir and Mediratta, Ishita and Harley, Adam W. and Fragkiadaki, Katerina},
+  month      = jun,
+  year       = {2021},
+  note       = {ISSN: 2575-7075},
+  keywords   = {Feature extraction, Object detection, Predictive models, Solid modeling, Three-dimensional displays, Training, Visualization},
+  pages      = {12482--12491},
+  file       = {IEEE Xplore Full Text PDF:/home/andrej/Zotero/storage/5QV7SQ6T/Lal et al. - 2021 - CoCoNets Continuous Contrastive 3D Scene Represen.pdf:application/pdf;IEEE Xplore Abstract Record:/home/andrej/Zotero/storage/8TRKHMQD/9578250.html:text/html}
+}
+
+@incollection{vedaldi_label-efficient_2020,
+  address   = {Cham},
+  title     = {Label-{Efficient} {Learning} on {Point} {Clouds} {Using} {Approximate} {Convex} {Decompositions}},
+  volume    = {12355},
+  isbn      = {978-3-030-58606-5 978-3-030-58607-2},
+  url       = {https://link.springer.com/10.1007/978-3-030-58607-2_28},
+  abstract  = {The problems of shape classiﬁcation and part segmentation from 3D point clouds have garnered increasing attention in the last few years. Both of these problems, however, suﬀer from relatively small training sets, creating the need for statistically eﬃcient methods to learn 3D shape representations. In this paper, we investigate the use of Approximate Convex Decompositions (ACD) as a self-supervisory signal for label-eﬃcient learning of point cloud representations. We show that using ACD to approximate ground truth segmentation provides excellent selfsupervision for learning 3D point cloud representations that are highly eﬀective on downstream tasks. We report improvements over the stateof-the-art for unsupervised representation learning on the ModelNet40 shape classiﬁcation dataset and signiﬁcant gains in few-shot part segmentation on the ShapeNetPart dataset. Our source code is publicly available (https://github.com/matheusgadelha/PointCloudLearningACD).},
+  language  = {en},
+  urldate   = {2021-11-25},
+  booktitle = {Computer {Vision} – {ECCV} 2020},
+  publisher = {Springer International Publishing},
+  author    = {Gadelha, Matheus and RoyChowdhury, Aruni and Sharma, Gopal and Kalogerakis, Evangelos and Cao, Liangliang and Learned-Miller, Erik and Wang, Rui and Maji, Subhransu},
+  editor    = {Vedaldi, Andrea and Bischof, Horst and Brox, Thomas and Frahm, Jan-Michael},
+  year      = {2020},
+  doi       = {10.1007/978-3-030-58607-2_28},
+  note      = {Series Title: Lecture Notes in Computer Science},
+  pages     = {473--491},
+  file      = {Gadelha et al. - 2020 - Label-Efficient Learning on Point Clouds Using App.pdf:/home/andrej/Zotero/storage/PRGWCE5X/Gadelha et al. - 2020 - Label-Efficient Learning on Point Clouds Using App.pdf:application/pdf}
+}
+
+@article{sauder_self-supervised_nodate,
+  title    = {Self-{Supervised} {Deep} {Learning} on {Point} {Clouds} by {Reconstructing} {Space}},
+  abstract = {Point clouds provide a ﬂexible and natural representation usable in countless applications such as robotics or self-driving cars. Recently, deep neural networks operating on raw point cloud data have shown promising results on supervised learning tasks such as object classiﬁcation and semantic segmentation. While massive point cloud datasets can be captured using modern scanning technology, manually labelling such large 3D point clouds for supervised learning tasks is a cumbersome process. This necessitates methods that can learn from unlabelled data to signiﬁcantly reduce the number of annotated samples needed in supervised learning. We propose a self-supervised learning task for deep learning on raw point cloud data in which a neural network is trained to reconstruct point clouds whose parts have been randomly rearranged. While solving this task, representations that capture semantic properties of the point cloud are learned. Our method is agnostic of network architecture and outperforms current unsupervised learning approaches in downstream object classiﬁcation tasks. We show experimentally, that pre-training with our method before supervised training improves the performance of state-of-the-art models and signiﬁcantly improves sample efﬁciency.},
+  language = {en},
+  author   = {Sauder, Jonathan and Sievers, Bjarne},
+  pages    = {11},
+  file     = {Sauder and Sievers - Self-Supervised Deep Learning on Point Clouds by R.pdf:/home/andrej/Zotero/storage/B6FCRBZ5/Sauder and Sievers - Self-Supervised Deep Learning on Point Clouds by R.pdf:application/pdf}
+}
+
+@article{kaick_shape_2015,
+  title    = {Shape {Segmentation} by {Approximate} {Convexity} {Analysis}},
+  volume   = {34},
+  issn     = {0730-0301},
+  url      = {https://doi.org/10.1145/2611811},
+  doi      = {10.1145/2611811},
+  abstract = {We present a shape segmentation method for complete and incomplete shapes. The key idea is to directly optimize the decomposition based on a characterization of the expected geometry of a part in a shape. Rather than setting the number of parts in advance, we search for the smallest number of parts that admit the geometric characterization of the parts. The segmentation is based on an intermediate-level analysis, where first the shape is decomposed into approximate convex components, which are then merged into consistent parts based on a nonlocal geometric signature. Our method is designed to handle incomplete shapes, represented by point clouds. We show segmentation results on shapes acquired by a range scanner, and an analysis of the robustness of our method to missing regions. Moreover, our method yields results that are comparable to state-of-the-art techniques evaluated on complete shapes.},
+  number   = {1},
+  urldate  = {2021-11-25},
+  journal  = {ACM Transactions on Graphics},
+  author   = {Kaick, Oliver Van and Fish, Noa and Kleiman, Yanir and Asafi, Shmuel and Cohen-OR, Daniel},
+  month    = dec,
+  year     = {2015},
+  keywords = {incomplete shapes, missing data, part characterization, point clouds, Shape segmentation, weakly convex decomposition},
+  pages    = {4:1--4:11},
+  file     = {Full Text PDF:/home/andrej/Zotero/storage/ZG942KXM/Kaick et al. - 2015 - Shape Segmentation by Approximate Convexity Analys.pdf:application/pdf}
+}
+
+@article{khosla_supervised_2021,
+  title    = {Supervised {Contrastive} {Learning}},
+  url      = {http://arxiv.org/abs/2004.11362},
+  abstract = {Contrastive learning applied to self-supervised representation learning has seen a resurgence in recent years, leading to state of the art performance in the unsupervised training of deep image models. Modern batch contrastive approaches subsume or significantly outperform traditional contrastive losses such as triplet, max-margin and the N-pairs loss. In this work, we extend the self-supervised batch contrastive approach to the fully-supervised setting, allowing us to effectively leverage label information. Clusters of points belonging to the same class are pulled together in embedding space, while simultaneously pushing apart clusters of samples from different classes. We analyze two possible versions of the supervised contrastive (SupCon) loss, identifying the best-performing formulation of the loss. On ResNet-200, we achieve top-1 accuracy of 81.4\% on the ImageNet dataset, which is 0.8\% above the best number reported for this architecture. We show consistent outperformance over cross-entropy on other datasets and two ResNet variants. The loss shows benefits for robustness to natural corruptions and is more stable to hyperparameter settings such as optimizers and data augmentations. Our loss function is simple to implement, and reference TensorFlow code is released at https://t.ly/supcon.},
+  urldate  = {2021-11-26},
+  journal  = {arXiv:2004.11362 [cs, stat]},
+  author   = {Khosla, Prannay and Teterwak, Piotr and Wang, Chen and Sarna, Aaron and Tian, Yonglong and Isola, Phillip and Maschinot, Aaron and Liu, Ce and Krishnan, Dilip},
+  month    = mar,
+  year     = {2021},
+  note     = {arXiv: 2004.11362},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition, Computer Science - Machine Learning, Statistics - Machine Learning},
+  file     = {arXiv Fulltext PDF:/home/andrej/Zotero/storage/E3FWTJII/Khosla et al. - 2021 - Supervised Contrastive Learning.pdf:application/pdf;arXiv.org Snapshot:/home/andrej/Zotero/storage/FDXUI23F/2004.html:text/html}
+}
+
+@inproceedings{chen_simple_2020,
+  title     = {A Simple Framework for Contrastive Learning of Visual Representations},
+  author    = {Chen, Ting and Kornblith, Simon and Norouzi, Mohammad and Hinton, Geoffrey},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
+  pages     = {1597--1607},
+  year      = {2020},
+  editor    = {III, Hal Daumé and Singh, Aarti},
+  volume    = {119},
+  series    = {Proceedings of Machine Learning Research},
+  month     = {13--18 Jul},
+  publisher = {PMLR},
+  pdf       = {http://proceedings.mlr.press/v119/chen20j/chen20j.pdf},
+  url       = {https://proceedings.mlr.press/v119/chen20j.html},
+  abstract  = {This paper presents SimCLR: a simple framework for contrastive learning of visual representations. We simplify recently proposed contrastive self-supervised learning algorithms without requiring specialized architectures or a memory bank. In order to understand what enables the contrastive prediction tasks to learn useful representations, we systematically study the major components of our framework. We show that (1) composition of data augmentations plays a critical role in defining effective predictive tasks, (2) introducing a learnable nonlinear transformation between the representation and the contrastive loss substantially improves the quality of the learned representations, and (3) contrastive learning benefits from larger batch sizes and more training steps compared to supervised learning. By combining these findings, we are able to considerably outperform previous methods for self-supervised and semi-supervised learning on ImageNet. A linear classifier trained on self-supervised representations learned by SimCLR achieves 76.5% top-1 accuracy, which is a 7% relative improvement over previous state-of-the-art, matching the performance of a supervised ResNet-50. When fine-tuned on only 1% of the labels, we achieve 85.8% top-5 accuracy, outperforming AlexNet with 100X fewer labels.}
+}
+
+
+@inproceedings{lang_samplenet_2020,
+  address    = {Seattle, WA, USA},
+  title      = {{SampleNet}: {Differentiable} {Point} {Cloud} {Sampling}},
+  isbn       = {978-1-72817-168-5},
+  shorttitle = {{SampleNet}},
+  url        = {https://ieeexplore.ieee.org/document/9157510/},
+  doi        = {10.1109/CVPR42600.2020.00760},
+  abstract   = {There is a growing number of tasks that work directly on point clouds. As the size of the point cloud grows, so do the computational demands of these tasks. A possible solution is to sample the point cloud ﬁrst. Classic sampling approaches, such as farthest point sampling (FPS), do not consider the downstream task. A recent work showed that learning a task-speciﬁc sampling can improve results signiﬁcantly. However, the proposed technique did not deal with the non-differentiability of the sampling operation and offered a workaround instead.},
+  language   = {en},
+  urldate    = {2021-11-26},
+  booktitle  = {2020 {IEEE}/{CVF} {Conference} on {Computer} {Vision} and {Pattern} {Recognition} ({CVPR})},
+  publisher  = {IEEE},
+  author     = {Lang, Itai and Manor, Asaf and Avidan, Shai},
+  month      = jun,
+  year       = {2020},
+  pages      = {7575--7585},
+  file       = {Lang et al. - 2020 - SampleNet Differentiable Point Cloud Sampling.pdf:/home/andrej/Zotero/storage/6AUD85BX/Lang et al. - 2020 - SampleNet Differentiable Point Cloud Sampling.pdf:application/pdf}
+}
+
+@article{kalantidis_hard_nodate,
+  title    = {Hard {Negative} {Mixing} for {Contrastive} {Learning}},
+  language = {en},
+  author   = {Kalantidis, Yannis and Sariyildiz, Mert Bulent and Pion, Noe},
+  pages    = {12},
+  file     = {Kalantidis et al. - Hard Negative Mixing for Contrastive Learning.pdf:/home/andrej/Zotero/storage/E6AXW5MD/Kalantidis et al. - Hard Negative Mixing for Contrastive Learning.pdf:application/pdf}
+}
+
+@article{robinson_contrastive_2021,
+  title    = {Contrastive {Learning} with {Hard} {Negative} {Samples}},
+  url      = {http://arxiv.org/abs/2010.04592},
+  abstract = {We consider the question: how can you sample good negative examples for contrastive learning? We argue that, as with metric learning, learning contrastive representations beneﬁts from hard negative samples (i.e., points that are difﬁcult to distinguish from an anchor point). The key challenge toward using hard negatives is that contrastive methods must remain unsupervised, making it infeasible to adopt existing negative sampling strategies that use label information. In response, we develop a new class of unsupervised methods for selecting hard negative samples where the user can control the amount of hardness. A limiting case of this sampling results in a representation that tightly clusters each class, and pushes different classes as far apart as possible. The proposed method improves downstream performance across multiple modalities, requires only few additional lines of code to implement, and introduces no computational overhead.},
+  language = {en},
+  urldate  = {2021-11-30},
+  journal  = {arXiv:2010.04592 [cs, stat]},
+  author   = {Robinson, Joshua and Chuang, Ching-Yao and Sra, Suvrit and Jegelka, Stefanie},
+  month    = jan,
+  year     = {2021},
+  note     = {arXiv: 2010.04592},
+  keywords = {Computer Science - Machine Learning, Statistics - Machine Learning},
+  file     = {Robinson et al. - 2021 - Contrastive Learning with Hard Negative Samples.pdf:/home/andrej/Zotero/storage/JZHSCSBM/Robinson et al. - 2021 - Contrastive Learning with Hard Negative Samples.pdf:application/pdf}
+}
+
+@article{chuang_debiased_2020,
+  title    = {Debiased {Contrastive} {Learning}},
+  url      = {http://arxiv.org/abs/2007.00224},
+  abstract = {A prominent technique for self-supervised representation learning has been to contrast semantically similar and dissimilar pairs of samples. Without access to labels, dissimilar (negative) points are typically taken to be randomly sampled datapoints, implicitly accepting that these points may, in reality, actually have the same label. Perhaps unsurprisingly, we observe that sampling negative examples from truly different labels improves performance, in a synthetic setting where labels are available. Motivated by this observation, we develop a debiased contrastive objective that corrects for the sampling of same-label datapoints, even without knowledge of the true labels. Empirically, the proposed objective consistently outperforms the state-of-the-art for representation learning in vision, language, and reinforcement learning benchmarks. Theoretically, we establish generalization bounds for the downstream classiﬁcation task.},
+  language = {en},
+  urldate  = {2021-11-30},
+  journal  = {arXiv:2007.00224 [cs, stat]},
+  author   = {Chuang, Ching-Yao and Robinson, Joshua and Yen-Chen, Lin and Torralba, Antonio and Jegelka, Stefanie},
+  month    = oct,
+  year     = {2020},
+  note     = {arXiv: 2007.00224},
+  keywords = {Computer Science - Machine Learning, Statistics - Machine Learning},
+  file     = {Chuang et al. - 2020 - Debiased Contrastive Learning.pdf:/home/andrej/Zotero/storage/99KGH9GF/Chuang et al. - 2020 - Debiased Contrastive Learning.pdf:application/pdf}
+}
+
+@article{ho_contrastive_nodate,
+  title    = {Contrastive {Learning} with {Adversarial} {Examples}},
+  abstract = {Contrastive learning (CL) is a popular technique for self-supervised learning (SSL) of visual representations. It uses pairs of augmentations of unlabeled training examples to deﬁne a classiﬁcation task for pretext learning of a deep embedding. Despite extensive works in augmentation procedures, prior works do not address the selection of challenging negative pairs, as images within a sampled batch are treated independently. This paper addresses the problem, by introducing a new family of adversarial examples for constrastive learning and using these examples to deﬁne a new adversarial training algorithm for SSL, denoted as CLAE. When compared to standard CL, the use of adversarial examples creates more challenging positive pairs and adversarial training produces harder negative pairs by accounting for all images in a batch during the optimization. CLAE is compatible with many CL methods in the literature. Experiments show that it improves the performance of several existing CL baselines on multiple datasets.},
+  language = {en},
+  author   = {Ho, Chih-Hui and Vasconcelos, Nuno},
+  pages    = {13},
+  file     = {Ho and Vasconcelos - Contrastive Learning with Adversarial Examples.pdf:/home/andrej/Zotero/storage/53H8K3Z8/Ho and Vasconcelos - Contrastive Learning with Adversarial Examples.pdf:application/pdf}
+}
+
+@article{le-khac_contrastive_2020,
+  title      = {Contrastive {Representation} {Learning}: {A} {Framework} and {Review}},
+  volume     = {8},
+  issn       = {2169-3536},
+  shorttitle = {Contrastive {Representation} {Learning}},
+  doi        = {10.1109/ACCESS.2020.3031549},
+  abstract   = {Contrastive Learning has recently received interest due to its success in self-supervised representation learning in the computer vision domain. However, the origins of Contrastive Learning date as far back as the 1990s and its development has spanned across many fields and domains including Metric Learning and natural language processing. In this paper, we provide a comprehensive literature review and we propose a general Contrastive Representation Learning framework that simplifies and unifies many different contrastive learning methods. We also provide a taxonomy for each of the components of contrastive learning in order to summarise it and distinguish it from other forms of machine learning. We then discuss the inductive biases which are present in any contrastive learning system and we analyse our framework under different views from various sub-fields of Machine Learning. Examples of how contrastive learning has been applied in computer vision, natural language processing, audio processing, and others, as well as in Reinforcement Learning are also presented. Finally, we discuss the challenges and some of the most promising future research directions ahead.},
+  journal    = {IEEE Access},
+  author     = {Le-Khac, Phuc H. and Healy, Graham and Smeaton, Alan F.},
+  year       = {2020},
+  note       = {Conference Name: IEEE Access},
+  keywords   = {Feature extraction, Computational modeling, Contrastive learning, Data models, deep learning, Learning systems, machine learning, Machine learning, Natural language processing, representation learning, self-supervised learning, Task analysis, unsupervised learning},
+  pages      = {193907--193934},
+  file       = {IEEE Xplore Full Text PDF:/home/andrej/Zotero/storage/4KFFTYSW/Le-Khac et al. - 2020 - Contrastive Representation Learning A Framework a.pdf:application/pdf;IEEE Xplore Abstract Record:/home/andrej/Zotero/storage/IWPYG2MV/9226466.html:text/html}
+}
+
+@article{jaiswal_survey_2021,
+  title     = {A {Survey} on {Contrastive} {Self}-{Supervised} {Learning}},
+  volume    = {9},
+  copyright = {http://creativecommons.org/licenses/by/3.0/},
+  url       = {https://www.mdpi.com/2227-7080/9/1/2},
+  doi       = {10.3390/technologies9010002},
+  abstract  = {Self-supervised learning has gained popularity because of its ability to avoid the cost of annotating large-scale datasets. It is capable of adopting self-defined pseudolabels as supervision and use the learned representations for several downstream tasks. Specifically, contrastive learning has recently become a dominant component in self-supervised learning for computer vision, natural language processing (NLP), and other domains. It aims at embedding augmented versions of the same sample close to each other while trying to push away embeddings from different samples. This paper provides an extensive review of self-supervised methods that follow the contrastive approach. The work explains commonly used pretext tasks in a contrastive learning setup, followed by different architectures that have been proposed so far. Next, we present a performance comparison of different methods for multiple downstream tasks such as image classification, object detection, and action recognition. Finally, we conclude with the limitations of the current methods and the need for further techniques and future directions to make meaningful progress.},
+  language  = {en},
+  number    = {1},
+  urldate   = {2021-12-01},
+  journal   = {Technologies},
+  author    = {Jaiswal, Ashish and Babu, Ashwin Ramesh and Zadeh, Mohammad Zaki and Banerjee, Debapriya and Makedon, Fillia},
+  month     = mar,
+  year      = {2021},
+  note      = {Number: 1
+               Publisher: Multidisciplinary Digital Publishing Institute},
+  keywords  = {self-supervised learning, unsupervised learning, contrastive learning, discriminative learning, image/video classification, object detection, transfer learning},
+  pages     = {2},
+  file      = {Full Text PDF:/home/andrej/Zotero/storage/BBGM287V/Jaiswal et al. - 2021 - A Survey on Contrastive Self-Supervised Learning.pdf:application/pdf;Snapshot:/home/andrej/Zotero/storage/ENFTEXXB/2.html:text/html}
+}
+
+@article{liu_self-supervised_2021,
+  title      = {Self-supervised {Learning}: {Generative} or {Contrastive}},
+  issn       = {1558-2191},
+  shorttitle = {Self-supervised {Learning}},
+  doi        = {10.1109/TKDE.2021.3090866},
+  abstract   = {Deep supervised learning has achieved great success in the last decade. However, its defects of heavy dependence on manual labels and vulnerability to attacks have driven people to find other paradigms. As an alternative, self-supervised learning (SSL) attracts many researchers for its soaring performance on representation learning in the last several years. Self-supervised representation learning leverages input data itself as supervision and benefits almost all types of downstream tasks. In this survey, we take a look into new self-supervised learning methods for representation in computer vision, natural language processing, and graph learning. We comprehensively review the existing empirical methods and summarize them into three main categories according to their objectives: generative, contrastive, and generative-contrastive (adversarial). We further collect related theoretical analyses on self-supervised learning to provide deeper thoughts on why self-supervised learning works. Finally, we briefly discuss open problems and future directions for self-supervised learning. An outline slide for the survey is provided.},
+  journal    = {IEEE Transactions on Knowledge and Data Engineering},
+  author     = {Liu, Xiao and Zhang, Fanjin and Hou, Zhenyu and Mian, Li and Wang, Zhaoyu and Zhang, Jing and Tang, Jie},
+  year       = {2021},
+  note       = {Conference Name: IEEE Transactions on Knowledge and Data Engineering},
+  keywords   = {Predictive models, Computational modeling, Data models, Task analysis, Computer architecture, Context modeling, Contrastive Learning, Deep Learning, Generative Model, Self-supervised Learning, Supervised learning},
+  pages      = {1--1},
+  file       = {IEEE Xplore Full Text PDF:/home/andrej/Zotero/storage/XLTZHDWD/Liu et al. - 2021 - Self-supervised Learning Generative or Contrastiv.pdf:application/pdf;IEEE Xplore Abstract Record:/home/andrej/Zotero/storage/TLH3GHGE/9462394.html:text/html}
+}
+
+@inproceedings{zhao_contrastive_2021,
+  title    = {Contrastive {Learning} for {Label} {Efficient} {Semantic} {Segmentation}},
+  url      = {https://openaccess.thecvf.com/content/ICCV2021/html/Zhao_Contrastive_Learning_for_Label_Efficient_Semantic_Segmentation_ICCV_2021_paper.html},
+  language = {en},
+  urldate  = {2021-12-01},
+  author   = {Zhao, Xiangyun and Vemulapalli, Raviteja and Mansfield, Philip Andrew and Gong, Boqing and Green, Bradley and Shapira, Lior and Wu, Ying},
+  year     = {2021},
+  pages    = {10623--10633},
+  file     = {Snapshot:/home/andrej/Zotero/storage/8TILFP3A/Zhao_Contrastive_Learning_for_Label_Efficient_Semantic_Segmentation_ICCV_2021_paper.html:text/html;Full Text PDF:/home/andrej/Zotero/storage/RDVAJ3PB/Zhao et al. - 2021 - Contrastive Learning for Label Efficient Semantic .pdf:application/pdf}
+}
+
+@article{jiang_hard_2021,
+  title    = {Hard {Negative} {Sampling} via {Regularized} {Optimal} {Transport} for {Contrastive} {Representation} {Learning}},
+  url      = {http://arxiv.org/abs/2111.03169},
+  abstract = {We study the problem of designing hard negative sampling distributions for unsupervised contrastive representation learning. We analyze a novel min-max framework that seeks a representation which minimizes the maximum (worst-case) generalized contrastive learning loss over all couplings (joint distributions between positive and negative samples subject to marginal constraints) and prove that the resulting min-max optimum representation will be degenerate. This provides the first theoretical justification for incorporating additional regularization constraints on the couplings. We re-interpret the min-max problem through the lens of Optimal Transport theory and utilize regularized transport couplings to control the degree of hardness of negative examples. We demonstrate that the state-of-the-art hard negative sampling distributions that were recently proposed are a special case corresponding to entropic regularization of the coupling.},
+  urldate  = {2021-12-01},
+  journal  = {arXiv:2111.03169 [cs, math, stat]},
+  author   = {Jiang, Ruijie and Ishwar, Prakash and Aeron, Shuchin},
+  month    = nov,
+  year     = {2021},
+  note     = {arXiv: 2111.03169},
+  keywords = {Computer Science - Machine Learning, Mathematics - Statistics Theory},
+  file     = {arXiv Fulltext PDF:/home/andrej/Zotero/storage/CAZPUP7D/Jiang et al. - 2021 - Hard Negative Sampling via Regularized Optimal Tra.pdf:application/pdf;arXiv.org Snapshot:/home/andrej/Zotero/storage/JR6RGGFT/2111.html:text/html}
+}
+
+@article{wang_exploring_nodate,
+  title    = {Exploring {Cross}-{Image} {Pixel} {Contrast} for {Semantic} {Segmentation}},
+  abstract = {Current semantic segmentation methods focus only on mining “local” context, i.e., dependencies between pixels within individual images, by context-aggregation modules (e.g., dilated convolution, neural attention) or structureaware optimization criteria (e.g., IoU-like loss). However, they ignore “global” context of the training data, i.e., rich semantic relations between pixels across different images. Inspired by recent advance in unsupervised contrastive representation learning, we propose a pixel-wise contrastive algorithm for semantic segmentation in the fully supervised setting. The core idea is to enforce pixel embeddings belonging to a same semantic class to be more similar than embeddings from different classes. It raises a pixel-wise metric learning paradigm for semantic segmentation, by explicitly exploring the structures of labeled pixels, which were rarely explored before. Our method can be effortlessly incorporated into existing segmentation frameworks without extra overhead during testing. We experimentally show that, with famous segmentation models (i.e., DeepLabV3, HRNet, OCR) and backbones (i.e., ResNet, HRNet), our method brings performance improvements across diverse datasets (i.e., Cityscapes, PASCAL-Context, COCO-Stuff, CamVid). We expect this work will encourage our community to rethink the current de facto training paradigm in semantic segmentation.},
+  language = {en},
+  author   = {Wang, Wenguan and Zhou, Tianfei and Yu, Fisher and Dai, Jifeng and Konukoglu, Ender and Gool, Luc Van},
+  pages    = {11},
+  file     = {Wang et al. - Exploring Cross-Image Pixel Contrast for Semantic .pdf:/home/andrej/Zotero/storage/GHFWJGUW/Wang et al. - Exploring Cross-Image Pixel Contrast for Semantic .pdf:application/pdf}
+}
+
+@article{cai_are_2020,
+  title    = {Are all negatives created equal in contrastive instance discrimination?},
+  url      = {http://arxiv.org/abs/2010.06682},
+  abstract = {Self-supervised learning has recently begun to rival supervised learning on computer vision tasks. Many of the recent approaches have been based on contrastive instance discrimination (CID), in which the network is trained to recognize two augmented versions of the same instance (a query and positive) while discriminating against a pool of other instances (negatives). Using MoCo v2 (Chen et al., 2020c) as our testbed, we divided negatives by their difﬁculty for a given query and studied which difﬁculty ranges were most important for learning useful representations. We found that a small minority of negatives—just the hardest 5\%—were both necessary and sufﬁcient for the downstream task to reach full accuracy. Conversely, the easiest 95\% of negatives were unnecessary and insufﬁcient. Moreover, we found that the very hardest 0.1\% of negatives were not only unnecessary but also detrimental. Finally, we studied the properties of negatives that affect their hardness, and found that hard negatives were more semantically similar to the query, and that some negatives were more consistently easy or hard than we would expect by chance. Together, our results indicate that negatives play heterogeneous roles and that CID may beneﬁt from more intelligent negative treatment.},
+  language = {en},
+  urldate  = {2021-12-01},
+  journal  = {arXiv:2010.06682 [cs, eess]},
+  author   = {Cai, Tiffany Tianhui and Frankle, Jonathan and Schwab, David J. and Morcos, Ari S.},
+  month    = oct,
+  year     = {2020},
+  note     = {arXiv: 2010.06682},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition, Computer Science - Machine Learning, Electrical Engineering and Systems Science - Image and Video Processing},
+  file     = {Cai et al. - 2020 - Are all negatives created equal in contrastive ins.pdf:/home/andrej/Zotero/storage/DTY654M9/Cai et al. - 2020 - Are all negatives created equal in contrastive ins.pdf:application/pdf}
+}
+
+@article{li_prototypical_2021,
+  title    = {Prototypical {Contrastive} {Learning} of {Unsupervised} {Representations}},
+  url      = {http://arxiv.org/abs/2005.04966},
+  abstract = {This paper presents Prototypical Contrastive Learning (PCL), an unsupervised representation learning method that addresses the fundamental limitations of instance-wise contrastive learning. PCL not only learns low-level features for the task of instance discrimination, but more importantly, it implicitly encodes semantic structures of the data into the learned embedding space. Specifically, we introduce prototypes as latent variables to help find the maximum-likelihood estimation of the network parameters in an Expectation-Maximization framework. We iteratively perform E-step as finding the distribution of prototypes via clustering and M-step as optimizing the network via contrastive learning. We propose ProtoNCE loss, a generalized version of the InfoNCE loss for contrastive learning, which encourages representations to be closer to their assigned prototypes. PCL outperforms state-of-the-art instance-wise contrastive learning methods on multiple benchmarks with substantial improvement in low-resource transfer learning. Code and pretrained models are available at https://github.com/salesforce/PCL.},
+  urldate  = {2021-12-01},
+  journal  = {arXiv:2005.04966 [cs]},
+  author   = {Li, Junnan and Zhou, Pan and Xiong, Caiming and Hoi, Steven C. H.},
+  month    = mar,
+  year     = {2021},
+  note     = {arXiv: 2005.04966},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition, Computer Science - Machine Learning},
+  file     = {arXiv Fulltext PDF:/home/andrej/Zotero/storage/GY4HZAF6/Li et al. - 2021 - Prototypical Contrastive Learning of Unsupervised .pdf:application/pdf;arXiv.org Snapshot:/home/andrej/Zotero/storage/SNKKBZXM/2005.html:text/html}
+}
+
+@article{caron_unsupervised_2021,
+  title    = {Unsupervised {Learning} of {Visual} {Features} by {Contrasting} {Cluster} {Assignments}},
+  url      = {http://arxiv.org/abs/2006.09882},
+  abstract = {Unsupervised image representations have significantly reduced the gap with supervised pretraining, notably with the recent achievements of contrastive learning methods. These contrastive methods typically work online and rely on a large number of explicit pairwise feature comparisons, which is computationally challenging. In this paper, we propose an online algorithm, SwAV, that takes advantage of contrastive methods without requiring to compute pairwise comparisons. Specifically, our method simultaneously clusters the data while enforcing consistency between cluster assignments produced for different augmentations (or views) of the same image, instead of comparing features directly as in contrastive learning. Simply put, we use a swapped prediction mechanism where we predict the cluster assignment of a view from the representation of another view. Our method can be trained with large and small batches and can scale to unlimited amounts of data. Compared to previous contrastive methods, our method is more memory efficient since it does not require a large memory bank or a special momentum network. In addition, we also propose a new data augmentation strategy, multi-crop, that uses a mix of views with different resolutions in place of two full-resolution views, without increasing the memory or compute requirements much. We validate our findings by achieving 75.3\% top-1 accuracy on ImageNet with ResNet-50, as well as surpassing supervised pretraining on all the considered transfer tasks.},
+  urldate  = {2021-12-01},
+  journal  = {arXiv:2006.09882 [cs]},
+  author   = {Caron, Mathilde and Misra, Ishan and Mairal, Julien and Goyal, Priya and Bojanowski, Piotr and Joulin, Armand},
+  month    = jan,
+  year     = {2021},
+  note     = {arXiv: 2006.09882},
+  keywords = {Computer Science - Computer Vision and Pattern Recognition},
+  file     = {arXiv Fulltext PDF:/home/andrej/Zotero/storage/EQHWWVRF/Caron et al. - 2021 - Unsupervised Learning of Visual Features by Contra.pdf:application/pdf;arXiv.org Snapshot:/home/andrej/Zotero/storage/3WZZKII3/2006.html:text/html}
+}
+
+@article{ge_robust_nodate,
+  title    = {Robust {Contrastive} {Learning} {Using} {Negative} {Samples} with {Diminished} {Semantics}},
+  abstract = {Unsupervised learning has recently made exceptional progress because of the development of more effective contrastive learning methods. However, CNNs are prone to depend on low-level features that humans deem non-semantic. This dependency has been conjectured to induce a lack of robustness to image perturbations or domain shift. In this paper, we show that by generating carefully designed negative samples, contrastive learning can learn more robust representations with less dependence on such features. Contrastive learning utilizes positive pairs that preserve semantic information while perturbing superﬁcial features in the training images. Similarly, we propose to generate negative samples in a reversed way, where only the superﬂuous instead of the semantic features are preserved. We develop two methods, texture-based and patch-based augmentations, to generate negative samples. These samples achieve better generalization, especially under out-of-domain settings. We also analyze our method and the generated texture-based samples, showing that texture features are indispensable in classifying particular ImageNet classes and especially ﬁner classes. We also show that model bias favors texture and shape features differently under different test settings. Our code, trained models, and ImageNet-Texutre dataset can be found at https://github.com/ SongweiGe/Contrastive-Learning-with-Non-Semantic-Negatives.},
+  language = {en},
+  author   = {Ge, Songwei and Mishra, Shlok and Wang, Haohan and Li, Chun-Liang and Jacobs, David},
+  pages    = {14},
+  file     = {Ge et al. - Robust Contrastive Learning Using Negative Samples.pdf:/home/andrej/Zotero/storage/2RRPIDJI/Ge et al. - Robust Contrastive Learning Using Negative Samples.pdf:application/pdf}
+}
+
+@article{grill_bootstrap_nodate,
+  title    = {Bootstrap {Your} {Own} {Latent} {A} {New} {Approach} to {Self}-{Supervised} {Learning}},
+  language = {en},
+  author   = {Grill, Jean-Bastien and Strub, Florian and Altché, Florent and Tallec, Corentin and Richemond, Pierre H and Buchatskaya, Elena and Doersch, Carl and Pires, Bernardo Avila and Guo, Zhaohan Daniel and Azar, Mohammad Gheshlaghi and Piot, Bilal and Kavukcuoglu, Koray and Munos, Rémi and Valko, Michal},
+  pages    = {14},
+  file     = {Grill et al. - Bootstrap Your Own Latent A New Approach to Self-S.pdf:/home/andrej/Zotero/storage/FT95YCJ8/Grill et al. - Bootstrap Your Own Latent A New Approach to Self-S.pdf:application/pdf}
+}
+
+@article{sohn_improved_nodate,
+  title    = {Improved {Deep} {Metric} {Learning} with {Multi}-class {N}-pair {Loss} {Objective}},
+  abstract = {Deep metric learning has gained much popularity in recent years, following the success of deep learning. However, existing frameworks of deep metric learning based on contrastive loss and triplet loss often suffer from slow convergence, partially because they employ only one negative example while not interacting with the other negative classes in each update. In this paper, we propose to address this problem with a new metric learning objective called multi-class N -pair loss. The proposed objective function ﬁrstly generalizes triplet loss by allowing joint comparison among more than one negative examples – more speciﬁcally, N -1 negative examples – and secondly reduces the computational burden of evaluating deep embedding vectors via an efﬁcient batch construction strategy using only N pairs of examples, instead of (N +1)×N . We demonstrate the superiority of our proposed loss to the triplet loss as well as other competing loss functions for a variety of tasks on several visual recognition benchmark, including ﬁne-grained object recognition and veriﬁcation, image clustering and retrieval, and face veriﬁcation and identiﬁcation.},
+  language = {en},
+  author   = {Sohn, Kihyuk},
+  pages    = {9},
+  file     = {Sohn - Improved Deep Metric Learning with Multi-class N-p.pdf:/home/andrej/Zotero/storage/GYV4SRKW/Sohn - Improved Deep Metric Learning with Multi-class N-p.pdf:application/pdf}
+}
+
+@misc{xie2020pointcontrast,
+  title         = {PointContrast: Unsupervised Pre-training for 3D Point Cloud Understanding},
+  author        = {Saining Xie and Jiatao Gu and Demi Guo and Charles R. Qi and Leonidas J. Guibas and Or Litany},
+  year          = {2020},
+  eprint        = {2007.10985},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{godard2019Digging,
+  author    = {Godard, Clement and Aodha, Oisin Mac and Firman, Michael and Brostow, Gabriel},
+  booktitle = {2019 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {Digging Into Self-Supervised Monocular Depth Estimation},
+  year      = {2019},
+  pages     = {3827-3837},
+  doi       = {10.1109/ICCV.2019.00393}
+}
+
+@article{katz2007Direct,
+  author     = {Katz, Sagi and Tal, Ayellet and Basri, Ronen},
+  title      = {Direct Visibility of Point Sets},
+  year       = {2007},
+  issue_date = {July 2007},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {26},
+  number     = {3},
+  issn       = {0730-0301},
+  url        = {https://doi.org/10.1145/1276377.1276407},
+  doi        = {10.1145/1276377.1276407},
+  journal    = {ACM Trans. Graph.},
+  month      = {jul},
+  pages      = {24-es},
+  numpages   = {12},
+  keywords   = {visibility, visualizing point sets, point-based graphics}
+}
+
+@inproceedings{hou2021Exploring,
+  author    = {Hou, Ji and Graham, Benjamin and Nießner, Matthias and Xie, Saining},
+  booktitle = {2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Exploring Data-Efficient 3D Scene Understanding with Contrastive Scene Contexts},
+  year      = {2021},
+  pages     = {15582-15592},
+  doi       = {10.1109/CVPR46437.2021.01533}
+}
+
+@article{maaten2008Visualizing,
+  author  = {Laurens van der Maaten and Geoffrey Hinton},
+  title   = {Visualizing Data using t-SNE},
+  journal = {Journal of Machine Learning Research},
+  year    = {2008},
+  volume  = {9},
+  number  = {86},
+  pages   = {2579-2605},
+  url     = {http://jmlr.org/papers/v9/vandermaaten08a.html}
+}
+
+@inproceedings{he2017maskrcnn,
+  author    = {K. {He} and G. {Gkioxari} and P. {Dollár} and R. {Girshick}},
+  booktitle = {2017 IEEE International Conference on Computer Vision (ICCV)},
+  title     = {Mask R-CNN},
+  year      = {2017},
+  volume    = {},
+  number    = {},
+  pages     = {2980-2988}
+}
+
+@article{bolya2020yolact++,
+  author  = {D. {Bolya} and C. {Zhou} and F. {Xiao} and Y. J. {Lee}},
+  journal = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  title   = {YOLACT++: Better Real-time Instance Segmentation},
+  year    = {2020},
+  volume  = {},
+  number  = {},
+  pages   = {1-1}
+}
+
+@inproceedings{hu2020randlanet,
+  author    = {Q. {Hu} and B. {Yang} and L. {Xie} and S. {Rosa} and Y. {Guo} and Z. {Wang} and N. {Trigoni} and A. {Markham}},
+  booktitle = {2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {RandLA-Net: Efficient Semantic Segmentation of Large-Scale Point Clouds},
+  year      = {2020},
+  volume    = {},
+  number    = {},
+  pages     = {11105-11114},
+  doi       = {10.1109/CVPR42600.2020.01112}
+}
+
+@article{janai2017CV_survey,
+  author        = {Joel Janai and
+                   Fatma G{\"{u}}ney and
+                   Aseem Behl and
+                   Andreas Geiger},
+  title         = {Computer Vision for Autonomous Vehicles: Problems, Datasets and State-of-the-Art},
+  journal       = {CoRR},
+  volume        = {abs/1704.05519},
+  year          = {2017},
+  url           = {http://arxiv.org/abs/1704.05519},
+  archiveprefix = {arXiv},
+  eprint        = {1704.05519},
+  timestamp     = {Mon, 13 Aug 2018 16:47:19 +0200},
+  biburl        = {https://dblp.org/rec/journals/corr/JanaiGBG17.bib},
+  bibsource     = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{sun2020RecurrentOctoMap,
+  author  = {L. {Sun} and Z. {Yan} and A. {Zaganidis} and C. {Zhao} and T. {Duckett}},
+  journal = {IEEE Robotics and Automation Letters},
+  title   = {Recurrent-OctoMap: Learning State-Based Map Refinement for Long-Term Semantic Mapping With 3-D-Lidar Data},
+  year    = {2018},
+  volume  = {3},
+  number  = {4},
+  pages   = {3749-3756},
+  doi     = {10.1109/LRA.2018.2856268}
+}
+
+@inproceedings{bowman2017SemanticSLAM,
+  author    = {S. L. {Bowman} and N. {Atanasov} and K. {Daniilidis} and G. J. {Pappas}},
+  booktitle = {2017 IEEE International Conference on Robotics and Automation (ICRA)},
+  title     = {Probabilistic data association for semantic SLAM},
+  year      = {2017},
+  volume    = {},
+  number    = {},
+  pages     = {1722-1729},
+  doi       = {10.1109/ICRA.2017.7989203}
+}
+
+@inproceedings{Dai2017ScanNet,
+  author    = {A. {Dai} and A. X. {Chang} and M. {Savva} and M. {Halber} and T. {Funkhouser} and M. {Nießner}},
+  booktitle = {2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {ScanNet: Richly-Annotated 3D Reconstructions of Indoor Scenes},
+  year      = {2017},
+  volume    = {},
+  number    = {},
+  pages     = {2432-2443},
+  doi       = {10.1109/CVPR.2017.261}
+}
+
+@inproceedings{Tatarchenko2018TangentConvolutions,
+  author    = {M. {Tatarchenko} and J. {Park} and V. {Koltun} and Q. {Zhou}},
+  booktitle = {2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  title     = {Tangent Convolutions for Dense Prediction in 3D},
+  year      = {2018},
+  volume    = {},
+  number    = {},
+  pages     = {3887-3896},
+  doi       = {10.1109/CVPR.2018.00409}
+}
+
+
+@misc{shankar2020mrfmap,
+  title         = {MRFMap: Online Probabilistic 3D Mapping using Forward Ray Sensor Models},
+  author        = {Kumar Shaurya Shankar and Nathan Michael},
+  year          = {2020},
+  eprint        = {2006.03512},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.RO}
+}
+
+@inproceedings{hess2016loopClosureSlam,
+  author    = {W. {Hess} and D. {Kohler} and H. {Rapp} and D. {Andor}},
+  booktitle = {2016 IEEE International Conference on Robotics and Automation (ICRA)},
+  title     = {Real-time loop closure in 2D LIDAR SLAM},
+  year      = {2016},
+  volume    = {},
+  number    = {},
+  pages     = {1271-1278},
+  doi       = {10.1109/ICRA.2016.7487258}
+}
+
+@inproceedings{rosinol2020Kimera,
+  author    = {A. {Rosinol} and M. {Abate} and Y. {Chang} and L. {Carlone}},
+  booktitle = {2020 IEEE International Conference on Robotics and Automation (ICRA)},
+  title     = {Kimera: an Open-Source Library for Real-Time Metric-Semantic Localization and Mapping},
+  year      = {2020},
+  pages     = {1689-1696},
+  url       = {https://github.com/MIT-SPARK/Kimera},
+  pdf       = {https://arxiv.org/pdf/1910.02490.pdf},
+  doi       = {10.1109/ICRA40945.2020.9196885}
+}
+
+@inproceedings{Kirillov2019Panoptic,
+  author    = {A. {Kirillov} and K. {He} and R. {Girshick} and C. {Rother} and P. {Dollár}},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Panoptic Segmentation},
+  year      = {2019},
+  pages     = {9396-9405},
+  pdf       = {https://arxiv.org/abs/1801.00868},
+  doi       = {10.1109/CVPR.2019.00963}
+}
+
+@article{Mura2014Automatic,
+  title   = {Automatic room detection and reconstruction in cluttered indoor environments with complex room layouts},
+  journal = {Computers & Graphics},
+  volume  = {44},
+  pages   = {20 - 32},
+  year    = {2014},
+  issn    = {0097-8493},
+  doi     = {https://doi.org/10.1016/j.cag.2014.07.005},
+  url     = {http://www.sciencedirect.com/science/article/pii/S0097849314000661},
+  author  = {Claudio Mura and Oliver Mattausch and Alberto {Jaspe Villanueva} and Enrico Gobbetti and Renato Pajarola}
+}
+
+@inproceedings{Oleynikova2017Voxblox,
+  author    = {H. {Oleynikova} and Z. {Taylor} and M. {Fehr} and R. {Siegwart} and J. {Nieto}},
+  booktitle = {2017 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  title     = {Voxblox: Incremental 3D Euclidean Signed Distance Fields for on-board MAV planning},
+  year      = {2017},
+  volume    = {},
+  number    = {},
+  pages     = {1366-1373},
+  doi       = {10.1109/IROS.2017.8202315}
+}
+
+@inproceedings{Rosu2020LatticeNet,
+  author    = {Radu Alexandru Rosu AND Peer  Schütt AND Jan Quenzel AND Sven Behnke},
+  title     = {{LatticeNet: Fast Point Cloud Segmentation Using Permutohedral Lattices}},
+  booktitle = {Proceedings of Robotics: Science and Systems},
+  year      = {2020},
+  address   = {Corvalis, Oregon, USA},
+  month     = {July},
+  doi       = {10.15607/RSS.2020.XVI.006}
+} 
+
+@inproceedings{Ahmadi2017Geometry,
+  author    = {Amir Ali Ahmadi AND Georgina Hall AND Ameesh Makadia AND Vikas Sindhwani},
+  title     = {Geometry of 3D Environments and Sum of Squares Polynomials},
+  booktitle = {Proceedings of Robotics: Science and Systems},
+  year      = {2017},
+  address   = {Cambridge, Massachusetts},
+  month     = {July},
+  doi       = {10.15607/RSS.2017.XIII.071}
+} 
+
+@inproceedings{Wang2015Voting,
+  author    = {Dominic Zeng Wang AND Ingmar Posner},
+  title     = {Voting for Voting in Online Point Cloud Object Detection},
+  booktitle = {Proceedings of Robotics: Science and Systems},
+  year      = {2015},
+  address   = {Rome, Italy},
+  month     = {July},
+  doi       = {10.15607/RSS.2015.XI.035}
+} 
+
+
+@inproceedings{Langer2020Domain,
+  author    = {Ferdinand Langer AND Andres Milioto AND Alexandre Haag AND Jens Behley AND Cyrill Stachniss},
+  title     = {Domain Transfer for Semantic Segmentation of LiDAR Data using Deep Neural Networks},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+} 
+
+@inproceedings{mulioto2019Rangenet++,
+  author    = {A. {Milioto} and I. {Vizzo} and J. {Behley} and C. {Stachniss}},
+  booktitle = {2019 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  title     = {RangeNet ++: Fast and Accurate LiDAR Semantic Segmentation},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {4213-4220},
+  doi       = {10.1109/IROS40897.2019.8967762}
+}
+
+@misc{nie2020rfdnet,
+  title         = {RfD-Net: Point Scene Understanding by Semantic Instance Reconstruction},
+  author        = {Yinyu Nie and Ji Hou and Xiaoguang Han and Matthias Nießner},
+  year          = {2020},
+  eprint        = {2011.14744},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{Zhang2020RegionNet,
+  author    = {Guanghui Zhang AND Dongchen Zhu AND Xiaoqing Ye AND Wenjun Shi AND Minghong Chen AND Jiamao Li AND Xiaolin Zhang},
+  title     = {RegionNet: Region-feature-enhanced 3D Scene Understanding Network with Dual Spatial-aware Discriminative Loss},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{Rishav2020DeepLiDARFlow,
+  author    = {Rishav AND Ramy Battrawy AND René Schuster AND Oliver Wasenmüller AND Didier Stricker},
+  title     = {DeepLiDARFlow: A Deep Learning Architecture For Scene Flow Estimation Using Monocular Camera and Sparse LiDAR},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{Milioto2020LIDAR,
+  author    = {Andres Milioto AND Jens Behley AND Chris McCool AND Cyrill Stachniss},
+  title     = {LiDAR Panoptic Segmentation for Autonomous Driving},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{wang2020Point,
+  author    = {Xiaogang Wang AND Marcelo H Ang Jr AND and Gim Hee Lee},
+  title     = {Point Cloud Completion by Learning Shape Priors},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{nelson2020Learning,
+  author    = {Henry J. Nelson AND Nikolaos Papanikolopoulos},
+  title     = {Learning Continuous Object Representations from Point Cloud Data},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{pang2020CLOCs,
+  author    = {Su Pang AND Daniel Morris AND Hayder Radha},
+  title     = {CLOCs: Camera-LiDAR Object Candidates Fusion for 3D Object Detection},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@misc{ronneberger2015unet,
+  title         = {U-Net: Convolutional Networks for Biomedical Image Segmentation},
+  author        = {Olaf Ronneberger and Philipp Fischer and Thomas Brox},
+  year          = {2015},
+  eprint        = {1505.04597},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@misc{cicek20163d,
+  title         = {3D U-Net: Learning Dense Volumetric Segmentation from Sparse Annotation},
+  author        = {Özgün Çiçek and Ahmed Abdulkadir and Soeren S. Lienkamp and Thomas Brox and Olaf Ronneberger},
+  year          = {2016},
+  eprint        = {1606.06650},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{wu2019PointConv,
+  author    = {W. {Wu} and Z. {Qi} and L. {Fuxin}},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {PointConv: Deep Convolutional Networks on 3D Point Clouds},
+  year      = {2019},
+  pages     = {9613-9622},
+  doi       = {10.1109/CVPR.2019.00985}
+}
+
+@inproceedings{feng2020Real,
+  author    = {Yu Feng AND Shaoshan Liu AND Yuhao Zhu},
+  title     = {Real-Time Spatio-Temporal LiDAR Point Cloud Compression},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{sravan2020Understanding,
+  author    = {Sravan Mylavarapu AND Mahtab Sandhu AND Priyesh Vijayan AND K Madhava Krishna AND Balaraman Ravindran AND Anoop Namboodiri},
+  title     = {Understanding Dynamic Scenes using Graph Convolution Networks},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{singh2020LIDAR,
+  author    = {Ke Chen AND Ryan Oldja AND Nikolai Smolyanskiy AND Stan Birchfield AND Alexander Popov AND David Wehr AND Ibrahim Eden AND Joachim Pehserl},
+  title     = {MVLidarNet: Real-Time Multi-Class Scene Understanding for Autonomous Driving Using Multiple Views},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{sun2020Novel,
+  author    = {Xuebin Sun AND Sukai Wang AND Miaohui Wang 3 AND Zheng Wang AND and Ming Liu},
+  title     = {A Novel Coding Architecture for LiDAR Point Cloud Sequence},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{alonso20203DMiniNet,
+  author    = {Xuebin Sun AND Sukai Wang AND Miaohui Wang 3 AND Zheng Wang AND and Ming Liu},
+  title     = {3D-MiniNet: Learning a 2D Representation from Point Clouds for Fast and Efficient 3D LIDAR Semantic Segmentation},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@inproceedings{alonso20203DMiniNet,
+  author    = {Jeremy Castagno AND Ella Atkins},
+  title     = {Polylidar - Polygons from Triangular Meshes},
+  booktitle = {2020 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  year      = {2020},
+  address   = {Las Vegas, USA},
+  month     = {October},
+  doi       = {}
+}
+
+@article{yang2020Graduated,
+  author  = {H. {Yang} and P. {Antonante} and V. {Tzoumas} and L. {Carlone}},
+  journal = {IEEE Robotics and Automation Letters},
+  title   = {Graduated Non-Convexity for Robust Spatial Perception: From Non-Minimal Solvers to Global Outlier Rejection},
+  year    = {2020},
+  volume  = {5},
+  number  = {2},
+  pages   = {1127-1134},
+  doi     = {10.1109/LRA.2020.2965893}
+}
+
+@inproceedings{charles2017PointNet,
+  author    = {R. Q. {Charles} and H. {Su} and M. {Kaichun} and L. J. {Guibas}},
+  booktitle = {2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {PointNet: Deep Learning on Point Sets for 3D Classification and Segmentation},
+  year      = {2017},
+  pages     = {77-85},
+  doi       = {10.1109/CVPR.2017.16}
+}
+
+@inproceedings{thomas2019KPConv,
+  author    = {H. {Thomas} and C. R. {Qi} and J. {Deschaud} and B. {Marcotegui} and F. {Goulette} and L. {Guibas}},
+  booktitle = {2019 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {KPConv: Flexible and Deformable Convolution for Point Clouds},
+  year      = {2019},
+  pages     = {6410-6419},
+  doi       = {10.1109/ICCV.2019.00651}
+}
+
+@inproceedings{yi2019GSPN,
+  author    = {L. {Yi} and W. {Zhao} and H. {Wang} and M. {Sung} and L. J. {Guibas}},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {GSPN: Generative Shape Proposal Network for 3D Instance Segmentation in Point Cloud},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {3942-3951},
+  doi       = {10.1109/CVPR.2019.00407}
+}
+
+@misc{qi2017pointnet++,
+  title         = {PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space},
+  author        = {Charles R. Qi and Li Yi and Hao Su and Leonidas J. Guibas},
+  year          = {2017},
+  eprint        = {1706.02413},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{engelmann2020Dilated,
+  author    = {F. {Engelmann} and T. {Kontogianni} and B. {Leibe}},
+  booktitle = {2020 IEEE International Conference on Robotics and Automation (ICRA)},
+  title     = {Dilated Point Convolutions: On the Receptive Field Size of Point Convolutions on 3D Point Clouds},
+  year      = {2020},
+  pages     = {9463-9469},
+  doi       = {10.1109/ICRA40945.2020.9197503}
+}
+
+@inproceedings{chaton2020Torch,
+  author       = {T. {Chaton} and N. {Chaulet} and S. {Horache} and L. {Landrieu}},
+  booktitle    = {2020 International Conference on 3D Vision (3DV)},
+  title        = {Torch-Points3D: A Modular Multi-Task Framework for Reproducible Deep Learning on 3D Point Clouds},
+  year         = {2020},
+  pages        = {1-10},
+  doi          = {10.1109/3DV50981.2020.00029},
+  organization = {IEEE},
+  url          = {\url{https://github.com/nicolas-chaulet/torch-points3d}}
+}
+
+@misc{kundu2020virtual,
+  title         = {Virtual Multi-view Fusion for 3D Semantic Segmentation},
+  author        = {Abhijit Kundu and Xiaoqi Yin and Alireza Fathi and David Ross and Brian Brewington and Thomas Funkhouser and Caroline Pantofaru},
+  year          = {2020},
+  eprint        = {2007.13138},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{choy20194d,
+  author    = {C. {Choy} and J. {Gwak} and S. {Savarese}},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {4D Spatio-Temporal ConvNets: Minkowski Convolutional Neural Networks},
+  year      = {2019},
+  pages     = {3070-3079},
+  doi       = {10.1109/CVPR.2019.00319}
+}
+
+@inproceedings{riegler2017octnet,
+  author    = {G. {Riegler} and A. O. {Ulusoy} and A. {Geiger}},
+  booktitle = {2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {OctNet: Learning Deep 3D Representations at High Resolutions},
+  year      = {2017},
+  pages     = {6620-6629},
+  doi       = {10.1109/CVPR.2017.701}
+}
+
+@article{Hornung2013Octomap,
+  author  = {A. {Hornung} and K. M. {Wurn} and M. {Bennewitz} and C. Stachniss and W. Burgard},
+  title   = {OctoMap: an efficient probabilistic 3D mapping framework based on octrees},
+  journal = {Autonomous Robots},
+  volume  = {34},
+  number  = {3},
+  year    = {2013},
+  pages   = {189-206},
+  doi     = {10.1007/s10514-012-9321-0}
+}
+
+@misc{peng2020convolutional,
+  title         = {Convolutional Occupancy Networks},
+  author        = {Songyou Peng and Michael Niemeyer and Lars Mescheder and Marc Pollefeys and Andreas Geiger},
+  year          = {2020},
+  eprint        = {2003.04618},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{lionar2021dynamic,
+  author    = {S. {Lionar} and D. {Emtsev} and D. {Svilarkovic} and S. {Peng}},
+  booktitle = {2021 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Dynamic Plane Convolutional Occupancy Networks},
+  year      = {2021},
+  pages     = {},
+  doi       = {}
+}
+
+@misc{park2019deepsdf,
+  title         = {DeepSDF: Learning Continuous Signed Distance Functions for Shape Representation},
+  author        = {Jeong Joon Park and Peter Florence and Julian Straub and Richard Newcombe and Steven Lovegrove},
+  year          = {2019},
+  eprint        = {1901.05103},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@misc{sitzmann2020metasdf,
+  title         = {MetaSDF: Meta-learning Signed Distance Functions},
+  author        = {Vincent Sitzmann and Eric R. Chan and Richard Tucker and Noah Snavely and Gordon Wetzstein},
+  year          = {2020},
+  eprint        = {2006.09662},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{jiang2020Local,
+  author    = {C. {Jiang} and A. {Sud} and A. {Makadia} and J. {Huang} and M. {Nießner} and T. {Funkhouser}},
+  booktitle = {2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Local Implicit Grid Representations for 3D Scenes},
+  year      = {2020},
+  pages     = {6000-6009},
+  doi       = {10.1109/CVPR42600.2020.00604}
+}
+
+@inproceedings{ruojin2020Learning,
+  author    = {C. {Ruojin} and Y. {Guandao} and A. {Hadar} and H. {Zekun} and B. {Serge} and S. {Noah} and H. {Bharath}},
+  booktitle = {Computer Vision -- ECCV 2020},
+  title     = {Learning Gradient Fields for Shape Generation},
+  year      = {2020},
+  publisher = {Springer International Publishing},
+  pages     = {364-381},
+  isbn      = {978-3-030-58580-8},
+  doi       = {10.1109/CVPR42600.2020.00604}
+}
+
+@inproceedings{lee2018Leveraging,
+  author    = {J. {Lee} and S. {Walsh} and A. {Harakeh} and S. L. {Waslander}},
+  booktitle = {2018 21st International Conference on Intelligent Transportation Systems (ITSC)},
+  title     = {Leveraging Pre-Trained 3D Object Detection Models for Fast Ground Truth Generation},
+  year      = {2018},
+  pages     = {2504-2510},
+  doi       = {10.1109/ITSC.2018.8569793}
+}
+
+@article{garg2020Semantics,
+  url     = {http://dx.doi.org/10.1561/2300000059},
+  year    = {2020},
+  volume  = {8},
+  journal = {Foundations and Trends in Robotics},
+  title   = {Semantics for Robotic Mapping, Perception and Interaction: A Survey},
+  doi     = {10.1561/2300000059},
+  issn    = {1935-8253},
+  number  = {1–2},
+  pages   = {1-224},
+  author  = {Sourav Garg and Niko Sünderhauf and Feras Dayoub and Douglas Morrison and Akansel Cosgun and Gustavo Carneiro and Qi Wu and Tat-Jun Chin and Ian Reid and Stephen Gould and Peter Corke and Michael Milford}
+}
+
+@inproceedings{graham20183D,
+  author    = {B. {Graham} and M. {Engelcke} and L. v. d. {Maaten}},
+  booktitle = {2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  title     = {3D Semantic Segmentation with Submanifold Sparse Convolutional Networks},
+  year      = {2018},
+  pages     = {9224-9232},
+  doi       = {10.1109/CVPR.2018.00961}
+}
+
+@inproceedings{chen2019Learning,
+  author    = {Chen, Zhiqin and Zhang, Hao},
+  title     = {Learning Implicit Fields for Generative Shape Modeling},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  month     = {June},
+  year      = {2019}
+}
+
+@misc{kendall2017Uncertainties,
+  title         = {What Uncertainties Do We Need in Bayesian Deep Learning for Computer Vision?},
+  author        = {Alex Kendall and Yarin Gal},
+  year          = {2017},
+  eprint        = {1703.04977},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{niemeyer2020Differentiable,
+  author    = {Niemeyer, Michael and Mescheder, Lars and Oechsle, Michael and Geiger, Andreas},
+  title     = {Differentiable Volumetric Rendering: Learning Implicit 3D Representations Without 3D Supervision},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  month     = {June},
+  year      = {2020}
+} 
+
+@article{yoon2021Unsupervised,
+  author  = {Yoon, David J. and Zhang, Haowei and Gridseth, Mona and Thomas, Hugues and Barfoot, Timothy D.},
+  journal = {IEEE Robotics and Automation Letters},
+  title   = {Unsupervised Learning of Lidar Features for Use in a Probabilistic Trajectory Estimator},
+  year    = {2021},
+  volume  = {6},
+  number  = {2},
+  pages   = {2130-2138},
+  doi     = {10.1109/LRA.2021.3060407}
+}
+
+@misc{thomas2020selfsupervised,
+  title         = {Self-Supervised Learning of Lidar Segmentation for Autonomous Indoor Navigation},
+  author        = {Hugues Thomas and Ben Agro and Mona Gridseth and Jian Zhang and Timothy D. Barfoot},
+  year          = {2020},
+  eprint        = {2012.05897},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.RO}
+}
+
+@inproceedings{Zhang2014LOAMLO,
+  title     = {LOAM: Lidar Odometry and Mapping in Real-time},
+  author    = {Ji Zhang and S. Singh},
+  booktitle = {Robotics: Science and Systems},
+  year      = {2014}
+}
+
+@inproceedings{wong2020Identifying,
+  title     = {Identifying Unknown Instances for Autonomous Driving},
+  author    = {Wong, Kelvin and Wang, Shenlong and Ren, Mengye and Liang, Ming and Urtasun, Raquel},
+  booktitle = {Proceedings of the Conference on Robot Learning},
+  pages     = {384--393},
+  year      = {2020},
+  editor    = {Leslie Pack Kaelbling and Danica Kragic and Komei Sugiura},
+  volume    = {100},
+  series    = {Proceedings of Machine Learning Research},
+  address   = {},
+  month     = {30 Oct--01 Nov},
+  publisher = {PMLR},
+  pdf       = {http://proceedings.mlr.press/v100/wong20a/wong20a.pdf},
+  url       = {http://proceedings.mlr.press/v100/wong20a.html}
+} 
+
+@article{wang2020Generalizing,
+  author     = {Wang, Yaqing and Yao, Quanming and Kwok, James T. and Ni, Lionel M.},
+  title      = {Generalizing from a Few Examples: A Survey on Few-Shot Learning},
+  year       = {2020},
+  issue_date = {June 2020},
+  publisher  = {Association for Computing Machinery},
+  address    = {New York, NY, USA},
+  volume     = {53},
+  number     = {3},
+  issn       = {0360-0300},
+  url        = {https://doi.org/10.1145/3386252},
+  doi        = {10.1145/3386252},
+  journal    = {ACM Comput. Surv.},
+  month      = jun,
+  articleno  = {63},
+  numpages   = {34}
+}
+
+@inproceedings{Wang2020few-shot,
+  author    = {Wang, Lingjing and Li, Xiang and Fang, Yi},
+  title     = {Few-Shot Learning of Part-Specific Probability Space for 3D Shape Segmentation},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  month     = {June},
+  year      = {2020}
+} 
+
+@misc{chen2020compositional,
+  title         = {Compositional Prototype Network with Multi-view Comparision for Few-Shot Point Cloud Semantic Segmentation},
+  author        = {Xiaoyu Chen and Chi Zhang and Guosheng Lin and Jing Han},
+  year          = {2020},
+  eprint        = {2012.14255},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{vinyals2016matching,
+  author    = {Vinyals, Oriol and Blundell, Charles and Lillicrap, Timothy and Kavukcuoglu, Koray and Wierstra, Daan},
+  title     = {Matching Networks for One Shot Learning},
+  year      = {2016},
+  isbn      = {9781510838819},
+  publisher = {Curran Associates Inc.},
+  address   = {Red Hook, NY, USA},
+  booktitle = {Proceedings of the 30th International Conference on Neural Information Processing Systems},
+  pages     = {3637–3645},
+  numpages  = {9},
+  location  = {Barcelona, Spain},
+  series    = {NIPS'16}
+}
+
+@inproceedings{snell2017prototypical,
+  author    = {Snell, Jake and Swersky, Kevin and Zemel, Richard},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor    = {I. Guyon and U. V. Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
+  pages     = {},
+  publisher = {Curran Associates, Inc.},
+  title     = {Prototypical Networks for Few-shot Learning},
+  url       = {https://proceedings.neurips.cc/paper/2017/file/cb8da6767461f2812ae4290eac7cbc42-Paper.pdf},
+  volume    = {30},
+  year      = {2017}
+}
+
+@inproceedings{mettes2019hyperspherical,
+  author    = {Mettes, Pascal and van der Pol, Elise and Snoek, Cees},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor    = {H. Wallach and H. Larochelle and A. Beygelzimer and F. d\textquotesingle Alch\'{e}-Buc and E. Fox and R. Garnett},
+  pages     = {},
+  publisher = {Curran Associates, Inc.},
+  title     = {Hyperspherical Prototype Networks},
+  url       = {https://proceedings.neurips.cc/paper/2019/file/02a32ad2669e6fe298e607fe7cc0e1a0-Paper.pdf},
+  volume    = {32},
+  year      = {2019}
+}
+
+@inproceedings{jiang2020pointgroup,
+  author    = {Jiang, Li and Zhao, Hengshuang and Shi, Shaoshuai and Liu, Shu and Fu, Chi-Wing and Jia, Jiaya},
+  title     = {PointGroup: Dual-Set Point Grouping for 3D Instance Segmentation},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  month     = {June},
+  year      = {2020}
+}
+
+@inproceedings{abello21graph,
+  author    = {M. Abello and J.G. Mangelson and M. Kaess},
+  title     = {A Graph-Based Method for Joint Instance Segmentation of Point Clouds and Image Sequences},
+  booktitle = {Proc. IEEE Intl. Conf. on Robotics and Automation, ICRA},
+  address   = {Xi'an, China},
+  month     = may,
+  year      = {2021}
+}
+
+@inproceedings{choy2019Fully,
+  author    = {Choy, Christopher and Park, Jaesik and Koltun, Vladlen},
+  booktitle = {2019 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {Fully Convolutional Geometric Features},
+  year      = {2019},
+  pages     = {8957-8965},
+  doi       = {10.1109/ICCV.2019.00905}
+}
+
+@article{benshabat2018graph,
+  title   = {Graph based over-segmentation methods for 3D point clouds},
+  journal = {Computer Vision and Image Understanding},
+  volume  = {174},
+  pages   = {12-23},
+  year    = {2018},
+  issn    = {1077-3142},
+  doi     = {https://doi.org/10.1016/j.cviu.2018.06.004},
+  url     = {https://www.sciencedirect.com/science/article/pii/S107731421830078X},
+  author  = {Yizhak Ben-Shabat and Tamar Avraham and Michael Lindenbaum and Anath Fischer}
+}
+
+@article{lin2018towards,
+  title   = {Toward better boundary preserved supervoxel segmentation for 3D point clouds},
+  journal = {ISPRS Journal of Photogrammetry and Remote Sensing},
+  volume  = {143},
+  pages   = {39-47},
+  year    = {2018},
+  note    = {ISPRS Journal of Photogrammetry and Remote Sensing Theme Issue “Point Cloud Processing”},
+  issn    = {0924-2716},
+  doi     = {https://doi.org/10.1016/j.isprsjprs.2018.05.004},
+  url     = {https://www.sciencedirect.com/science/article/pii/S0924271618301370},
+  author  = {Yangbin Lin and Cheng Wang and Dawei Zhai and Wei Li and Jonathan Li}
+}
+
+@inproceedings{landrieu2019point,
+  author    = {Landrieu, Loic and Boussaha, Mohamed},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Point Cloud Oversegmentation With Graph-Structured Deep Metric Learning},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {7432-7441},
+  doi       = {10.1109/CVPR.2019.00762}
+}
+
+@inproceedings{papon2013Voxel,
+  author    = {Papon, Jeremie and Abramov, Alexey and Schoeler, Markus and Wörgötter, Florentin},
+  booktitle = {2013 IEEE Conference on Computer Vision and Pattern Recognition},
+  title     = {Voxel Cloud Connectivity Segmentation - Supervoxels for Point Clouds},
+  year      = {2013},
+  volume    = {},
+  number    = {},
+  pages     = {2027-2034},
+  doi       = {10.1109/CVPR.2013.264}
+}
+
+@inproceedings{armeni20163D,
+  author    = {Armeni, Iro and Sener, Ozan and Zamir, Amir R. and Jiang, Helen and Brilakis, Ioannis and Fischer, Martin and Savarese, Silvio},
+  booktitle = {2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {3D Semantic Parsing of Large-Scale Indoor Spaces},
+  year      = {2016},
+  volume    = {},
+  number    = {},
+  pages     = {1534-1543},
+  doi       = {10.1109/CVPR.2016.170}
+}
+
+@inproceedings{behley2019semantic,
+  author    = {Behley, Jens and Garbade, Martin and Milioto, Andres and Quenzel, Jan and Behnke, Sven and Stachniss, Cyrill and Gall, Jürgen},
+  booktitle = {2019 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {SemanticKITTI: A Dataset for Semantic Scene Understanding of LiDAR Sequences},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {9296-9306},
+  doi       = {10.1109/ICCV.2019.00939}
+}
+
+@inproceedings{geiger2012are,
+  author    = {A. Geiger and P. Lenz and R. Urtasun},
+  title     = {{Are we ready for Autonomous Driving? The KITTI Vision Benchmark Suite}},
+  booktitle = {Proc.~of the IEEE Conf.~on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {3354--3361},
+  year      = {2012}
+}
+
+@inproceedings{song2015sunrgbd,
+  author    = {Song, Shuran and Lichtenberg, Samuel P. and Xiao, Jianxiong},
+  booktitle = {2015 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {SUN RGB-D: A RGB-D scene understanding benchmark suite},
+  year      = {2015},
+  volume    = {},
+  number    = {},
+  pages     = {567-576},
+  doi       = {10.1109/CVPR.2015.7298655}
+}
+
+@inproceedings{janoch2011category,
+  author    = {Janoch, Allison and Karayev, Sergey and Yangqing Jia and Barron, Jonathan T. and Fritz, Mario and Saenko, Kate and Darrell, Trevor},
+  booktitle = {2011 IEEE International Conference on Computer Vision Workshops (ICCV Workshops)},
+  title     = {A category-level 3-D object dataset: Putting the Kinect to work},
+  year      = {2011},
+  volume    = {},
+  number    = {},
+  pages     = {1168-1174},
+  doi       = {10.1109/ICCVW.2011.6130382}
+}
+
+@inproceedings{xiao2013database,
+  author    = {Xiao, Jianxiong and Owens, Andrew and Torralba, Antonio},
+  booktitle = {2013 IEEE International Conference on Computer Vision},
+  title     = {SUN3D: A Database of Big Spaces Reconstructed Using SfM and Object Labels},
+  year      = {2013},
+  volume    = {},
+  number    = {},
+  pages     = {1625-1632},
+  doi       = {10.1109/ICCV.2013.458}
+}
+
+@inproceedings{silberman2012indoor,
+  author    = {Silberman, Nathan
+               and Hoiem, Derek
+               and Kohli, Pushmeet
+               and Fergus, Rob},
+  editor    = {Fitzgibbon, Andrew
+               and Lazebnik, Svetlana
+               and Perona, Pietro
+               and Sato, Yoichi
+               and Schmid, Cordelia},
+  title     = {Indoor Segmentation and Support Inference from RGBD Images},
+  booktitle = {Computer Vision -- ECCV 2012},
+  year      = {2012},
+  publisher = {Springer Berlin Heidelberg},
+  address   = {Berlin, Heidelberg},
+  pages     = {746--760},
+  isbn      = {978-3-642-33715-4}
+}
+
+@inproceedings{qi2019deep,
+  author    = {Qi, Charles R and Litany, Or and He, Kaiming and Guibas, Leonidas J},
+  title     = {Deep Hough Voting for 3D Object Detection in Point Clouds},
+  booktitle = {Proceedings of the IEEE International Conference on Computer Vision},
+  year      = {2019}
+}
+
+@inproceedings{genova2021learning,
+  author    = {Genova, Kyle and Yin, Xiaoqi and Kundu, Abhijit and Pantofaru, Caroline and Cole, Forrester and Sud, Avneesh and Brewington, Brian and Shucker, Brian and Funkhouser, Thomas},
+  booktitle = {2021 International Conference on 3D Vision (3DV)},
+  title     = {Learning 3D Semantic Segmentation with only 2D Image Supervision},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {361-372},
+  doi       = {10.1109/3DV53792.2021.00046}
+}
+
+@inproceedings{hou20193d,
+  author    = {Hou, Ji and Dai, Angela and Nießner, Matthias},
+  booktitle = {2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {3D-SIS: 3D Semantic Instance Segmentation of RGB-D Scans},
+  year      = {2019},
+  volume    = {},
+  number    = {},
+  pages     = {4416-4425},
+  doi       = {10.1109/CVPR.2019.00455}
+}
+
+@misc{yunze2020p4contrast,
+  doi       = {10.48550/ARXIV.2012.13089},
+  url       = {https://arxiv.org/abs/2012.13089},
+  author    = {Liu, Yunze and Yi, Li and Zhang, Shanghang and Fan, Qingnan and Funkhouser, Thomas and Dong, Hao},
+  keywords  = {Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title     = {P4Contrast: Contrastive Learning with Pairs of Point-Pixel Pairs for RGB-D Scene Understanding},
+  publisher = {arXiv},
+  year      = {2020},
+  copyright = {arXiv.org perpetual, non-exclusive license}
+}
+
+@inproceedings{angela2018joint,
+  author    = {Dai, Angela and Nie{\ss}ner, Matthias},
+  editor    = {Ferrari, Vittorio and Hebert, Martial and Sminchisescu, Cristian and Weiss, Yair},
+  title     = {3DMV: Joint 3D-Multi-view Prediction for 3D Semantic Scene Segmentation},
+  booktitle = {Computer Vision -- ECCV 2018},
+  year      = {2018},
+  publisher = {Springer International Publishing},
+  address   = {Cham},
+  pages     = {458--474},
+  isbn      = {978-3-030-01249-6}
+}
+
+@misc{zhao2020point,
+  title         = {Point Transformer},
+  author        = {Hengshuang Zhao and Li Jiang and Jiaya Jia and Philip Torr and Vladlen Koltun},
+  year          = {2020},
+  eprint        = {2012.09164},
+  archiveprefix = {arXiv},
+  primaryclass  = {cs.CV}
+}
+
+@inproceedings{goodfellow2014generative,
+  author    = {Goodfellow, Ian and Pouget-Abadie, Jean and Mirza, Mehdi and Xu, Bing and Warde-Farley, David and Ozair, Sherjil and Courville, Aaron and Bengio, Yoshua},
+  booktitle = {Advances in Neural Information Processing Systems},
+  editor    = {Z. Ghahramani and M. Welling and C. Cortes and N. Lawrence and K.Q. Weinberger},
+  pages     = {},
+  publisher = {Curran Associates, Inc.},
+  title     = {Generative Adversarial Nets},
+  url       = {https://proceedings.neurips.cc/paper/2014/file/5ca3e9b122f61f8f06494c97b1afccf3-Paper.pdf},
+  volume    = {27},
+  year      = {2014}
+}
+
+@inproceedings{chen2021hierarchical,
+  author    = {Chen, Shaoyu and Fang, Jiemin and Zhang, Qian and Liu, Wenyu and Wang, Xinggang},
+  booktitle = {2021 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {Hierarchical Aggregation for 3D Instance Segmentation},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {15447-15456},
+  doi       = {10.1109/ICCV48922.2021.01518}
+}
+
+@inproceedings{Kingma2014,
+  author    = {Kingma, Diederik P. and Welling, Max},
+  booktitle = {2014 International Conference on Learning Representations (ICLR)},
+  eprint    = {http://arxiv.org/abs/1312.6114v10},
+  title     = {Auto-Encoding Variational Bayes},
+  year      = {2014},
+  publisher = {arXiv}
+}
+
+@inproceedings{xie2021propagate,
+  author    = {Xie, Zhenda and Lin, Yutong and Zhang, Zheng and Cao, Yue and Lin, Stephen and Hu, Han},
+  booktitle = {2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Propagate Yourself: Exploring Pixel-Level Consistency for Unsupervised Visual Representation Learning},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {16679-16688},
+  doi       = {10.1109/CVPR46437.2021.01641}
+}
+
+@inproceedings{wang2021exploring,
+  author    = {Wang, Wenguan and Zhou, Tianfei and Yu, Fisher and Dai, Jifeng and Konukoglu, Ender and Gool, Luc Van},
+  booktitle = {2021 IEEE/CVF International Conference on Computer Vision (ICCV)},
+  title     = {Exploring Cross-Image Pixel Contrast for Semantic Segmentation},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {7283-7293},
+  doi       = {10.1109/ICCV48922.2021.00721}
+}
+
+@inproceedings{wu2018unsupervied,
+  author    = {Wu, Zhirong and Xiong, Yuanjun and Yu, Stella X. and Lin, Dahua},
+  booktitle = {2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  title     = {Unsupervised Feature Learning via Non-parametric Instance Discrimination},
+  year      = {2018},
+  volume    = {},
+  number    = {},
+  pages     = {3733-3742},
+  doi       = {10.1109/CVPR.2018.00393}
+}
+
+@inproceedings{chen2021exploring,
+  author    = {Chen, Xinlei and He, Kaiming},
+  booktitle = {2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  title     = {Exploring Simple Siamese Representation Learning},
+  year      = {2021},
+  volume    = {},
+  number    = {},
+  pages     = {15745-15753},
+  doi       = {10.1109/CVPR46437.2021.01549}
+}
+
+@inproceedings{li2021prototypical,
+  author    = {Junnan Li and Pan Zhou and Caiming Xiong and Steven C. H. Hoi},
+  title     = {Prototypical Contrastive Learning of Unsupervised Representations},
+  booktitle = {2021 International Conference on Learning Representations (ICLR)},
+  publisher = {OpenReview.net},
+  year      = {2021},
+  url       = {https://openreview.net/forum?id=KmykpuSrjcq}
+}

@@ -2,9 +2,6 @@
 import logging
 import numpy as np
 
-# import util.utils_3d as util_3d
-# import util.utils as util
-
 log = logging.getLogger(__name__)
 
 
