@@ -1,5 +1,6 @@
 from pathlib import Path
 from omegaconf import DictConfig
+import torch
 
 from models.minkowski.trainer import (
     MinkowskiTrainer,
@@ -84,11 +85,17 @@ class ModelFactory:
 
     def load_from_checkpoint(self, checkpoint_path: Path):
         if minkowski_name in self.model_name:
-            return MinkowskiTrainer.load_from_checkpoint(
-                cfg=self.cfg,
-                data_interface=self.data_interface,
-                checkpoint_path=checkpoint_path,
-            )
+            try:
+                return MinkowskiTrainer.load_from_checkpoint(
+                    cfg=self.cfg,
+                    data_interface=self.data_interface,
+                    checkpoint_path=checkpoint_path,
+                )
+            except:
+                state_dict = torch.load(checkpoint_path)
+                trainer = MinkowskiTrainer(self.cfg, self.data_interface)
+                trainer.model.load_state_dict(state_dict["state_dict"], strict=False)
+                return trainer
 
         else:
             raise RuntimeError(self.error_msg)

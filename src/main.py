@@ -285,7 +285,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[2100]])
+        scene = collate_fn([dataset[2350]])
 
         # Generate feature embeddings
         z1 = backbonewraper.model(scene.images2).detach().cpu().numpy()
@@ -321,7 +321,7 @@ class Trainer:
         dataset_type = self.model_factory.get_backbone_dataset_type()
         dataset = dataset_type(self.data_interface.pretrain_val_data, self.cfg)
         collate_fn = dataset.collate
-        scene = collate_fn([dataset[2100]])
+        scene = collate_fn([dataset[3430]])
 
         # Generate feature embeddings
         input_3d_1 = ME.SparseTensor(scene.features1, scene.points1)
@@ -345,7 +345,13 @@ class Trainer:
         )
 
         # o3d.io.write_triangle_mesh("vis_3d.obj", vis_pcd, write_vertex_normals=False)
-        o3d.visualization.draw_geometries([vis_pcd])
+        o3d.visualization.draw_geometries(
+            [vis_pcd],
+            front=[-0.93761197130076546, -0.17869957213484086, 0.29824529198684352],
+            lookat=[0.5, -3.5, 4.0],
+            up=[0.2765394863307537, 0.13663222521433616, 0.95124000522102836],
+            zoom=0.69999999999999996,
+        )
 
         waithere = 1
 

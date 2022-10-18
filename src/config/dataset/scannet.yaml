@@ -7,7 +7,7 @@ test_split_file: scannetv2-val.txt
 classes: 20
 ignore_label: -100
 
-input_channel: 3
+input_channels: 3
 voxel_size: 0.02
 batch_size: 4
 accumulate_grad_batches: 1
@@ -42,5 +42,15 @@ categories: [
     "bathtub",
     "otherfurniture",
   ]
+
+materials: 
+  wood: ["cabinet", "chair", "table", "door", "bookshelf", "desk", "otherfurniture"]
+  drywall: ["wall"]
+  laminate: ["floor"]
+  enamel: ["bathtub", "toilet", "sink", "refridgerator"]
+  fabric: ["bed", "sofa", "curtain", "shower curtain"]
+  granite: ["counter"]
+  glass: ["window"]
+  paper: ["picture"]
 
 instance_ignore_categories: ["wall", "floor", "unannotated"]

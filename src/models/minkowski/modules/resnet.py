@@ -38,8 +38,8 @@ class ResNetBase(Model):
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
 
-        if D == 4:
-            self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
+        # if D == 4:
+        #     self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
         dilations = config.dilations
         bn_momentum = config.opt.bn_momentum
@@ -47,7 +47,7 @@ class ResNetBase(Model):
         self.conv1 = conv(
             in_channels,
             self.inplanes,
-            kernel_size=space_n_time_m(config.conv1_kernel_size, 1),
+            kernel_size=config.conv1_kernel_size,
             stride=1,
             D=D,
         )

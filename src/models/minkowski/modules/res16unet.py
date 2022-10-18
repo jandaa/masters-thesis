@@ -37,14 +37,14 @@ class Res16UNetBase(ResNetBase):
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
 
-        if D == 4:
-            self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
+        # if D == 4:
+        #     self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
         self.inplanes = self.INIT_DIM
         self.conv0p1s1 = conv(
             in_channels,
             self.inplanes,
-            kernel_size=space_n_time_m(config.net.conv1_kernel_size, 1),
+            kernel_size=config.net.conv1_kernel_size,
             stride=1,
             dilation=1,
             conv_type=self.NON_BLOCK_CONV_TYPE,

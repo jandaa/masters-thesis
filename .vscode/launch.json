@@ -13,11 +13,31 @@
             "args": [
                 "dataset_dir=/media/starslab/datasets/scannet",
                 "dataset=scannet",
-                "dataset.name=scannetv2_pretrain_new",
+                "dataset.name=scannetv2",
                 "sens_file=/media/starslab/datasets/scannet/scans/scene0573_00",
                 "dataset.voxel_size=0.02",
                 "hydra.run.dir=outputs/preprocess",
-                "output_dir=/media/starslab/datasets/scannet_preprocessed_test"
+                "output_dir=/media/starslab/datasets/scannet_preprocessed"
+            ]
+        },
+        {
+            "name": "Minkowski Scannet",
+            "type": "python",
+            "request": "launch",
+            "program": "src/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "tasks=['train']",
+                "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_image_labels",
+                "dataset=scannet",
+                "model=minkowski",
+                "model.name=minkowski",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/scannet/default",
+                "check_val_every_n_epoch=20",
+                "gpus=[1]",
+                "model.train.train_workers=12",
+                "dataset.batch_size=6",
+                "dataset.accumulate_grad_batches=8"
             ]
         },
         {
@@ -68,19 +88,19 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['train','eval']",
-                "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed",
+                "tasks=['visualize']",
+                "dataset_dir=/home/andrej/datasets/S3DIS_preprocessed_new",
                 "dataset=s3dis",
                 "model=minkowski",
                 "model.name=minkowski_cme",
-                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/supervised",
+                "hydra.run.dir=/media/starslab/users/andrej-janda/outputs/pretrain/all",
                 "check_val_every_n_epoch=20",
-                "gpus=[1]",
+                "gpus=[0]",
                 "model.train.train_workers=12",
                 "dataset.batch_size=6",
                 "dataset.accumulate_grad_batches=8",
-                // "checkpoint=last.ckpt"
-                // "pretrain_checkpoint=\"epoch=1719-step=32679-val_semantic_mIOU=0.669.ckpt\""
+                "checkpoint=depthcontrast.pth"
+                // "pretrain_checkpoint=\"\""
             ]
         },
         {
@@ -90,7 +110,7 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['train','eval']",
+                "tasks=['visualize']",
                 "dataset_dir=/media/starslab/datasets/scannet_preprocessed_2cm_frames_with_labels",
                 "dataset=scannetv2_pretrain_new",
                 "dataset=scannet",
@@ -222,7 +242,7 @@
                 "gpus=[0]",
                 "model.train.train_workers=8",
                 "dataset.classes=16",
-                "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
+                // "pretrain_checkpoint=\"epoch=3-step=18899-val_loss=3.70.ckpt\""
             ]
         },
         {
@@ -248,7 +268,7 @@
             "program": "src/main.py",
             "console": "integratedTerminal",
             "args": [
-                "tasks=['visualize']",
+                "tasks=['eval','visualize']",
                 "dataset_dir=/home/andrej/datasets/still",
                 "dataset=still",
                 "model=minkowski",
@@ -261,9 +281,6 @@
                 "dataset.accumulate_grad_batches=8",
                 "checkpoint=\"epoch=1839-step=9199-val_semantic_mIOU=0.639.ckpt\""
             ],
-            "env": {
-                "DISPLAY": "localhost:10.0"
-            },
         },
     ]
 }

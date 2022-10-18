@@ -20,21 +20,38 @@ pretrain:
   max_steps: 20000
   accumulate_grad_batches: 4
 
+# categories:
+#   [
+#     "ceiling",
+#     "floor",
+#     "wall",
+#     "beam",
+#     "column",
+#     "window",
+#     "door",
+#     "table",
+#     "chair",
+#     "sofa",
+#     "bookcase",
+#     "board",
+#     "clutter",
+#   ]
+
 categories:
   [
-    "ceiling",
-    "floor",
-    "wall",
-    "beam",
-    "column",
-    "window",
-    "door",
-    "table",
-    "chair",
-    "sofa",
-    "bookcase",
-    "board",
-    "clutter",
+    'clutter', 
+    'beam', 
+    'board', 
+    'bookcase', 
+    'ceiling', 
+    'chair', 
+    'column', 
+    'door', 
+    'floor', 
+    'sofa', 
+    'table', 
+    'wall', 
+    'window'
   ]
 
 instance_ignore_categories: [
