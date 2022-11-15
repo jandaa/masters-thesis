@@ -1,26 +1,23 @@
-# aribic-semantics
-Instance segmentation algorithms built for the ARIBIC project
+# Self-Supervised Pre-training of 3D Point Cloud Networks with Image Data
 
-### Requirements
-
-- Ubuntu 18.04+
-- Python 3.6+
-- gcc 9.3.0+
+This repository implements a framework for pre-training neural networks that operate on 3D point clouds using images corresponding to the same scene. The work is part of my master's [thesis](https://starslab.ca/wp-content/papercite-data/pdf/2022_janda_contrastive.pdf).
 
 ## Getting Started
 
-Please refer to instructions under the ``setup`` folder.
+Please refer to the instructions under the ``setup`` folder.
 
 ## Downloading Datasets
-Please refer to instructions under the ``datasets`` folder.
+Please refer to the instructions under the ``datasets`` folder.
 
+## Preprocessing Datasets
+Scripts for preprocessing the datasets into a format usable by this project are provided under the ``scripts/preprocess`` directory.
 ## Training
 
-To train a model, use one of the appropriate scripts located under the ``scripts/experiments/`` directory. Update the path to the dataset root directory and run the stript from the command line. 
+To train a model, use one of the appropriate scripts located under the ``scripts/experiments/`` directory. Update the path to the dataset root directory and run the desired script from the command line. Training can be performed in multiple stages, first training a 2D model with the script ``scripts/experiments/pretrain/images.sh``, then transferring the learned features to the 3D model with ``scripts/experiments/pretrain/images_transfer.sh`` and finally fine-tuning with either ``scripts/experiments/scannet/minkovski.sh`` for semantic segmentation on ScanNet or ``scripts/experiments/s3dis/minkovski.sh`` for semantic segmenation on S3DIS.
 
 ## Evaluation
 
-Evaluating a trained model can be done from the command line, with a few command line arguments that specify the dataset directory, the run directory and the checkpoint to use. This could look like the following:
+Evaluating a trained model can be done from the command line, with a few command-line arguments that specify the dataset directory, the run directory and the checkpoint to use. This could look like the following:
 
 ```shell
 python main.py \
@@ -29,23 +26,4 @@ python main.py \
     dataset_dir=/path/to/dataset/ \
     hydra.run.dir=outputs/scannet/run_dir/ \
     checkpoint=last.ckpt
-```
-
-## Contributing
-
-### Formatting
-
-For formatting python code, we use ``black``. The best practice is to setup black to run every time you save. This can be done through the settings of your specific editor or can be run from the command line using:
-
-```shell
-black src/
-```
-
-### Pre-Commit Hooks
-
-Before any commit is pushed through, it should first be run using the pre-commit package. This is automatically install in the virtual environment but can also be installed separately using:
-
-```shell
-pip install pre-commit
-pre-commit install
 ```

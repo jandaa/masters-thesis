@@ -145,3 +145,5 @@ doc/*.log
 doc/*.pdf
 doc/*.toc
 doc/*.synctex.gz
+
+.vscode/*
